@@ -333,6 +333,8 @@ export default function App() {
     navItems.push({ id: 'settings', label: 'Pengaturan Sistem', icon: SettingsIcon });
   }
 
+  const activeLabel = navItems.find((item) => item.id === activeTab)?.label || 'Portal';
+
   return (
     <div className="min-h-screen flex bg-slate-50 relative" id="portal-app">
       
@@ -604,11 +606,11 @@ export default function App() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="hidden sm:block">
-              <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
-                Seksi {currentUser.section === 'all' ? 'Kepegawaian Umum' : currentUser.section}
+            <div className="hidden sm:flex items-center space-x-2">
+              <span className="text-[10px] bg-indigo-50/70 text-indigo-700 font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider border border-indigo-100/50">
+                {activeLabel}
               </span>
-              <span className="text-xs text-slate-400 ml-2 font-mono">{new Date().toDateString()}</span>
+              <span className="text-xs text-slate-400 font-mono">{new Date().toDateString()}</span>
             </div>
           </div>
 
