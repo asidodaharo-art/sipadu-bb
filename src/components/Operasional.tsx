@@ -1,666 +1,1075 @@
-import React, { useState } from 'react';
-import { WaterLog, DamageReport, User } from '../types';
+import { useState, FormEvent } from 'react';
+import { User, WaterLog, DamageReport } from '../types';
 import { 
-  Droplet, 
-  AlertTriangle, 
+  Activity, 
   Plus, 
   Trash2, 
-  Flame, 
-  ShieldAlert, 
-  FileCheck, 
-  Activity, 
-  Gauge, 
+  Edit, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Droplets, 
+  Calendar, 
   MapPin, 
-  PhoneCall, 
+  User as UserIcon, 
+  Phone, 
+  Clock, 
+  ArrowRight, 
+  Search, 
   FileSpreadsheet, 
-  FolderEdit,
-  Wrench,
-  CheckCircle,
-  Clock,
-  ExternalLink,
-  Edit3
+  Waves,
+  Hammer,
+  RotateCcw,
+  Sliders,
+  Check,
+  ShieldAlert,
+  Info
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface OperasionalProps {
   currentUser: User;
   waterLogs: WaterLog[];
   damageReports: DamageReport[];
-  onAddWaterLog: (newLog: WaterLog) => void;
-  onUpdateWaterLog: (updatedLog: WaterLog) => void;
-  onAddDamageReport: (newReport: DamageReport) => void;
-  onUpdateDamageReport: (updatedReport: DamageReport) => void;
-  onUpdateDamageStatus: (id: string, status: DamageReport['status']) => void;
+  onAddWaterLog: (log: WaterLog) => void;
+  onUpdateWaterLog: (log: WaterLog) => void;
   onDeleteWaterLog: (id: string) => void;
+  onAddDamageReport: (report: DamageReport) => void;
+  onUpdateDamageReport: (report: DamageReport) => void;
+  onUpdateDamageStatus: (id: string, status: DamageReport['status']) => void;
   onDeleteDamageReport: (id: string) => void;
+  onClearOperasionalData: () => void;
 }
 
 export default function Operasional({
   currentUser,
-  waterLogs,
-  damageReports,
+  waterLogs = [],
+  damageReports = [],
   onAddWaterLog,
   onUpdateWaterLog,
+  onDeleteWaterLog,
   onAddDamageReport,
   onUpdateDamageReport,
   onUpdateDamageStatus,
-  onDeleteWaterLog,
-  onDeleteDamageReport
+  onDeleteDamageReport,
+  onClearOperasionalData
 }: OperasionalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'hidrologi' | 'pengaduan'>('hidrologi');
+  const [activeSubTab, setActiveSubTab] = useState<'hidrologi' | 'kerusakan' | 'pengaturan'>('hidrologi');
 
-  const [editingWaterLog, setEditingWaterLog] = useState<WaterLog | null>(null);
-  const [editingDamageReport, setEditingDamageReport] = useState<DamageReport | null>(null);
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  // Water Log Form States
+  // State inisialisasi stasiun sungai lokal
+  const [riverStations, setRiverStations] = useState<string[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_river_stations');
+    if (saved) return JSON.parse(saved);
+    return ['Bendung Bah Bolon Hulu', 'DI Paya Lombang', 'Bendung Tanah Jawa', 'Kanal Primer Siantar', 'Sungai Bah Bolon Hilir'];
+  });
+
+  const [newStationName, setNewStationName] = useState('');
+
+  // Form toggles
   const [isLogFormOpen, setIsLogFormOpen] = useState(false);
-  const [logLocation, setLogLocation] = useState('Bendung Utama Bah Bolon (Pematangsiantar)');
-  const [customLocation, setCustomLocation] = useState('');
-  const [logTma, setLogTma] = useState<number>(100);
-  const [logDebit, setLogDebit] = useState<number>(10);
-  const [logStatus, setLogStatus] = useState<WaterLog['status']>('Normal');
-
-  // Damage Report Form States
   const [isReportFormOpen, setIsReportFormOpen] = useState(false);
-  const [reporterName, setReporterName] = useState('');
-  const [reporterPhone, setReporterPhone] = useState('');
-  const [damageLocation, setDamageLocation] = useState('');
-  const [damageDescription, setDamageDescription] = useState('');
 
-  const handleStartEditWaterLog = (log: WaterLog) => {
-    setEditingWaterLog(log);
-    if (['Bendung Utama Bah Bolon (Pematangsiantar)', 'Bendung Paya Lombang (Serdang Bedagai)', 'Pos TMA Kota Tebing Tinggi'].includes(log.location)) {
-      setLogLocation(log.location);
-      setCustomLocation('');
-    } else {
-      setLogLocation('Lainnya');
-      setCustomLocation(log.location);
+  // Editing state
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+
+  // Field states for River Log Form
+  const [logLocation, setLogLocation] = useState(riverStations[0] || '');
+  const [logTma, setLogTma] = useState<number>(100);
+  const [logDebit, setLogDebit] = useState<number>(15.5);
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().substring(0, 10));
+  const [logRecordedBy, setLogRecordedBy] = useState(currentUser.name);
+
+  // Field states for Damage Report Form
+  const [repName, setRepName] = useState('');
+  const [repPhone, setRepPhone] = useState('');
+  const [repLocation, setRepLocation] = useState('');
+  const [repDescription, setRepDescription] = useState('');
+  const [repDate, setRepDate] = useState(() => new Date().toISOString().substring(0, 10));
+
+  // Access rights check
+  const canWrite = currentUser.role === 'admin' || currentUser.section === 'operasional' || currentUser.section === 'all';
+
+  // Handling River Station addition
+  const handleAddStation = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newStationName.trim()) return;
+    if (riverStations.includes(newStationName.trim())) {
+      alert('Nama stasiun ini sudah terdaftar.');
+      return;
     }
+    const updated = [...riverStations, newStationName.trim()];
+    setRiverStations(updated);
+    localStorage.setItem('uptd_v3_river_stations', JSON.stringify(updated));
+    setNewStationName('');
+  };
+
+  const handleDeleteStation = (station: string) => {
+    if (confirm(`Hapus stasiun "${station}" dari opsi pemantauan?`)) {
+      const updated = riverStations.filter(s => s !== station);
+      setRiverStations(updated);
+      localStorage.setItem('uptd_v3_river_stations', JSON.stringify(updated));
+    }
+  };
+
+  // Determining flood status dynamically
+  const determineStatus = (tmaValue: number): 'Normal' | 'Waspada' | 'Siaga' | 'Awas' => {
+    if (tmaValue >= 250) return 'Awas';
+    if (tmaValue >= 180) return 'Siaga';
+    if (tmaValue >= 120) return 'Waspada';
+    return 'Normal';
+  };
+
+  // Water Log submission
+  const handleLogSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!logLocation) {
+      alert('Tentukan lokasi pemantauan.');
+      return;
+    }
+
+    const calculatedStatus = determineStatus(logTma);
+
+    if (editingLogId) {
+      onUpdateWaterLog({
+        id: editingLogId,
+        location: logLocation,
+        tma: Number(logTma),
+        debit: Number(logDebit),
+        status: calculatedStatus,
+        date: logDate,
+        recordedBy: logRecordedBy || currentUser.name
+      });
+      setEditingLogId(null);
+    } else {
+      onAddWaterLog({
+        id: `log-${Date.now()}`,
+        location: logLocation,
+        tma: Number(logTma),
+        debit: Number(logDebit),
+        status: calculatedStatus,
+        date: logDate,
+        recordedBy: logRecordedBy || currentUser.name
+      });
+    }
+
+    // Reset Form
+    setIsLogFormOpen(false);
+  };
+
+  // Set values to fields when editing River log
+  const handleEditLogClick = (log: WaterLog) => {
+    setEditingLogId(log.id);
+    setLogLocation(log.location);
     setLogTma(log.tma);
     setLogDebit(log.debit);
-    setLogStatus(log.status);
+    setLogDate(log.date);
+    setLogRecordedBy(log.recordedBy);
     setIsLogFormOpen(true);
-  };
-
-  const handleStartEditDamageReport = (report: DamageReport) => {
-    setEditingDamageReport(report);
-    setReporterName(report.reporterName);
-    setReporterPhone(report.reporterPhone || '');
-    setDamageLocation(report.location);
-    setDamageDescription(report.description);
-    setIsReportFormOpen(true);
-  };
-
-  const canWrite = currentUser.role === 'admin' || currentUser.section === 'operasional';
-
-  const handleWaterLogSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalLocation = logLocation === 'Lainnya' ? customLocation : logLocation;
-    if (!finalLocation) {
-      alert('Lokasi pos pantau wajib diisi.');
-      return;
-    }
-
-    if (editingWaterLog) {
-      const updatedLog: WaterLog = {
-        ...editingWaterLog,
-        location: finalLocation,
-        tma: Number(logTma),
-        debit: Number(logDebit),
-        status: logStatus
-      };
-      onUpdateWaterLog(updatedLog);
-    } else {
-      const newLog: WaterLog = {
-        id: 'wl-' + Math.random().toString(36).substring(2, 9),
-        location: finalLocation,
-        tma: Number(logTma),
-        debit: Number(logDebit),
-        status: logStatus,
-        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        recordedBy: currentUser.name
-      };
-      onAddWaterLog(newLog);
-    }
-
-    setIsLogFormOpen(false);
-    setEditingWaterLog(null);
-
-    // Reset Form
-    setCustomLocation('');
-    setLogTma(100);
-    setLogDebit(10);
-    setLogStatus('Normal');
-  };
-
-  const handleDamageReportSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reporterName || !reporterPhone || !damageLocation || !damageDescription) {
-      alert('Mohon isi semua data pengaduan dengan lengkap.');
-      return;
-    }
-
-    if (editingDamageReport) {
-      const updatedReport: DamageReport = {
-        ...editingDamageReport,
-        reporterName,
-        reporterPhone,
-        location: damageLocation,
-        description: damageDescription
-      };
-      onUpdateDamageReport(updatedReport);
-    } else {
-      const newReport: DamageReport = {
-        id: 'dr-' + Math.random().toString(36).substring(2, 9),
-        reporterName,
-        reporterPhone,
-        location: damageLocation,
-        description: damageDescription,
-        date: new Date().toISOString().substring(0, 10),
-        status: 'Laporan Masuk'
-      };
-      onAddDamageReport(newReport);
-    }
-
     setIsReportFormOpen(false);
-    setEditingDamageReport(null);
+  };
+
+  // Damage Report submission
+  const handleReportSubmit = (e: FormEvent) => {
+    e.preventDefault();
+
+    if (!repName.trim() || !repLocation.trim() || !repDescription.trim()) {
+      alert('Harap lengkapi semua kolom wajib.');
+      return;
+    }
+
+    onAddDamageReport({
+      id: `report-${Date.now()}`,
+      reporterName: repName,
+      reporterPhone: repPhone || '-',
+      location: repLocation,
+      description: repDescription,
+      date: repDate,
+      status: 'Laporan Masuk'
+    });
 
     // Reset Form
-    setReporterName('');
-    setReporterPhone('');
-    setDamageLocation('');
-    setDamageDescription('');
+    setRepName('');
+    setRepPhone('');
+    setRepLocation('');
+    setRepDescription('');
+    setIsReportFormOpen(false);
   };
+
+  // Safe wipe callback
+  const handleWipeData = () => {
+    if (confirm('Apakah Anda yakin ingin menghapus seluruh rekap data hasil pemantauan dan keluhan di seksi operasional?')) {
+      onClearOperasionalData();
+    }
+  };
+
+  // Filters logic
+  const filteredLogs = waterLogs.filter(log => {
+    const matchesSearch = log.location.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          log.recordedBy.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesLocation = locationFilter === 'all' || log.location === locationFilter;
+    const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
+    return matchesSearch && matchesLocation && matchesStatus;
+  });
+
+  const filteredReports = damageReports.filter(rep => {
+    const matchesSearch = rep.location.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          rep.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          rep.reporterName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || rep.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Aggregated analytics metrics
+  const activeStationsCount = riverStations.length;
+  const averageTmaOfLogs = waterLogs.length > 0 
+    ? Math.round(waterLogs.reduce((acc, log) => acc + log.tma, 0) / waterLogs.length) 
+    : 0;
+  const maxTmaLogged = waterLogs.length > 0 
+    ? Math.max(...waterLogs.map(l => l.tma)) 
+    : 0;
+  const criticalLogsCount = waterLogs.filter(l => l.status === 'Siaga' || l.status === 'Awas').length;
 
   return (
-    <div className="space-y-6" id="operasional-tab-content">
-      {/* Sub Tabs Selection */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100 gap-4">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setActiveSubTab('hidrologi')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center space-x-2 transition-all cursor-pointer ${
-              activeSubTab === 'hidrologi'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
-            }`}
-            id="subtab-hidrologi"
+    <div className="space-y-6" id="operasional-section-main">
+      
+      {/* 1. Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs gap-4" id="operasional-header-block">
+        <div className="space-y-1">
+          <div className="flex items-center space-x-2 text-indigo-600">
+            <Activity className="w-5 h-5 animate-pulse text-indigo-500" />
+            <span className="font-extrabold text-[10px] uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-md">
+              Seksi Operasional (OP)
+            </span>
+          </div>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            Pemantauan Aliran Sungai &amp; Infrastruktur Irigasi
+          </h1>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
+            Sistem informasi operasional harian UPTD PSDA Bah Bolon. Pantau tinggi muka air (TMA), 
+            kelola pos penakar hidrometri, dan tindak lanjuti kerusakan pintu serta tanggul secara real-time.
+          </p>
+        </div>
+
+        {canWrite && (
+          <button 
+            onClick={handleWipeData}
+            className="px-3.5 py-1.5 self-end md:self-center border border-red-200 bg-red-50/50 hover:bg-red-50 text-red-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            id="wipe-ops-data-btn"
           >
-            <Activity className="w-4 h-4" />
-            <span>Pemantauan Tinggi Muka Air (TMA)</span>
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Kosongkan Semua Data</span>
           </button>
-          
+        )}
+      </div>
+
+      {/* 2. TAB CONTROLLER SECTION */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-slate-100 p-1 rounded-xl gap-2 border border-slate-200/50" id="operasional-tab-selector">
+        <div className="flex flex-wrap gap-1">
           <button
-            onClick={() => setActiveSubTab('pengaduan')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center space-x-2 transition-all cursor-pointer ${
-              activeSubTab === 'pengaduan'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
+            onClick={() => {
+              setActiveSubTab('hidrologi');
+              setSearchQuery('');
+              setLocationFilter('all');
+              setStatusFilter('all');
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+              activeSubTab === 'hidrologi'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
-            id="subtab-pengaduan"
           >
-            <Wrench className="w-4 h-4" />
-            <span>Pengaduan Kerusakan Saluran (GP3A)</span>
+            <Waves className="w-3.5 h-3.5" />
+            <span>Ukur Hidrologi &amp; TMA</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSubTab('kerusakan');
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+              activeSubTab === 'kerusakan'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <Hammer className="w-3.5 h-3.5" />
+            <span>Laporan Kerusakan ({damageReports.filter(d => d.status !== 'Selesai').length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSubTab('pengaturan');
+              setSearchQuery('');
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+              activeSubTab === 'pengaturan'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Konfigurasi Pos Alat Ukur</span>
           </button>
         </div>
 
-        <div className="text-xs text-slate-500 font-medium font-mono bg-slate-50 p-2 rounded-lg border border-slate-100">
-          Pos Monitor Hidrologi Sungai Bah Bolon
+        <div className="text-[10px] text-slate-550 font-bold font-mono px-3 py-1.5 bg-slate-200/50 rounded-lg text-center whitespace-nowrap">
+          Role: <span className="text-indigo-700 capitalize">{currentUser.role}</span> ({currentUser.section === 'all' ? 'Lengkap' : 'Seksi OP'})
         </div>
       </div>
 
-      {/* TAB 1: HIDROLOGI */}
+      {/* 3. SUBTAB CONTENT - HIDROLOGI */}
       {activeSubTab === 'hidrologi' && (
-        <div className="space-y-4" id="hidrologi-panel">
-          {/* Action Trigger Box */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
-            <div>
-              <h2 className="font-bold text-sm text-slate-800">Pencatatan Tinggi Muka Air (TMA) & Debit Air</h2>
-              <p className="text-xs text-slate-500">Mencakup pencatatan debit hulu, debit serah, dsb. Pembaruan berkala oleh Staf Juru Pengairan.</p>
+        <div className="space-y-6" id="panel-operasional-hidrologi">
+          
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="hidrologi-mini-stats">
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 uppercase font-black block">Titik Pos Pantau</span>
+                <span className="text-xl font-extrabold text-slate-800">{activeStationsCount}</span>
+                <span className="text-[9px] text-slate-500 block">Stasiun Aktif Terdaftar</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg text-indigo-500">
+                <MapPin className="w-5 h-5" />
+              </div>
             </div>
 
-            {canWrite ? (
-              <button
-                onClick={() => setIsLogFormOpen(!isLogFormOpen)}
-                id="btn-add-waterlog"
-                className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Input Debit Air Pos</span>
-              </button>
-            ) : (
-              <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                *Masuk sebagai petugas Juru OP / Admin untuk memperbarui data
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 uppercase font-black block">Rata-rata TMA</span>
+                <span className="text-xl font-extrabold text-slate-800">{averageTmaOfLogs} cm</span>
+                <span className="text-[9px] text-indigo-600 font-bold block">Tinggi Muka Air Rerata</span>
               </div>
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                <Waves className="w-5 h-5 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 uppercase font-black block">TMA Tertinggi</span>
+                <span className="text-xl font-extrabold text-amber-700">{maxTmaLogged} cm</span>
+                <span className="text-[9px] text-slate-500 block">Ambang Puncak Terpantau</span>
+              </div>
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 uppercase font-black block">Status Kritis</span>
+                <span className={`text-xl font-extrabold ${criticalLogsCount > 0 ? 'text-red-650' : 'text-emerald-700'}`}>
+                  {criticalLogsCount > 0 ? `${criticalLogsCount} Pos` : '0 AMAN'}
+                </span>
+                <span className="text-[9px] text-slate-500 block">Siaga atau Awas Banjir</span>
+              </div>
+              <div className={`p-3 rounded-lg ${criticalLogsCount > 0 ? 'bg-red-50 text-red-650' : 'bg-emerald-50 text-emerald-600'}`}>
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Trigger Line */}
+          <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200/60 gap-4">
+            <div className="flex flex-col md:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Cari lokasi / petugas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-64 pl-8 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              </div>
+
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="py-1.5 px-3 border border-slate-200 rounded-lg text-xs outline-none bg-white text-slate-700"
+              >
+                <option value="all">Semua Stasiun</option>
+                {riverStations.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="py-1.5 px-3 border border-slate-200 rounded-lg text-xs outline-none bg-white text-slate-700"
+              >
+                <option value="all">Semua Status</option>
+                <option value="Normal">Normal</option>
+                <option value="Waspada">Waspada</option>
+                <option value="Siaga">Siaga</option>
+                <option value="Awas">Awas</option>
+              </select>
+            </div>
+
+            {canWrite && (
+              <button
+                onClick={() => {
+                  setEditingLogId(null);
+                  setLogLocation(riverStations[0] || '');
+                  setLogTma(100);
+                  setLogDebit(15.5);
+                  setLogDate(new Date().toISOString().substring(0, 10));
+                  setLogRecordedBy(currentUser.name);
+                  setIsLogFormOpen(!isLogFormOpen);
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                id="add-log-btn"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Pencatatan Debit Air</span>
+              </button>
             )}
           </div>
 
-          {/* Form to insert details of a Hydrological Check */}
-          {isLogFormOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-xl border border-slate-200 shadow-md space-y-4"
-              id="waterlog-form-container"
-            >
-              <div className="flex justify-between items-center pb-2 border-b border-slate-150">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center">
-                  <Activity className="w-4 h-4 text-blue-600 mr-2" />
-                  {editingWaterLog ? 'Ubah Laporan Debit Air Harian' : 'Pencatatan Laporan Debit Air Harian'}
-                </h3>
-                <button 
-                  onClick={() => {
-                    setIsLogFormOpen(false);
-                    setEditingWaterLog(null);
-                    setCustomLocation('');
-                    setLogTma(100);
-                    setLogDebit(10);
-                    setLogStatus('Normal');
-                  }} 
-                  className="text-xs text-slate-400 hover:text-slate-600 font-bold"
-                >
-                  Batal
-                </button>
-              </div>
-
-              <form onSubmit={handleWaterLogSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Pos Penjagaan / Lokasi Monitor</label>
-                  <select 
-                    value={logLocation} 
-                    onChange={(e: any) => setLogLocation(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
-                  >
-                    <option value="Bendung Utama Bah Bolon (Pematangsiantar)">Bendung Utama Bah Bolon (Pematangsiantar)</option>
-                    <option value="Bendung Paya Lombang (Serdang Bedagai)">Bendung Paya Lombang (Serdang Bedagai)</option>
-                    <option value="Pos TMA Kota Tebing Tinggi">Pos TMA Kota Tebing Tinggi</option>
-                    <option value="Lainnya">Stasiun / Pos Lain (Tulis Kustom)</option>
-                  </select>
-                </div>
-
-                {logLocation === 'Lainnya' && (
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Tulis Nama Pos Kustom</label>
-                    <input 
-                      type="text" 
-                      placeholder="Contoh: Saluran Sekunder S10"
-                      value={customLocation}
-                      onChange={(e) => setCustomLocation(e.target.value)}
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tinggi Muka Air (TMA) / cm</label>
-                  <input 
-                    type="number" 
-                    value={logTma}
-                    onChange={(e) => {
-                      const tma = Number(e.target.value);
-                      setLogTma(tma);
-                      if (tma >= 300) setLogStatus('Awas');
-                      else if (tma >= 220) setLogStatus('Siaga');
-                      else if (tma >= 150) setLogStatus('Waspada');
-                      else setLogStatus('Normal');
-                    }}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block font-medium">Pengaruh tinggi terhadap status siaga (220 cm)</span>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Debit Air (m³ / Detik)</label>
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    value={logDebit}
-                    onChange={(e) => setLogDebit(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Status Kritis Air</label>
-                  <select 
-                    value={logStatus} 
-                    onChange={(e: any) => setLogStatus(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-blue-800"
-                  >
-                    <option value="Normal">Normal (Aman)</option>
-                    <option value="Waspada">Waspada (Banjir Ringan / Kurang Air)</option>
-                    <option value="Siaga">Siaga (Melimpah Rendah Ruas)</option>
-                    <option value="Awas">Awas (Potensi Bencana Banjir Bandang)</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-3 flex justify-end gap-2">
+          <AnimatePresence>
+            {isLogFormOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs"
+              >
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                  <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4.5 h-4.5 text-indigo-500" />
+                    <span>{editingLogId ? 'Ubah Hasil Ukur Sungai' : 'Input Hasil Pengukuran Hidrometri'}</span>
+                  </h3>
                   <button 
-                    type="button"
                     onClick={() => {
                       setIsLogFormOpen(false);
-                      setEditingWaterLog(null);
-                      setCustomLocation('');
-                      setLogTma(100);
-                      setLogDebit(10);
-                      setLogStatus('Normal');
+                      setEditingLogId(null);
                     }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                    className="text-slate-400 hover:text-slate-600 text-xs"
                   >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit" 
-                    id="submit-waterlog-btn"
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    {editingWaterLog ? 'Simpan Perubahan Laporan' : 'Simpan Laporan Hidrologi'}
+                    Tutup
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          )}
 
-          {/* Table representing all hydrological records */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse" id="waterlogs-table">
-                <thead>
-                  <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100">
-                    <th className="p-4 w-12">No.</th>
-                    <th className="p-4">Stasiun / Pos TMA</th>
-                    <th className="p-4">Tinggi Muka Air</th>
-                    <th className="p-4">Estimasi Debit</th>
-                    <th className="p-4">Peringatan Status</th>
-                    <th className="p-4">Petugas Pencatat (Juru OP)</th>
-                    <th className="p-4 text-slate-400 font-mono whitespace-nowrap">Waktu Monitor</th>
-                    {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {waterLogs.length > 0 ? (
-                    waterLogs.map((log, idx) => {
-                      const statusColors = {
-                        'Normal': 'bg-emerald-100 text-emerald-800',
-                        'Waspada': 'bg-yellow-105 text-yellow-800 bg-yellow-50',
-                        'Siaga': 'bg-amber-100 text-amber-800 animate-pulse font-bold',
-                        'Awas': 'bg-red-150 text-red-700 bg-red-50 animate-pulse font-bold'
+                <form onSubmit={handleLogSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-5 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Lokasi Pos Ukur</label>
+                    <select
+                      value={logLocation}
+                      onChange={(e) => setLogLocation(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                      required
+                    >
+                      {riverStations.length === 0 ? (
+                        <option value="">(Tambahkan stasiun di tab Pengaturan)</option>
+                      ) : (
+                        riverStations.map(st => (
+                          <option key={st} value={st}>{st}</option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Tinggi Muka Air (TMA)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={logTma}
+                        onChange={(e) => setLogTma(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-10"
+                        min="0"
+                        max="2000"
+                        required
+                      />
+                      <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">cm</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Debit Air (Q)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={logDebit}
+                        onChange={(e) => setLogDebit(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-12"
+                        min="0"
+                        max="1000"
+                        required
+                      />
+                      <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">m³/s</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Tanggal &amp; Waktu Ambil</label>
+                    <input
+                      type="date"
+                      value={logDate}
+                      onChange={(e) => setLogDate(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Petugas Juru Ukur</label>
+                    <input
+                      type="text"
+                      value={logRecordedBy}
+                      onChange={(e) => setLogRecordedBy(e.target.value)}
+                      placeholder="Nama pencatat"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white mb-2"
+                      required
+                    />
+                  </div>
+
+                  <div className="md:col-span-5 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLogFormOpen(false);
+                        setEditingLogId(null);
+                      }}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={riverStations.length === 0}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {editingLogId ? 'Simpan Perubahan' : 'Sematkan Laporan Pengukuran'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Table Area */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <span className="font-extrabold text-xs text-slate-700">Daftar Hasil Pengukuran Hidrometri</span>
+              <span className="font-mono text-[10px] text-slate-450">Menampilkan {filteredLogs.length} dari {waterLogs.length} catatan</span>
+            </div>
+
+            {filteredLogs.length === 0 ? (
+              <div className="py-16 text-center space-y-3 px-4">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                  <Waves className="w-6 h-6 text-slate-350" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-slate-800 text-sm">Tidak Ada Log Data Hidrometri</h4>
+                  <p className="text-xs text-slate-450 max-w-md mx-auto">
+                    Pengukuran debit belum dimasukkan atau kueri pencarian tidak cocok. Silakan tambah log baru dengan tombol di atas.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-450 uppercase font-bold tracking-widest text-[9px]">
+                      <th className="p-4">Tanggal Ukur</th>
+                      <th className="p-4">Pos Pemantauan / Stasiun</th>
+                      <th className="p-4 text-center">Tinggi Muka Air (TMA)</th>
+                      <th className="p-4 text-center">Estimasi Debit (Q)</th>
+                      <th className="p-4 text-center">Status Limpasan</th>
+                      <th className="p-4">Petugas / Juru</th>
+                      {canWrite && <th className="p-4 text-center w-24">Aksi</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-105">
+                    {filteredLogs.map((log) => {
+                      const getBadgeColor = (st: string) => {
+                        switch (st) {
+                          case 'Awas': return 'bg-red-50 text-red-700 border-red-200';
+                          case 'Siaga': return 'bg-amber-50 text-amber-700 border-amber-200';
+                          case 'Waspada': return 'bg-yellow-50 text-yellow-700 border-yellow-250';
+                          default: return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        }
                       };
+
                       return (
-                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4 font-mono text-slate-400">{idx + 1}</td>
-                          <td className="p-4 font-bold text-slate-700">{log.location}</td>
-                          <td className="p-4 font-mono font-bold text-slate-800">{log.tma} cm</td>
-                          <td className="p-4 font-mono text-slate-500">{log.debit} m³/s</td>
-                          <td className="p-4">
-                            <span className={`py-0.5 px-2 rounded text-[10px] uppercase font-bold inline-block border border-black/5 ${statusColors[log.status] || 'bg-slate-100'}`}>
+                        <tr key={log.id} className="hover:bg-slate-50/30 transition-colors">
+                          <td className="p-4 font-bold text-slate-600 whitespace-nowrap">
+                            <span className="flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              {log.date}
+                            </span>
+                          </td>
+                          <td className="p-4 font-extrabold text-slate-900">
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              {log.location}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center font-black text-slate-800 text-[13px] whitespace-nowrap">
+                            {log.tma} cm
+                          </td>
+                          <td className="p-4 text-center font-bold text-indigo-750 text-[13px] whitespace-nowrap">
+                            {log.debit} m³/s
+                          </td>
+                          <td className="p-4 text-center whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${getBadgeColor(log.status)}`}>
                               {log.status}
                             </span>
                           </td>
-                          <td className="p-4 text-slate-600 font-medium">{log.recordedBy}</td>
-                          <td className="p-4 text-slate-400 font-mono whitespace-nowrap">{log.date}</td>
-                          {currentUser.role === 'admin' && (
-                            <td className="p-4 text-center">
+                          <td className="p-4 text-slate-600 font-bold whitespace-nowrap">
+                            <span className="flex items-center gap-1">
+                              <UserIcon className="w-3 h-3 text-slate-400" />
+                              {log.recordedBy}
+                            </span>
+                          </td>
+                          {canWrite && (
+                            <td className="p-4 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
-                                  onClick={() => handleStartEditWaterLog(log)}
-                                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer animate-none"
-                                  title="Ubah Catatan Debit"
-                                  id={`edit-waterlog-${log.id}`}
+                                  onClick={() => handleEditLogClick(log)}
+                                  className="p-1 px-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-md transition-colors"
+                                  title="Ubah data"
                                 >
-                                  <Edit3 className="w-4 h-4" />
+                                  <Edit className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => onDeleteWaterLog(log.id)}
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer animate-none"
-                                  title="Hapus Catatan Debit"
-                                  id={`delete-waterlog-${log.id}`}
+                                  onClick={() => {
+                                    if (confirm('Hapus baris hasil ukur ini?')) {
+                                      onDeleteWaterLog(log.id);
+                                    }
+                                  }}
+                                  className="p-1 px-2 bg-red-50/10 hover:bg-red-50 border border-red-100/40 hover:border-red-205 text-red-650 rounded-md transition-colors"
+                                  title="Hapus data"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
                           )}
                         </tr>
                       );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={currentUser.role === 'admin' ? 8 : 7} className="p-8 text-center text-slate-400">
-                        Tidak ada laporan ketinggian muka air tanah/hidrologi terdaftar.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: PENGADUAN COMPLAINTS */}
-      {activeSubTab === 'pengaduan' && (
-        <div className="space-y-4" id="pengaduan-panel">
-          
-          {/* Action Trigger Box */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
-            <div>
-              <h2 className="font-bold text-sm text-slate-800">Laporan Kerusakan & Gangguan Saluran Irigasi</h2>
-              <p className="text-xs text-slate-500">Menerima aduan dari petani / kelompok tani GP3A wilayah kerja Bah Bolon untuk proses rehabilitasi.</p>
-            </div>
-
-            <button
-              onClick={() => setIsReportFormOpen(!isReportFormOpen)}
-              id="btn-add-complaint"
-              className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Buat Laporan Baru</span>
-            </button>
-          </div>
-
-          {/* Form to submit damage details */}
-          {isReportFormOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-xl border border-slate-200 shadow-md space-y-4"
-              id="complaint-form-container"
-            >
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center">
-                  <AlertTriangle className="w-4.5 h-4.5 text-amber-500 mr-2" />
-                  {editingDamageReport ? 'Ubah Rincian Laporan Pengaduan Kerusakan' : 'Laporkan Kerusakan Fasilitas / Saluran Sekunder'}
-                </h3>
-                <button 
-                  onClick={() => {
-                    setIsReportFormOpen(false);
-                    setEditingDamageReport(null);
-                    setReporterName('');
-                    setReporterPhone('');
-                    setDamageLocation('');
-                    setDamageDescription('');
-                  }} 
-                  className="text-xs text-slate-400 hover:text-slate-600 font-bold"
-                >
-                  Batal
-                </button>
-              </div>
-
-              <form onSubmit={handleDamageReportSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nama Pelapor (Ketua Poktan / Warga)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Contoh: Warisno (GP3A Makmur)"
-                    value={reporterName}
-                    onChange={(e) => setReporterName(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nomor Telepon Pelapor</label>
-                  <input 
-                    type="text" 
-                    placeholder="Contoh: 0812XXXXXXXX"
-                    value={reporterPhone}
-                    onChange={(e) => setReporterPhone(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-mono"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Lokasi Kebocoran / Kerusakan Saluran</label>
-                  <input 
-                    type="text" 
-                    placeholder="Contoh: Saluran Sekunder S7 DI Bah Bolon Kanan, Kec. Bandar"
-                    value={damageLocation}
-                    onChange={(e) => setDamageLocation(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Deskripsi Kerusakan Fisik Lapangan</label>
-                  <textarea 
-                    rows={3}
-                    placeholder="Tulis kronologis, perkiraan dimensi dinding saluran runtuh dsb secara detail agar memudahkan survei..."
-                    value={damageDescription}
-                    onChange={(e) => setDamageDescription(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                  />
-                </div>
-
-                <div className="md:col-span-2 flex justify-end gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setIsReportFormOpen(false);
-                      setEditingDamageReport(null);
-                      setReporterName('');
-                      setReporterPhone('');
-                      setDamageLocation('');
-                      setDamageDescription('');
-                    }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit" 
-                    id="submit-complaint"
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    {editingDamageReport ? 'Simpan Perubahan Pengaduan' : 'Kirim Laporan Pengaduan'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          )}
-
-          {/* Cards for complaints */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" id="complaints-grid">
-            {damageReports.length > 0 ? (
-              damageReports.map((report) => {
-                const statusConfig = {
-                  'Laporan Masuk': { bg: 'bg-red-50 text-red-800 border-red-100', icon: Clock },
-                  'Ditinjau': { bg: 'bg-amber-50 text-amber-800 border-amber-100', icon: Activity },
-                  'Proses Perbaikan': { bg: 'bg-blue-50 text-blue-800 border-blue-100', icon: Wrench },
-                  'Selesai': { bg: 'bg-emerald-50 text-emerald-800 border-emerald-100', icon: CheckCircle }
-                }[report.status] || { bg: 'bg-slate-50', icon: Clock };
-                const Icon = statusConfig.icon;
-
-                return (
-                  <div key={report.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className={`py-0.5 px-2 rounded-full font-bold uppercase tracking-wide border flex items-center gap-1 ${statusConfig.bg}`}>
-                          <Icon className="w-3 h-3" />
-                          {report.status}
-                        </span>
-                        <span className="text-slate-400 font-mono">{report.date}</span>
-                      </div>
-
-                      <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Titik Lokasi Kerusakan</div>
-                        <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5 mt-0.5">
-                          <MapPin className="w-4 h-4 text-red-500 shrink-0" />
-                          {report.location}
-                        </h4>
-                      </div>
-
-                      <div className="p-3 bg-slate-50 rounded-xl text-slate-600 leading-relaxed text-xs border border-slate-100">
-                        {report.description}
-                      </div>
-
-                      <div className="border-t border-slate-150 pt-2 flex items-center justify-between text-[11px]">
-                        <div>
-                          <span className="block text-[9px] text-slate-400 font-bold uppercase">Pelapor</span>
-                          <strong className="text-slate-700 font-bold">{report.reporterName}</strong>
-                        </div>
-                        <a 
-                          href={`tel:${report.reporterPhone}`} 
-                          className="flex items-center text-blue-600 font-mono font-bold hover:underline"
-                        >
-                          <PhoneCall className="w-3.5 h-3.5 mr-1" />
-                          {report.reporterPhone}
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Action for updating status of damaged logs */}
-                    {canWrite && (
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Tindak Lanjut Staf OP:</span>
-                        <div className="flex gap-1.5">
-                          {report.status !== 'Selesai' && (
-                            <select
-                              value={report.status}
-                              onChange={(e: any) => onUpdateDamageStatus(report.id, e.target.value)}
-                              className="bg-slate-100 hover:bg-slate-150 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-200 outline-none"
-                              id={`select-status-${report.id}`}
-                            >
-                              <option value="Laporan Masuk">Laporan Masuk</option>
-                              <option value="Ditinjau">Ditinjau / Survei</option>
-                              <option value="Proses Perbaikan">Mulai Pekerjaan OP</option>
-                              <option value="Selesai">Tandai Selesai OP</option>
-                            </select>
-                          )}
-                          {currentUser.role === 'admin' && (
-                            <button
-                              onClick={() => handleStartEditDamageReport(report)}
-                              className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg hover:text-blue-700 border border-transparent hover:border-blue-100 transition-all inline-block cursor-pointer"
-                              title="Ubah Rincian Laporan"
-                              id={`edit-complaint-${report.id}`}
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {currentUser.role === 'admin' && (
-                            <button
-                              onClick={() => onDeleteDamageReport(report.id)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg hover:text-red-700 border border-transparent hover:border-red-100 transition-all inline-block cursor-pointer"
-                              title="Hapus Aduan"
-                              id={`delete-complaint-${report.id}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-100 shadow-sm">
-                Tidak ada laporan pengaduan kerusakan yang aktif untuk kawasan Bah Bolon.
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* 4. SUBTAB CONTENT - KERUSAKAN */}
+      {activeSubTab === 'kerusakan' && (
+        <div className="space-y-6" id="panel-operasional-kerusakan">
+          
+          {/* Stats Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4" id="kerusakan-mini-stats">
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+              <span className="text-[10px] text-slate-400 uppercase font-black block">Total Pengaduan</span>
+              <span className="text-xl font-extrabold text-slate-800">{damageReports.length}</span>
+              <span className="text-[9px] text-slate-500 block">Laporan Masuk Sejak Sistem Berdiri</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+              <span className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.2 rounded font-black uppercase text-[8px] tracking-wide inline-block mb-1">Menunggu Peninjauan</span>
+              <span className="text-xl font-extrabold text-red-750 block">
+                {damageReports.filter(d => d.status === 'Laporan Masuk').length} Kasus
+              </span>
+              <span className="text-[9px] text-slate-500 block">Butuh Verifikasi Lapangan</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+              <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-black uppercase text-[8px] tracking-wide inline-block mb-1">Dalam Rekonstruksi</span>
+              <span className="text-xl font-extrabold text-amber-705 block">
+                {damageReports.filter(d => d.status === 'Proses Perbaikan' || d.status === 'Ditinjau').length} Kasus
+              </span>
+              <span className="text-[9px] text-slate-500 block">Tahap Pemeliharaan Bertahap</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded font-black uppercase text-[8px] tracking-wide inline-block mb-1">Selesai Ditangani</span>
+              <span className="text-xl font-extrabold text-emerald-700 block">
+                {damageReports.filter(d => d.status === 'Selesai').length} Kasus
+              </span>
+              <span className="text-[9px] text-slate-500 block">Pemberkasan Pemeliharaan Selesai</span>
+            </div>
+          </div>
+
+          {/* Actions Column */}
+          <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200/60 gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Cari keluhan, pencatat, atau lokasi..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-64 pl-8 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="py-1.5 px-3 border border-slate-200 rounded-lg text-xs outline-none bg-white text-slate-700 text-xs"
+              >
+                <option value="all">Semua Status Pengaduan</option>
+                <option value="Laporan Masuk">Laporan Masuk</option>
+                <option value="Ditinjau">Ditinjau</option>
+                <option value="Proses Perbaikan">Proses Perbaikan</option>
+                <option value="Selesai">Selesai</option>
+              </select>
+            </div>
+
+            {canWrite && (
+              <button
+                onClick={() => setIsReportFormOpen(!isReportFormOpen)}
+                className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                id="add-damage-report-btn"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Buat Pengaduan Keluhan</span>
+              </button>
+            )}
+          </div>
+
+          <AnimatePresence>
+            {isReportFormOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs"
+              >
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                  <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4.5 h-4.5 text-red-500" />
+                    <span>Catat Aduan Laporan Kerusakan Irigasi</span>
+                  </h3>
+                  <button 
+                    onClick={() => setIsReportFormOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    Tutup
+                  </button>
+                </div>
+
+                <form onSubmit={handleReportSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nama Pelapor / Juru Pengamat</label>
+                    <input
+                      type="text"
+                      value={repName}
+                      onChange={(e) => setRepName(e.target.value)}
+                      placeholder="Masukkan nama pelapor..."
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nomor Kontak Pelapor</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={repPhone}
+                        onChange={(e) => setRepPhone(e.target.value)}
+                        placeholder="Contoh: 0812XXXXXXXX"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
+                      />
+                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Lokasi Kerusakan</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={repLocation}
+                        onChange={(e) => setRepLocation(e.target.value)}
+                        placeholder="Contoh: Saluran Tersier DI-1"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
+                        required
+                      />
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Tanggal Aduan</label>
+                    <input
+                      type="date"
+                      value={repDate}
+                      onChange={(e) => setRepDate(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="block font-bold text-slate-700 mb-1">Keterangan / Kerusakan Detail</label>
+                    <textarea
+                      value={repDescription}
+                      onChange={(e) => setRepDescription(e.target.value)}
+                      placeholder="Dekripsikan kerusakan konstruksi, pengaruh terhadap suplai air sawah, luasan dampak hilir..."
+                      rows={3}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div className="md:col-span-4 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsReportFormOpen(false)}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg"
+                    >
+                      Kirim Laporan Pengaduan
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Cards Display Grid */}
+          {filteredReports.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 py-16 text-center space-y-3 px-4">
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                <AlertTriangle className="w-6 h-6 text-slate-350" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-extrabold text-slate-800 text-sm">Tidak Ada Pengaduan Kerusakan</h4>
+                <p className="text-xs text-slate-450 max-w-md mx-auto">
+                  Seluruh saluran irigasi dan pintu air dalam keadaan baik. Tidak ada aduan kerusakan tanggul saat ini.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="kerusakan-reports-grid">
+              {filteredReports.map((report) => {
+                const getStatusStyle = (st: string) => {
+                  switch (st) {
+                    case 'Selesai': return { bg: 'bg-emerald-50 text-emerald-800 border-emerald-250', pill: 'bg-emerald-200', text: 'Selesai Ditangani' };
+                    case 'Proses Perbaikan': return { bg: 'bg-indigo-50 text-indigo-800 border-indigo-250', pill: 'bg-indigo-300', text: 'Perbaikan Fisik' };
+                    case 'Ditinjau': return { bg: 'bg-amber-50 text-amber-800 border-amber-250', pill: 'bg-amber-300', text: 'Ditinjau di Lapangan' };
+                    default: return { bg: 'bg-red-50 text-red-800 border-red-250', pill: 'bg-red-300', text: 'Baru Masuk' };
+                  }
+                };
+
+                const style = getStatusStyle(report.status);
+
+                return (
+                  <div key={report.id} className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-slate-400 uppercase font-black font-mono block">ID: {report.id}</span>
+                          <span className="flex items-center gap-1.5 text-slate-600 font-bold text-xs">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            {report.date}
+                          </span>
+                        </div>
+                        
+                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider border ${style.bg} flex items-center gap-1`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${style.pill} animate-pulse`}></span>
+                          {style.text}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center gap-1.5 text-[13px] font-black text-slate-800">
+                          <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+                          <span>{report.location}</span>
+                        </div>
+                        <p className="text-xs text-slate-550 leading-relaxed font-medium bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          {report.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="text-[11px] text-slate-500 space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <UserIcon className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="font-bold text-slate-700">{report.reporterName}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{report.reporterPhone}</span>
+                        </div>
+                      </div>
+
+                      {canWrite && (
+                        <div className="flex gap-1.5 self-stretch sm:self-auto justify-end">
+                          {report.status !== 'Selesai' && (
+                            <>
+                              {report.status === 'Laporan Masuk' && (
+                                <button
+                                  onClick={() => onUpdateDamageStatus(report.id, 'Ditinjau')}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-amber-100 hover:text-amber-900 border border-slate-200 text-slate-700 font-bold rounded-lg text-[10px] transition-all cursor-pointer"
+                                >
+                                  Tinjau Lokasi
+                                </button>
+                              )}
+                              {(report.status === 'Laporan Masuk' || report.status === 'Ditinjau') && (
+                                <button
+                                  onClick={() => onUpdateDamageStatus(report.id, 'Proses Perbaikan')}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-900 border border-slate-200 text-slate-700 font-bold rounded-lg text-[10px] transition-all cursor-pointer"
+                                >
+                                  Mulai Perbaikan
+                                </button>
+                              )}
+                              {report.status === 'Proses Perbaikan' && (
+                                <button
+                                  onClick={() => onUpdateDamageStatus(report.id, 'Selesai')}
+                                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-emerald-600 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Tandai Selesai</span>
+                                </button>
+                              )}
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (confirm('Hapus laporan pengaduan ini permanent dari data harian?')) {
+                                onDeleteDamageReport(report.id);
+                              }
+                            }}
+                            className="p-1.5 bg-red-50/10 hover:bg-red-50 border border-red-100 text-red-650 hover:text-red-750 transition-colors rounded-lg text-[10px]"
+                            title="Hapus Pengaduan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. SUBTAB CONTENT - PENGATURAN POS */}
+      {activeSubTab === 'pengaturan' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="panel-operasional-pengaturan">
+          
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Sliders className="w-4.5 h-4.5 text-indigo-500" />
+                <h3 className="font-extrabold text-slate-800 text-sm">Prasarana Pos Pemantauan Wilayah Air</h3>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Di bawah ini merupakan daftar stasiun hidrolik dan klimatologi harian UPTD PSDA Bah Bolon yang aktif. Anda dapat menambahkan pos pengamat debit lain demi menyesuaikan data inventarisasi limpasan yang ada di lapangan.
+              </p>
+
+              <div className="divide-y divide-slate-100" id="river-stations-list-display">
+                {riverStations.map((station, i) => (
+                  <div key={station} className="py-3 flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2.5 font-extrabold text-slate-800">
+                      <span className="w-5 h-5 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center text-[10px] text-slate-400 font-mono">
+                        {i + 1}
+                      </span>
+                      <span>{station}</span>
+                    </div>
+
+                    {canWrite ? (
+                      <button
+                        onClick={() => handleDeleteStation(station)}
+                        className="text-red-550 hover:text-red-700 p-1 bg-red-50/30 rounded border border-transparent hover:border-red-100"
+                        title="Hapus opsi stasiun"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Terkunci</span>
+                    )}
+                  </div>
+                ))}
+
+                {riverStations.length === 0 && (
+                  <div className="py-8 text-center text-slate-450 italic">
+                    Belum ada pos pemantauan air harian terdaftar. Silakan tambahkan satu di samping.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-indigo-50/40 p-5 rounded-2xl border border-indigo-100/50 flex gap-3 text-xs text-indigo-900 leading-relaxed font-medium">
+              <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-extrabold text-slate-800">Panduan Klasifikasi TMA Sungai UPTD Bah Bolon</p>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-[11px] text-slate-650">
+                  <li><strong>Normal (&lt; 120 cm):</strong> Aliran normal, tanggul aman, limpasan bendung aman.</li>
+                  <li><strong>Waspada (120 cm - 179 cm):</strong> Terjadi curah hujan tinggi setempat, pengawas pintu wajib siaga di pos pembagi.</li>
+                  <li><strong>Siaga (180 cm - 249 cm):</strong> Sungai mulai meluap mendekati bibir saluran hulu, bersiap membuka pintu darurat.</li>
+                  <li><strong>Awas (&ge; 250 cm):</strong> Banjir bandang atau limpasan darurat terdeteksi, lakukan evakuasi daerah banyolan.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {canWrite ? (
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+                <span className="text-[10px] text-indigo-650 uppercase font-bold tracking-widest block bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
+                  Registrasi Pos Pengukuran
+                </span>
+                <h4 className="font-extrabold text-slate-800 text-sm">Daftarkan Pos Baru</h4>
+
+                <form onSubmit={handleAddStation} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nama Pos / Cabang Aliran</label>
+                    <input
+                      type="text"
+                      value={newStationName}
+                      onChange={(e) => setNewStationName(e.target.value)}
+                      placeholder="Contoh: Bendung Pintu Kiri Hilir"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-xs cursor-pointer transition-colors"
+                  >
+                    Daftarkan Pos Pemantauan
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="bg-amber-50/50 rounded-2xl border border-amber-100 p-5 text-center text-xs text-amber-800 font-medium">
+                🔒 Perubahan konfigurasi parameter pos pemantauan hanya diizinkan untuk Admin dan Staf seksi Operasional saja.
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }

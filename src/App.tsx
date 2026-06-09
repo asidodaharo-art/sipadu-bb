@@ -15,8 +15,8 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Penatausahaan from './components/Penatausahaan';
 import Pembangunan from './components/Pembangunan';
-import Operasional from './components/Operasional';
 import Settings from './components/Settings';
+import Operasional from './components/Operasional';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -247,6 +247,13 @@ export default function App() {
     localStorage.setItem('uptd_v3_damage_reports', JSON.stringify(updated));
   };
 
+  const handleClearOperasionalData = () => {
+    setWaterLogs([]);
+    setDamageReports([]);
+    localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
+  };
+
   const handleAddAsset = (newAsset: Asset) => {
     const updated = [newAsset, ...assets];
     setAssets(updated);
@@ -318,7 +325,7 @@ export default function App() {
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
     { id: 'penatausahaan', label: 'Penatausahaan / TU', icon: FileText },
     { id: 'pembangunan', label: 'Seksi Pembangunan', icon: Wrench },
-    { id: 'operasional', label: 'Seksi Operasional (OP)', icon: Activity },
+    { id: 'operasional', label: 'Seksi Operasional', icon: Activity },
   ];
 
   // Only display Settings menu for administrators
@@ -685,11 +692,12 @@ export default function App() {
                 damageReports={damageReports}
                 onAddWaterLog={handleAddWaterLog}
                 onUpdateWaterLog={handleUpdateWaterLog}
+                onDeleteWaterLog={handleDeleteWaterLog}
                 onAddDamageReport={handleAddDamageReport}
                 onUpdateDamageReport={handleUpdateDamageReport}
                 onUpdateDamageStatus={handleUpdateDamageStatus}
-                onDeleteWaterLog={handleDeleteWaterLog}
                 onDeleteDamageReport={handleDeleteDamageReport}
+                onClearOperasionalData={handleClearOperasionalData}
               />
             )}
 

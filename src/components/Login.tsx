@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LoginProps {
@@ -106,7 +106,7 @@ export default function Login({ users, onLoginSuccess, instansiName, instansiLog
         >
           <div className="mb-6">
             <h2 className="text-lg font-bold text-slate-800">Masuk ke Sistem</h2>
-            <p className="text-xs text-slate-500">Gunakan akun Anda untuk mengelola penatausahaan, pembangunan, & operasional.</p>
+            <p className="text-xs text-slate-500">Gunakan akun Anda untuk mengelola penatausahaan, pembangunan, &amp; operasional.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -172,7 +172,7 @@ export default function Login({ users, onLoginSuccess, instansiName, instansiLog
             <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center mb-3">
               Pintas Masuk Cepat (Akses Cepat)
             </span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin', 'admin123')}
@@ -183,7 +183,7 @@ export default function Login({ users, onLoginSuccess, instansiName, instansiLog
                   <ShieldCheck className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                   <span>Admin</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Akses penuh sistem & pengaturan</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Akses penuh sistem &amp; pengaturan</p>
               </button>
 
               <button
@@ -194,25 +194,22 @@ export default function Login({ users, onLoginSuccess, instansiName, instansiLog
               >
                 <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-cyan-900">
                   <Database className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                  <span>Seksi Pembangunan</span>
+                  <span>Pembangunan</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Input & update kemajuan proyek</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Input progress fisik proyek</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleQuickLogin('operasional', 'staff123')}
-                id="quick-login-staff-ops"
-                className="p-2 border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 rounded-xl text-left transition-all group pointer-cursor col-span-2"
+                id="quick-login-staff-oper"
+                className="p-2 border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-800 rounded-xl text-left transition-all group pointer-cursor"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-emerald-900">
-                    <Database className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                    <span>Seksi Operasional & Pemeliharaan</span>
-                  </div>
-                  <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full">Seksi Ops</span>
+                <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-indigo-900">
+                  <Activity className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <span>Operasional</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Input debit air sungai & laporan kerusakan pintu irigasi</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Debit air &amp; kerusakan irigasi</p>
               </button>
             </div>
           </div>
