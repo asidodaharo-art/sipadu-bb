@@ -123,10 +123,10 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
 
   // Broad classes summary
   const golonganTierSummary = [
-    { tier: 'Golongan IV (Pembina)', count: staff.filter(s => s.golongan && s.golongan.startsWith('IV')).length, color: 'bg-indigo-600', hoverBg: 'hover:bg-indigo-700' },
-    { tier: 'Golongan III (Penata)', count: staff.filter(s => s.golongan && s.golongan.startsWith('III')).length, color: 'bg-blue-600', hoverBg: 'hover:bg-blue-700' },
-    { tier: 'Golongan II (Pengatur)', count: staff.filter(s => s.golongan && s.golongan.startsWith('II')).length, color: 'bg-emerald-600', hoverBg: 'hover:bg-emerald-700' },
-    { tier: 'Golongan I (Juru)', count: staff.filter(s => s.golongan && s.golongan.startsWith('I')).length, color: 'bg-amber-600', hoverBg: 'hover:bg-amber-700' },
+    { tier: 'Golongan IV (Pembina)', count: staff.filter(s => s.golongan && s.golongan.startsWith('IV/')).length, color: 'bg-indigo-600', hoverBg: 'hover:bg-indigo-700' },
+    { tier: 'Golongan III (Penata)', count: staff.filter(s => s.golongan && s.golongan.startsWith('III/')).length, color: 'bg-blue-600', hoverBg: 'hover:bg-blue-700' },
+    { tier: 'Golongan II (Pengatur)', count: staff.filter(s => s.golongan && s.golongan.startsWith('II/')).length, color: 'bg-emerald-600', hoverBg: 'hover:bg-emerald-700' },
+    { tier: 'Golongan I (Juru)', count: staff.filter(s => s.golongan && s.golongan.startsWith('I/')).length, color: 'bg-amber-600', hoverBg: 'hover:bg-amber-700' },
   ].filter(t => t.count > 0);
 
   // D. Education Breakdown
