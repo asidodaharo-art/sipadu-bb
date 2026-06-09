@@ -196,295 +196,7 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
         </div>
       </div>
 
-      {/* Bento Grid Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="stats-grid">
-        {/* Card 1: Hidrologi */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between"
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tinggi Muka Air (TMA)</span>
-            <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{avgTma} <span className="text-xs text-slate-500">cm (Rerata)</span></h3>
-            <p className="text-xs text-blue-600 font-medium">Debit air rata-rata: {avgDebit} m³/s</p>
-          </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-            <Droplet className="w-6 h-6" />
-          </div>
-        </motion.div>
 
-        {/* Card 2: Proyek */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between"
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Seksi Pembangunan</span>
-            <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{activeProjectsCount} <span className="text-xs text-slate-500">Konstruksi</span></h3>
-            <p className="text-xs text-emerald-600 font-medium">{completedProjectsCount} Paket Proyek Selesai</p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Wrench className="w-6 h-6" />
-          </div>
-        </motion.div>
-
-        {/* Card 3: Penatausahaan */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between"
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Penatausahaan (Surat)</span>
-            <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{mailCount} <span className="text-xs text-slate-500">Surat</span></h3>
-            <p className="text-xs text-indigo-600 font-medium">{staffCount} Pegawai / PNS Aktif</p>
-          </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <FileText className="w-6 h-6" />
-          </div>
-        </motion.div>
-
-        {/* Card 4: Pengaduan Jalan/Saluran */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between"
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aduan Kerusakan Irigasi</span>
-            <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{unhandledDamageCount} <span className="text-xs text-slate-500">Laporan Baru</span></h3>
-            <p className="text-xs text-amber-600 font-medium">Berdasarkan usulan GP3A Petani</p>
-          </div>
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Main Charts & Hydrological Overview Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left/Middle Column - Custom Analytics Graphics */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Hydrological Live Charts */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Tinggi Muka Air (TMA) Pos Pantau Sungai Bah Bolon</h2>
-                <p className="text-xs text-slate-500">Grafik pergerakan sensor debit air harian dalam Centimeter (cm)</p>
-              </div>
-              <div className="flex items-center space-x-2 text-[10px] uppercase font-bold tracking-wider">
-                <span className="flex items-center"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-1 inline-block"></span>TMA</span>
-                <span className="flex items-center"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1 inline-block"></span>Siaga (220cm)</span>
-              </div>
-            </div>
-             {/* Custom SVG Line Chart */}
-            <div className="h-64 w-full bg-slate-50 border border-slate-100 rounded-xl relative p-4 flex flex-col justify-between" id="hydro-svg-chart">
-              {waterLogs.length > 0 ? (
-                <>
-                  {/* Grid Y-axis Guide Lines */}
-                  <div className="absolute inset-x-0 top-6 border-t border-slate-200/50 flex justify-between px-2"><span className="text-[9px] text-slate-400 font-mono">300 cm (Awas)</span></div>
-                  <div className="absolute inset-x-0 top-[28%] border-t border-red-200 border-dashed flex justify-between px-2"><span className="text-[9px] text-red-500 font-bold bg-white px-1">220 cm (Siaga)</span></div>
-                  <div className="absolute inset-x-0 top-[48%] border-t border-slate-200/50 flex justify-between px-2"><span className="text-[9px] text-slate-400 font-mono">150 cm</span></div>
-                  <div className="absolute inset-x-0 top-[75%] border-t border-slate-200/50 flex justify-between px-2"><span className="text-[9px] text-slate-400 font-mono">80 cm (Normal)</span></div>
-
-                  {/* SVG Line representation of TMA logs */}
-                  <svg className="w-full h-full pt-6 pb-6 relative z-10" viewBox="0 0 500 150" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Area path */}
-                    {areaPathD && (
-                      <path
-                        d={areaPathD}
-                        fill="url(#chartGradient)"
-                      />
-                    )}
-                    
-                    {/* Line path */}
-                    {linePathD && (
-                      <path
-                        d={linePathD}
-                        fill="none"
-                        stroke="#2563eb"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                      />
-                    )}
-
-                    {/* Data point dot highlights */}
-                    {chartPoints.map((p, idx) => (
-                      <circle 
-                        key={p.log.id} 
-                        cx={p.x} 
-                        cy={p.y} 
-                        r={p.log.status === 'Awas' || p.log.status === 'Siaga' ? 6 : 4.5} 
-                        className={`${
-                          p.log.status === 'Awas' || p.log.status === 'Siaga'
-                            ? 'fill-amber-500 stroke-red-600 animate-pulse' 
-                            : 'fill-blue-600'
-                        } stroke-white stroke-2`} 
-                        title={`${p.log.location}: ${p.log.tma} cm`}
-                      />
-                    ))}
-                  </svg>
-
-                  {/* X-Axis labels from actual data */}
-                  <div className="flex justify-between text-[9px] text-slate-400 font-mono px-1 z-10">
-                    {chartPoints.map((p, idx) => (
-                      <span key={p.log.id} className="truncate max-w-[64px] text-center" title={p.log.date}>
-                        {p.log.date.includes(' ') ? p.log.date.split(' ')[1] : p.log.date}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-2">
-                  <div className="h-10 w-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
-                    <Droplet className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div className="text-xs font-bold text-slate-700">Grafik Hidrologi Kosong</div>
-                  <p className="text-[10px] text-slate-400 max-w-xs">Belum ada data tinggi muka air (TMA). Masukkan catatan harian baru di tab Seksi Operasional untuk menggambar grafik instansi secara berkala.</p>
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center space-x-3">
-                <div className="p-2.5 bg-blue-500 text-white rounded-lg">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Puncak Tertinggi</div>
-                  <div className="text-sm font-extrabold text-blue-900">
-                    {peakTma > 0 ? `${peakTma} cm` : '0 cm'}
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-100 flex items-center space-x-3">
-                <div className="p-2.5 bg-teal-600 text-white rounded-lg">
-                  <Activity className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Rata-rata Debit</div>
-                  <div className="text-sm font-extrabold text-teal-900">{avgDebit} m³/detik</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section Pembangunan Progress Summary */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-base font-bold text-slate-800 mb-3">Kemajuan Fisik Instansi Seksi Pembangunan</h2>
-            <div className="space-y-4">
-              {projects.slice(0, 3).map((project) => (
-                <div key={project.id} className="space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-slate-700 truncate max-w-sm">{project.name}</span>
-                    <span className="font-mono bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
-                      {project.progress}%
-                    </span>
-                  </div>
-                  {/* Custom Progress bar */}
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        project.progress === 100 
-                          ? 'bg-emerald-500' 
-                          : project.progress > 50 
-                            ? 'bg-blue-600' 
-                            : 'bg-amber-500'
-                      }`} 
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-400">
-                    <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
-                    <span>Selesai: {project.endDate}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Column - Status Operasional & Penatausahaan Live Feeds */}
-        <div className="space-y-6">
-
-          {/* Hydrological Status Feed */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-slate-800 flex items-center">
-                <MapPin className="w-5 h-5 text-blue-600 mr-1.5" />
-                Pos Pantau Aktif ({latestLogsMap.length})
-              </h2>
-            </div>
-            
-            <div className="space-y-3" id="active-gauges-feed">
-              {latestLogsMap.map((log) => {
-                const statusColors = {
-                  'Normal': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                  'Waspada': 'bg-yellow-50 text-yellow-700 border-yellow-101',
-                  'Siaga': 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse',
-                  'Awas': 'bg-red-50 text-red-700 border-red-100 animate-pulse'
-                };
-                return (
-                  <div key={log.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div className="text-xs font-bold text-slate-700">{log.location}</div>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${statusColors[log.status] || 'bg-slate-100'}`}>
-                        {log.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mt-2 border-t border-slate-200/50 pt-2 text-[11px] text-slate-600">
-                      <div>TMA: <strong className="text-slate-800">{log.tma} cm</strong></div>
-                      <div>Debit: <strong className="text-slate-800">{log.debit} m³/s</strong></div>
-                    </div>
-                    <div className="text-[9px] text-slate-400 mt-1 flex items-center justify-between">
-                      <span className="flex items-center"><UserCheck className="w-2.5 h-2.5 mr-1" /> Juru: {log.recordedBy}</span>
-                      <span>{log.date.split(' ').slice(1).join(' ')}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Quick Mail Feed */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-base font-bold text-slate-800 mb-3 flex items-center">
-              <History className="w-5 h-5 text-indigo-600 mr-1.5" />
-              Surat Terbaru Masuk/Keluar
-            </h2>
-            <div className="space-y-3" id="quick-mail-feed">
-              {mails.slice(0, 3).map((mail) => (
-                <div key={mail.id} className="p-2.5 bg-slate-50 rounded-lg text-xs flex justify-between gap-2">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center space-x-1.5">
-                      <span className={`text-[9px] font-bold px-1 rounded uppercase min-w-[36px] text-center ${
-                        mail.type === 'masuk' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {mail.type}
-                      </span>
-                      <span className="font-mono text-[9px] text-slate-400 truncate">{mail.referenceNumber}</span>
-                    </div>
-                    <p className="font-semibold text-slate-700 truncate">{mail.subject}</p>
-                    <p className="text-[10px] text-slate-400 truncate">
-                      {mail.type === 'masuk' ? `Dari: ${mail.sender}` : `Ke: ${mail.recipient}`}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0 self-center">{mail.date}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-      </div>
 
       {/* SECTION: Demografi & Statistik Pegawai */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6" id="staff-demographics-section">
@@ -680,6 +392,86 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
             </p>
           </div>
         )}
+      </div>
+
+      {/* Main Charts & Hydrological Overview Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left/Middle Column - Custom Analytics Graphics */}
+        <div className="lg:col-span-2 space-y-6">
+          
+
+
+          {/* Section Pembangunan Progress Summary */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-base font-bold text-slate-800 mb-3">Kemajuan Fisik Instansi Seksi Pembangunan</h2>
+            <div className="space-y-4">
+              {projects.slice(0, 3).map((project) => (
+                <div key={project.id} className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-700 truncate max-w-sm">{project.name}</span>
+                    <span className="font-mono bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                      {project.progress}%
+                    </span>
+                  </div>
+                  {/* Custom Progress bar */}
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        project.progress === 100 
+                          ? 'bg-emerald-500' 
+                          : project.progress > 50 
+                            ? 'bg-blue-600' 
+                            : 'bg-amber-500'
+                      }`} 
+                      style={{ width: `${project.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-400">
+                    <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
+                    <span>Selesai: {project.endDate}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column - Status Operasional & Penatausahaan Live Feeds */}
+        <div className="space-y-6">
+
+          {/* Quick Mail Feed */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-base font-bold text-slate-800 mb-3 flex items-center">
+              <History className="w-5 h-5 text-indigo-600 mr-1.5" />
+              Surat Terbaru Masuk/Keluar
+            </h2>
+            <div className="space-y-3" id="quick-mail-feed">
+              {mails.slice(0, 3).map((mail) => (
+                <div key={mail.id} className="p-2.5 bg-slate-50 rounded-lg text-xs flex justify-between gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center space-x-1.5">
+                      <span className={`text-[9px] font-bold px-1 rounded uppercase min-w-[36px] text-center ${
+                        mail.type === 'masuk' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {mail.type}
+                      </span>
+                      <span className="font-mono text-[9px] text-slate-400 truncate">{mail.referenceNumber}</span>
+                    </div>
+                    <p className="font-semibold text-slate-700 truncate">{mail.subject}</p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {mail.type === 'masuk' ? `Dari: ${mail.sender}` : `Ke: ${mail.recipient}`}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400 shrink-0 self-center">{mail.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
     </div>
