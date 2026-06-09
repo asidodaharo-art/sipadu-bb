@@ -310,7 +310,7 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
 
 
       {/* SECTION: Demografi & Statistik Pegawai */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6" id="staff-demographics-section">
+      <div className="bg-white p-7 rounded-3xl shadow-md border border-slate-100 space-y-6" id="staff-demographics-section">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4">
           <div className="space-y-1">
             <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
@@ -328,165 +328,346 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
         </div>
 
         {totalStaff > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             
-            {/* Card 1: GOLONGAN */}
-            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between" id="demographic-golongan-card">
-              <div className="space-y-3">
+            {/* Widget 1: DIAGRAM BATANG KOLOM GOLONGAN */}
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-golongan-card">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sebaran Golongan</span>
-                  <Award className="w-4 h-4 text-indigo-600 animate-bounce" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                    Grafik Distribusi Golongan
+                  </span>
+                  <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">Pangkat Tiers</span>
                 </div>
-                
-                {/* Visual Bar Breakdown of Tier Classes first */}
-                <div className="space-y-2 mt-2">
-                  <div className="text-[10px] text-slate-400 font-semibold uppercase">Golongan Tiers</div>
-                  {golonganTierSummary.map((item) => {
-                    const pct = totalStaff > 0 ? Math.round((item.count / totalStaff) * 100) : 0;
+                <h3 className="text-xs font-bold text-slate-700">Proporsi Kualifikasi Penjenjangan Karier</h3>
+              </div>
+
+              {/* Responsive SVG/CSS Column Bar Chart */}
+              <div className="h-44 flex items-end justify-between gap-3 pt-6 pb-2 px-2 bg-white rounded-xl border border-slate-100 relative shadow-2xs" id="golongan-column-bar-chart">
+                {/* Horizontal Grid lines */}
+                <div className="absolute inset-x-0 top-6 border-t border-slate-100/70 pointer-events-none" />
+                <div className="absolute inset-x-0 top-18 border-t border-slate-100/70 pointer-events-none" />
+                <div className="absolute inset-x-0 top-30 border-t border-slate-100/70 pointer-events-none" />
+
+                {(() => {
+                  const itemsToShow = [
+                    { tier: 'IV (Pembina)', count: staff.filter(s => s.golongan && s.golongan.startsWith('IV/')).length, gradient: 'from-indigo-600 to-indigo-500', textLight: 'text-indigo-100' },
+                    { tier: 'III (Penata)', count: staff.filter(s => s.golongan && s.golongan.startsWith('III/')).length, gradient: 'from-blue-600 to-blue-500', textLight: 'text-blue-100' },
+                    { tier: 'II (Pengatur)', count: staff.filter(s => s.golongan && s.golongan.startsWith('II/')).length, gradient: 'from-emerald-600 to-emerald-500', textLight: 'text-emerald-100' },
+                    { tier: 'I (Juru)', count: staff.filter(s => s.golongan && s.golongan.startsWith('I/')).length, gradient: 'from-amber-600 to-amber-500', textLight: 'text-amber-100' },
+                  ];
+                  const maxCount = Math.max(...itemsToShow.map(i => i.count), 1);
+                  return itemsToShow.map((item) => {
+                    const pctHeight = (item.count / maxCount) * 100;
+                    const pctOfTotal = totalStaff > 0 ? Math.round((item.count / totalStaff) * 100) : 0;
                     return (
-                      <div key={item.tier} className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span className="font-medium truncate max-w-[120px]">{item.tier}</span>
-                          <span className="font-semibold">{item.count} orang ({pct}%)</span>
+                      <div key={item.tier} className="flex-1 flex flex-col h-full justify-end relative group">
+                        {/* Actual count overlay on top */}
+                        <span className="text-[10px] font-black text-slate-805 text-center mb-1 group-hover:scale-110 transition-transform duration-200">
+                          {item.count} org
+                        </span>
+                        
+                        {/* Column Bar with Gradient */}
+                        <div 
+                          style={{ height: `${Math.max(12, pctHeight * 0.7)}%` }}
+                          className={`w-full bg-gradient-to-t ${item.gradient} rounded-t-xl transition-all duration-700 relative flex items-center justify-center shadow-xs group-hover:brightness-105 cursor-pointer`}
+                        >
+                          {pctOfTotal >= 20 && (
+                            <span className={`text-[9px] font-black ${item.textLight} rotate-270 md:rotate-0`}>
+                              {pctOfTotal}%
+                            </span>
+                          )}
                         </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${item.color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-                        </div>
+
+                        {/* X-axis labels */}
+                        <span className="text-[9px] font-extrabold text-slate-500 mt-2 text-center truncate max-w-full">
+                          Gol. {item.tier.split(' ')[0]}
+                        </span>
                       </div>
                     );
-                  })}
-                </div>
+                  });
+                })()}
+              </div>
 
-                {/* Direct Counts inside a tag list */}
-                <div className="pt-3 border-t border-slate-200/50">
-                  <div className="text-[10px] text-slate-400 font-semibold uppercase mb-1.55">Rincian Golongan</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {sortedGolonganData.map((item) => (
-                      <span key={item.name} className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-lg shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                        {item.name}: {item.count}
-                      </span>
-                    ))}
-                  </div>
+              {/* Sub-Grade Badges list */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-2">Kode Penjabaran Rincian Golongan:</div>
+                <div className="flex flex-wrap gap-1.5 max-h-[50px] overflow-y-auto pr-1">
+                  {sortedGolonganData.map((item) => (
+                    <span key={item.name} className="inline-flex items-center gap-1 text-[10px] bg-white border border-slate-200 text-slate-750 px-2.5 py-1 rounded-lg font-bold shadow-3xs hover:border-indigo-200 hover:bg-indigo-50/25 transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      {item.name}: <span className="font-extrabold text-slate-905">{item.count} org</span>
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Card 2: PENDIDIKAN TERAKHIR */}
-            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between" id="demographic-pendidikan-card">
-              <div className="space-y-3">
+            {/* Widget 2: DIAGRAM LINGKARAN DOUGHNUT PENDIDIKAN */}
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-pendidikan-card">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pendidikan Terakhir</span>
-                  <GraduationCap className="w-4 h-4 text-emerald-600" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Diagram Lingkaran Pendidikan
+                  </span>
+                  <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Akademik Kualifikasi</span>
                 </div>
+                <h3 className="text-xs font-bold text-slate-700">Rasio Jenjang Pendidikan Tertinggi</h3>
+              </div>
 
-                <div className="space-y-2.5 mt-2">
-                  {sortedEduData.map((item) => {
-                    const pct = totalStaff > 0 ? Math.round((item.count / totalStaff) * 100) : 0;
-                    return (
-                      <div key={item.name} className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span className="font-bold flex items-center text-slate-700">
-                            <BookOpen className="w-3 h-3 text-emerald-600 mr-1 shrink-0" />
-                            {item.name}
-                          </span>
-                          <span className="font-semibold">{item.count} orang ({pct}%)</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-600 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+              <div className="flex flex-col sm:flex-row items-center gap-6 py-2">
+                {/* SVG Segmented Doughnut Chart */}
+                {(() => {
+                  const totalEduCount = sortedEduData.reduce((sum, item) => sum + item.count, 0);
+                  let currentPercent = 0;
+                  const colors = [
+                    'stroke-indigo-600 text-indigo-600',
+                    'stroke-emerald-500 text-emerald-500',
+                    'stroke-amber-500 text-amber-500',
+                    'stroke-blue-500 text-blue-500',
+                    'stroke-rose-500 text-rose-500',
+                    'stroke-purple-500 text-purple-500',
+                    'stroke-cyan-500 text-cyan-500',
+                    'stroke-slate-500 text-slate-500'
+                  ];
+                  const fillColors = [
+                    'bg-indigo-600', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500', 'bg-slate-500'
+                  ];
+
+                  const slices = sortedEduData.map((item, index) => {
+                    const percent = item.count / (totalEduCount || 1);
+                    const strokeOffset = 251.2 - (currentPercent * 251.2);
+                    currentPercent += percent;
+                    return {
+                      ...item,
+                      percent,
+                      pctText: Math.round(percent * 100),
+                      strokeOffset,
+                      colorClass: colors[index % colors.length],
+                      fillClass: fillColors[index % fillColors.length]
+                    };
+                  });
+
+                  return (
+                    <>
+                      <div className="relative w-36 h-36 shrink-0 mx-auto sm:mx-0">
+                        <svg className="w-full h-full transform -rotate-90 animate-fade-in" viewBox="0 0 100 100">
+                          {/* Inner base circle */}
+                          <circle cx="50" cy="50" r="40" className="stroke-slate-100 fill-transparent" strokeWidth="10" />
+                          {slices.map((slice) => (
+                            <circle
+                              key={slice.name}
+                              cx="50"
+                              cy="50"
+                              r="40"
+                              className={`fill-transparent transition-all duration-700 ${slice.colorClass.split(' ')[0]}`}
+                              strokeWidth="10"
+                              strokeDasharray="251.2"
+                              strokeDashoffset={slice.strokeOffset}
+                              strokeLinecap="round"
+                            />
+                          ))}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <span className="text-xl font-black text-slate-800 leading-none">{totalStaff}</span>
+                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest mt-1">Staf Profil</span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Descriptive Legend Grid Table */}
+                      <div className="flex-1 w-full space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                        {slices.map((slice) => (
+                          <div key={slice.name} className="flex items-center justify-between text-[11px] bg-white border border-slate-100 p-1.5 rounded-lg shadow-3xs" id={`slice-key-${slice.name}`}>
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2.5 h-2.5 rounded-xs ${slice.fillClass} shrink-0`} />
+                              <span className="font-extrabold text-slate-700">{slice.name} / Sederajat</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-slate-800">{slice.count} org</span>
+                              <span className="text-slate-300">|</span>
+                              <span className="text-[10px] font-black text-slate-400">{slice.pctText}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
-            {/* Card 3: JENIS KELAMIN */}
-            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between" id="demographic-gender-card">
-              <div className="space-y-3">
+            {/* Widget 3: DIAGRAM SPEEDOMETER DIAL GAUGE GENDER */}
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-gender-card">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Komparasi Gender</span>
-                  <Users className="w-4 h-4 text-blue-600" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    Meteran Keseimbangan Gender
+                  </span>
+                  <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Sex-Ratio Comparator</span>
                 </div>
+                <h3 className="text-xs font-bold text-slate-700">Rasio Distribusi Beban Penugasan Lapangan</h3>
+              </div>
 
-                {/* Male statistics panel */}
-                <div className="bg-white border border-blue-100 rounded-xl p-2.5 flex items-center justify-between shadow-3xs">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-7 h-7 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs">👨</div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Laki-laki</div>
-                      <div className="text-xs font-black text-slate-800">{maleCount} Orang</div>
+              {/* Semicircular Speedometer Dial Gauge */}
+              {(() => {
+                const needleRotation = -90 + (malePct / 100) * 180;
+                return (
+                  <div className="flex flex-col sm:flex-row items-center gap-4 py-2">
+                    <div className="flex flex-col items-center justify-center p-1 relative w-36 h-28 shrink-0">
+                      <svg className="w-36 h-20 overflow-visible" viewBox="0 0 100 60">
+                        {/* Background track circle arc */}
+                        <path 
+                          d="M 10 50 A 40 40 0 0 1 90 50" 
+                          fill="none" 
+                          stroke="#e2e8f0" 
+                          strokeWidth="10" 
+                          strokeLinecap="round" 
+                        />
+                        {/* Active Dial colored arc (Laki portions) */}
+                        <path 
+                          d="M 10 50 A 40 40 0 0 1 90 50" 
+                          fill="none" 
+                          stroke="url(#genderMetricDialColorGrad)" 
+                          strokeWidth="10" 
+                          strokeLinecap="round" 
+                          strokeDasharray="125.6" 
+                          strokeDashoffset={125.6 - (malePct / 100) * 125.6} 
+                        />
+                        
+                        {/* Dial Pointer needle */}
+                        <g transform={`translate(55, 50) rotate(${needleRotation})`}>
+                          <line x1="0" y1="y" x2="-35" y2="0" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" className="transition-all duration-700" />
+                          <circle cx="0" cy="0" r="4.5" fill="#0f172a" />
+                          <circle cx="0" cy="0" r="1.5" fill="#ffffff" />
+                        </g>
+                        
+                        <defs>
+                          <linearGradient id="genderMetricDialColorGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#ec4899" /> {/* Female Pin */}
+                            <stop offset="50%" stopColor="#818cf8" /> {/* Unisex Midpoint */}
+                            <stop offset="100%" stopColor="#3b82f6" /> {/* Male Blue */}
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      
+                      <div className="text-center mt-1.5">
+                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-150/45 text-indigo-700 uppercase tracking-widest leading-none">
+                          {maleCount === femaleCount ? 'Seimbang 1:1' : maleCount > femaleCount ? 'Cenderung Laki-Laki' : 'Cenderung Perempuan'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Gender info side cards */}
+                    <div className="flex-1 w-full space-y-2">
+                      <div className="bg-white border border-blue-200 p-2.5 rounded-xl flex items-center justify-between shadow-3xs bg-blue-50/5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs">👨</span>
+                          <div>
+                            <div className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Laki-laki</div>
+                            <div className="text-xs font-black text-slate-800">{maleCount} Orang</div>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{malePct}%</span>
+                      </div>
+
+                      <div className="bg-white border border-rose-200 p-2.5 rounded-xl flex items-center justify-between shadow-3xs bg-rose-50/5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 bg-rose-100 text-rose-700 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs">👩</span>
+                          <div>
+                            <div className="text-[9px] text-slate-455 font-bold uppercase tracking-wider">Perempuan</div>
+                            <div className="text-xs font-black text-slate-800">{femaleCount} Orang</div>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">{femalePct}%</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-blue-600 bg-blue-50/50 px-2 py-0.5 rounded-md">{malePct}%</span>
-                  </div>
-                </div>
-
-                {/* Female statistics panel */}
-                <div className="bg-white border border-rose-100 rounded-xl p-2.5 flex items-center justify-between shadow-3xs">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-7 h-7 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs">👩</div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Perempuan</div>
-                      <div className="text-xs font-black text-slate-800">{femaleCount} Orang</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-rose-600 bg-rose-50/50 px-2 py-0.5 rounded-md">{femalePct}%</span>
-                  </div>
-                </div>
-
-                {/* Stacked comparison bar */}
-                <div className="pt-2">
-                  <div className="h-3.5 w-full bg-slate-100 rounded-full flex overflow-hidden shadow-2xs">
-                    {maleCount > 0 && (
-                      <div 
-                        className="bg-blue-500 h-full transition-all duration-550 flex items-center justify-center text-[7px] font-black text-white" 
-                        style={{ width: `${malePct}%` }}
-                        title={`Laki-laki: ${malePct}%`}
-                      >
-                        {malePct >= 15 ? '👨' : ''}
-                      </div>
-                    )}
-                    {femaleCount > 0 && (
-                      <div 
-                        className="bg-rose-500 h-full transition-all duration-550 flex items-center justify-center text-[7px] font-black text-white" 
-                        style={{ width: `${femalePct}%` }}
-                        title={`Perempuan: ${femalePct}%`}
-                      >
-                        {femalePct >= 15 ? '👩' : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
 
-            {/* Card 4: AGAMA */}
-            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between" id="demographic-agama-card">
-              <div className="space-y-3">
+            {/* Widget 4: BAGAN POLAR BULLET COMPOSITION AGAMA */}
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-agama-card">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Keragaman Agama</span>
-                  <Heart className="w-4 h-4 text-rose-500" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    Bagan Proposi Keberagaman
+                  </span>
+                  <span className="text-[10px] font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">Faith Composition</span>
+                </div>
+                <h3 className="text-xs font-bold text-slate-700">Keragaman Keyakinan &amp; Kebinekaan Staff</h3>
+              </div>
+
+              {/* Advanced Stacked Proportion Flow Bar */}
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                    <span>Segmentasi Spasial Bar:</span>
+                    <span className="text-rose-600">Interaktif</span>
+                  </div>
+                  
+                  {/* Proportional solid bar */}
+                  <div className="h-5 w-full bg-slate-205 rounded-full flex overflow-hidden shadow-inner border border-slate-200">
+                    {(() => {
+                      const totalReligionCount = sortedReligionData.reduce((sum, r) => sum + r.count, 0);
+                      const religionColors: { [key: string]: { bg: string } } = {
+                        'Islam': { bg: 'bg-emerald-500' },
+                        'Kristen': { bg: 'bg-blue-500' },
+                        'Katolik': { bg: 'bg-indigo-500' },
+                        'Hindu': { bg: 'bg-amber-500' },
+                        'Buddha': { bg: 'bg-yellow-400' },
+                        'Konghucu': { bg: 'bg-rose-500' }
+                      };
+
+                      return sortedReligionData.map((item) => {
+                        const color = religionColors[item.name] || { bg: 'bg-slate-500' };
+                        const pct = totalReligionCount > 0 ? (item.count / totalReligionCount) * 100 : 0;
+                        return (
+                          <div
+                            key={item.name}
+                            className={`${color.bg} h-full transition-all duration-700 relative group flex items-center justify-center cursor-pointer hover:opacity-90`}
+                            style={{ width: `${pct}%` }}
+                            title={`${item.name}: ${item.count} orang (${Math.round(pct)}%)`}
+                          >
+                            {pct >= 15 && (
+                              <span className="text-[9px] font-black text-white hover:scale-110 transition-transform">
+                                {Math.round(pct)}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
 
-                <div className="space-y-2 mt-2">
-                  {sortedReligionData.map((item) => {
-                    const pct = totalStaff > 0 ? Math.round((item.count / totalStaff) * 100) : 0;
-                    return (
-                      <div key={item.name} className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span className="font-semibold text-slate-700">{item.name}</span>
-                          <span className="font-medium text-slate-500">{item.count} orang ({pct}%)</span>
+                {/* Faith labels and exact counts */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 max-h-[75px] overflow-y-auto pr-1">
+                  {(() => {
+                    const religionDots: { [key: string]: string } = {
+                      'Islam': 'bg-emerald-500',
+                      'Kristen': 'bg-blue-500',
+                      'Katolik': 'bg-indigo-500',
+                      'Hindu': 'bg-amber-500',
+                      'Buddha': 'bg-yellow-400',
+                      'Konghucu': 'bg-rose-500'
+                    };
+                    return sortedReligionData.map((item) => {
+                      const dotBg = religionDots[item.name] || 'bg-slate-500';
+                      const pctOfReligion = totalStaff > 0 ? Math.round((item.count / totalStaff) * 100) : 0;
+                      return (
+                        <div key={item.name} className="flex items-center gap-1.5 text-[10.5px]">
+                          <span className={`w-2 h-2 rounded-full ${dotBg} shrink-0`} />
+                          <span className="font-bold text-slate-700 truncate">{item.name}:</span>
+                          <span className="font-extrabold text-slate-900 shrink-0">{item.count} org ({pctOfReligion}%)</span>
                         </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>
