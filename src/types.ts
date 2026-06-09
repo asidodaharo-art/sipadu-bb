@@ -171,7 +171,8 @@ export interface AssetDistribution {
   staffId: string;
   staffName: string;
   quantity: number;
-  location: string;
+  location?: string;
+  status?: 'dipakai' | 'dipinjam' | 'dipulangkan';
   allocationDate: string;
   conditionAtAllocation: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
   notes?: string;

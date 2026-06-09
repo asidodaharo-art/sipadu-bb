@@ -401,6 +401,7 @@ export default function Penatausahaan({
         staffName: 'Hadi Wijaya, S.T.',
         quantity: 1,
         location: 'Ruang Tata Usaha (TU)',
+        status: 'dipakai',
         allocationDate: '2026-02-15',
         conditionAtAllocation: 'Baik',
         notes: 'Digunakan untuk input surat masuk dan keluar secara digital'
@@ -413,6 +414,7 @@ export default function Penatausahaan({
         staffName: 'Siti Rahma, S.Kom.',
         quantity: 1,
         location: 'Gudang Lapangan UPTD',
+        status: 'dipinjam',
         allocationDate: '2026-03-20',
         conditionAtAllocation: 'Baik',
         notes: 'Operational survey hidrologi dan debit aliran sub-bendung'
@@ -424,7 +426,7 @@ export default function Penatausahaan({
   const [distAssetId, setDistAssetId] = useState('');
   const [distStaffId, setDistStaffId] = useState('');
   const [distQuantity, setDistQuantity] = useState(1);
-  const [distLocation, setDistLocation] = useState('');
+  const [distStatus, setDistStatus] = useState<'dipakai' | 'dipinjam' | 'dipulangkan'>('dipakai');
   const [distAllocationDate, setDistAllocationDate] = useState('');
   const [distCondition, setDistCondition] = useState<'Baik' | 'Rusak Ringan' | 'Rusak Berat'>('Baik');
   const [distNotes, setDistNotes] = useState('');
@@ -3578,205 +3580,250 @@ export default function Penatausahaan({
               </div>
 
               {/* Form to insert distribution record */}
-              {isDistFormOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => {
-                  setIsDistFormOpen(false);
-                  setDistAssetId('');
-                  setDistStaffId('');
-                  setDistQuantity(1);
-                  setDistLocation('');
-                  setDistAllocationDate('');
-                  setDistCondition('Baik');
-                  setDistNotes('');
-                }}>
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl text-xs max-h-[90vh] overflow-y-auto"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex justify-between items-center pb-2 border-b border-sidebar-100">
-                      <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 uppercase tracking-wide">
-                        <Share2 className="w-4 h-4 text-blue-600" />
-                        Formulir Distribusi Baru / Serah Terima Barang Milik Pegawai
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setIsDistFormOpen(false);
-                          setDistAssetId('');
-                          setDistStaffId('');
-                          setDistQuantity(1);
-                          setDistLocation('');
-                          setDistAllocationDate('');
-                          setDistCondition('Baik');
-                          setDistNotes('');
-                        }}
-                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
-                        type="button"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!distAssetId || !distStaffId || distQuantity <= 0 || !distLocation || !distAllocationDate) {
-                          alert('Harap isi semua kolom wajib pada formulir distribusi.');
-                          return;
-                        }
-                        const selectedAsset = assets.find(a => a.id === distAssetId);
-                        const selectedStaff = staff.find(s => s.id === distStaffId);
-                        if (!selectedAsset || !selectedStaff) {
-                          alert('Aset atau staf yang dipilih tidak ditemukan.');
-                          return;
-                        }
-
-                        const newDist: AssetDistribution = {
-                          id: 'dist-' + Math.random().toString(36).substring(2, 9),
-                          assetId: distAssetId,
-                          assetName: selectedAsset.name,
-                          staffId: distStaffId,
-                          staffName: selectedStaff.name,
-                          quantity: Number(distQuantity),
-                          location: distLocation,
-                          allocationDate: distAllocationDate,
-                          conditionAtAllocation: distCondition,
-                          notes: distNotes
-                        };
-
-                        setDistributions([newDist, ...distributions]);
-                        setIsDistFormOpen(false);
-
-                        // reset
-                        setDistAssetId('');
-                        setDistStaffId('');
-                        setDistQuantity(1);
-                        setDistLocation('');
-                        setDistAllocationDate('');
-                        setDistCondition('Baik');
-                        setDistNotes('');
-                      }}
-                      className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs"
+              {isDistFormOpen && (() => {
+                const activeDistribution = distAssetId 
+                  ? distributions.find(d => d.assetId === distAssetId && (d.status === 'dipakai' || d.status === 'dipinjam'))
+                  : null;
+                return (
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => {
+                    setIsDistFormOpen(false);
+                    setDistAssetId('');
+                    setDistStaffId('');
+                    setDistQuantity(1);
+                    setDistStatus('dipakai');
+                    setDistAllocationDate('');
+                    setDistCondition('Baik');
+                    setDistNotes('');
+                  }}>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl text-xs max-h-[90vh] overflow-y-auto"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">Pilih Barang / Aset <span className="text-red-500">*</span></label>
-                        <select
-                          value={distAssetId}
-                          onChange={(e) => setDistAssetId(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
-                          required
-                        >
-                          <option value="">-- Pilih Barang --</option>
-                          {assets.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name} ({a.code}) - {a.quantity} Unit Tersedia</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">Penerima Alokasi / Staf <span className="text-red-500">*</span></label>
-                        <select
-                          value={distStaffId}
-                          onChange={(e) => setDistStaffId(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
-                          required
-                        >
-                          <option value="">-- Pilih Pegawai --</option>
-                          {staff.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name} (NIP: {s.nip})</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">Kuantitas Distribusi <span className="text-red-500">*</span></label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={distQuantity}
-                          onChange={(e) => setDistQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">TMT Tanggal Penyerahan <span className="text-red-500">*</span></label>
-                        <input
-                          type="date"
-                          value={distAllocationDate}
-                          onChange={(e) => setDistAllocationDate(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
-                          required
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block font-bold text-slate-700 mb-1">Kondisi Serah Terima <span className="text-red-500">*</span></label>
-                        <select
-                          value={distCondition}
-                          onChange={(e: any) => setDistCondition(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold"
-                          required
-                        >
-                          <option value="Baik">🟢 Baik (Siap Digunakan)</option>
-                          <option value="Rusak Ringan">🟡 Rusak Ringan</option>
-                          <option value="Rusak Berat">🔴 Rusak Berat</option>
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block font-bold text-slate-700 mb-1">Detail Lokasi Unit Penugasan <span className="text-red-500">*</span></label>
-                        <input
-                          type="text"
-                          placeholder="Contoh: Mess Bendung Bah Bolon, Ruang Pengawas Irigasi"
-                          value={distLocation}
-                          onChange={(e) => setDistLocation(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
-                          required
-                        />
-                      </div>
-
-                      <div className="md:col-span-4">
-                        <label className="block font-bold text-slate-700 mb-1 font-extrabold text-blue-700">Keterangan / Berita Acara Alokasi</label>
-                        <input
-                          type="text"
-                          placeholder="Contoh: Dipinjamkan untuk memfasilitasi survei kedaulatan tanah di UPTD Selesai selama 3 bulan."
-                          value={distNotes}
-                          onChange={(e) => setDistNotes(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
-                        />
-                      </div>
-
-                      <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                      <div className="flex justify-between items-center pb-2 border-b border-sidebar-100">
+                        <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 uppercase tracking-wide">
+                          <Share2 className="w-4 h-4 text-blue-600" />
+                          Formulir Distribusi Baru / Serah Terima Barang Milik Pegawai
+                        </h3>
                         <button
-                          type="button"
                           onClick={() => {
                             setIsDistFormOpen(false);
                             setDistAssetId('');
                             setDistStaffId('');
                             setDistQuantity(1);
-                            setDistLocation('');
+                            setDistStatus('dipakai');
                             setDistAllocationDate('');
                             setDistCondition('Baik');
                             setDistNotes('');
                           }}
-                          className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl cursor-pointer"
+                          className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+                          type="button"
                         >
-                          Batal
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl cursor-pointer shadow-sm"
-                        >
-                          Serahkan / Catat Alokasi
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                    </form>
-                  </motion.div>
-                </div>
-              )}
+
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (activeDistribution) {
+                            alert('Gagal: Aset ini masih dalam status dipakai / dipinjam dan tidak dapat didistribusikan saat ini!');
+                            return;
+                          }
+                          if (!distAssetId || !distStaffId || distQuantity <= 0 || !distStatus || !distAllocationDate) {
+                            alert('Harap isi semua kolom wajib pada formulir distribusi.');
+                            return;
+                          }
+                          const selectedAsset = assets.find(a => a.id === distAssetId);
+                          const selectedStaff = staff.find(s => s.id === distStaffId);
+                          if (!selectedAsset || !selectedStaff) {
+                            alert('Aset atau staf yang dipilih tidak ditemukan.');
+                            return;
+                          }
+
+                          const newDist: AssetDistribution = {
+                            id: 'dist-' + Math.random().toString(36).substring(2, 9),
+                            assetId: distAssetId,
+                            assetName: selectedAsset.name,
+                            staffId: distStaffId,
+                            staffName: selectedStaff.name,
+                            quantity: Number(distQuantity),
+                            status: distStatus,
+                            location: distStatus === 'dipakai' ? 'Sedang Dipakai' : distStatus === 'dipinjam' ? 'Sedang Dipinjam' : 'Sudah Dipulangkan',
+                            allocationDate: distAllocationDate,
+                            conditionAtAllocation: distCondition,
+                            notes: distNotes
+                          };
+
+                          setDistributions([newDist, ...distributions]);
+                          setIsDistFormOpen(false);
+
+                          // reset
+                          setDistAssetId('');
+                          setDistStaffId('');
+                          setDistQuantity(1);
+                          setDistStatus('dipakai');
+                          setDistAllocationDate('');
+                          setDistCondition('Baik');
+                          setDistNotes('');
+                        }}
+                        className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs"
+                      >
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Pilih Barang / Aset <span className="text-red-500">*</span></label>
+                          <select
+                            value={distAssetId}
+                            onChange={(e) => setDistAssetId(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
+                            required
+                          >
+                            <option value="">-- Pilih Barang --</option>
+                            {assets.map((a) => (
+                              <option key={a.id} value={a.id}>{a.name} ({a.code}) - {a.quantity} Unit Tersedia</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Penerima Alokasi / Staf <span className="text-red-500">*</span></label>
+                          <select
+                            value={distStaffId}
+                            onChange={(e) => setDistStaffId(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
+                            required
+                          >
+                            <option value="">-- Pilih Pegawai --</option>
+                            {staff.map((s) => (
+                              <option key={s.id} value={s.id}>{s.name} (NIP: {s.nip})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Kuantitas Distribusi <span className="text-red-500">*</span></label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={distQuantity}
+                            onChange={(e) => setDistQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">TMT Tanggal Penyerahan <span className="text-red-500">*</span></label>
+                          <input
+                            type="date"
+                            value={distAllocationDate}
+                            onChange={(e) => setDistAllocationDate(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                            required
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block font-bold text-slate-700 mb-1">Kondisi Serah Terima <span className="text-red-500">*</span></label>
+                          <select
+                            value={distCondition}
+                            onChange={(e: any) => setDistCondition(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold"
+                            required
+                          >
+                            <option value="Baik">🟢 Baik (Siap Digunakan)</option>
+                            <option value="Rusak Ringan">🟡 Rusak Ringan</option>
+                            <option value="Rusak Berat">🔴 Rusak Berat</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block font-bold text-slate-700 mb-1">Status Distribusi <span className="text-red-500">*</span></label>
+                          <select
+                            value={distStatus}
+                            onChange={(e: any) => setDistStatus(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-bold"
+                            required
+                          >
+                            <option value="dipakai">💻 Dipakai (Operasional Rutin)</option>
+                            <option value="dipinjam">🔑 Dipinjam (Sementara)</option>
+                            <option value="dipulangkan">↩️ Dipulangkan (Gudang/Persediaan)</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-4">
+                          <label className="block font-bold text-slate-700 mb-1 font-extrabold text-blue-700">Keterangan / Berita Acara Alokasi</label>
+                          <input
+                            type="text"
+                            placeholder="Contoh: Dipinjamkan untuk memfasilitasi survei kedaulatan tanah di UPTD Selesai selama 3 bulan."
+                            value={distNotes}
+                            onChange={(e) => setDistNotes(e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          />
+                        </div>
+
+                        {/* EXPLANATION OF CURRENT ACTIVE STATUS AND BLOCKED SYSTEM */}
+                        {activeDistribution && (
+                          <div className="md:col-span-4 p-4.5 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-2">
+                            <div className="flex items-center gap-1.5 text-red-800 font-extrabold">
+                              <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" />
+                              <span>ALOKASI BARANG DIBATALKAN: Barang Masih Dipakai atau Dipinjamkan!</span>
+                            </div>
+                            <div className="text-[11px] text-red-700 space-y-1.5 bg-white/70 p-3.5 rounded-xl border border-red-100 font-medium animate-fade-in">
+                              <p className="font-bold underline">Detail &amp; Keterangan Status Barang Saat Ini:</p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 pl-1">
+                                <div>&bull; <strong>Nama Barang:</strong> {activeDistribution.assetName}</div>
+                                <div>&bull; <strong>Status Alokasi:</strong> <span className="uppercase font-black px-2 py-0.5 rounded text-[9px] bg-red-100 text-red-800">{activeDistribution.status === 'dipakai' ? 'DIPAKAI' : 'DIPINJAM'}</span></div>
+                                <div>&bull; <strong>Penanggung Jawab:</strong> {activeDistribution.staffName}</div>
+                                <div>&bull; <strong>TMT Tanggal Penyerahan:</strong> {activeDistribution.allocationDate}</div>
+                                <div>&bull; <strong>Kondisi Unit:</strong> {activeDistribution.conditionAtAllocation}</div>
+                              </div>
+                              {activeDistribution.notes && (
+                                <p className="mt-1 pl-1 italic bg-white/50 p-2 rounded border border-red-50">
+                                  <strong>Catatan:</strong> "{activeDistribution.notes}"
+                                </p>
+                              )}
+                              <p className="text-[10px] text-red-600 font-bold border-t border-red-100 pt-2 mt-1">
+                                *Data tidak dapat didistribusikan karena unit masih dalam kepemilikan aktif pegawai lain. Pulangkan aset terlebih dahulu menggunakan aksi "Recall Aset" di tabel kearsipan.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsDistFormOpen(false);
+                              setDistAssetId('');
+                              setDistStaffId('');
+                              setDistQuantity(1);
+                              setDistStatus('dipakai');
+                              setDistAllocationDate('');
+                              setDistCondition('Baik');
+                              setDistNotes('');
+                            }}
+                            className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl cursor-pointer"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={!!activeDistribution}
+                            className={`px-5 py-2.5 text-white font-extrabold rounded-xl cursor-pointer shadow-sm transition-all ${
+                              activeDistribution 
+                                ? 'bg-slate-300 border-slate-200 text-slate-500 cursor-not-allowed' 
+                                : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                          >
+                            Serahkan / Catat Alokasi
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                );
+              })()}
 
               {/* Table of Distributions */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -3790,7 +3837,7 @@ export default function Penatausahaan({
                         <th className="p-4 text-center">Jumlah Alokasi</th>
                         <th className="p-4">TMT Penyerahan</th>
                         <th className="p-4">Kondisi Serah</th>
-                        <th className="p-4">Lokasi & Berita Acara</th>
+                        <th className="p-4">Status &amp; Berita Acara</th>
                         {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
                       </tr>
                     </thead>
@@ -3825,8 +3872,13 @@ export default function Penatausahaan({
                               )}
                             </td>
                             <td className="p-4">
-                              <div className="font-bold text-slate-700">Gedung/Pos: {d.location}</div>
-                              {d.notes && <div className="text-[10px] text-slate-400 mt-0.5 italic">Catatan: "{d.notes}"</div>}
+                              <div className="font-bold">
+                                {d.status === 'dipakai' && <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-1 rounded-full border border-blue-200">💻 Dipakai</span>}
+                                {d.status === 'dipinjam' && <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-1 rounded-full border border-amber-200">🔑 Dipinjam</span>}
+                                {d.status === 'dipulangkan' && <span className="bg-slate-105 bg-slate-100 text-slate-800 text-[10px] font-black px-2 py-1 rounded-full border border-slate-200">↩️ Dipulangkan</span>}
+                                {!d.status && <span className="text-slate-600 italic">Pos: {d.location}</span>}
+                              </div>
+                              {d.notes && <div className="text-[10px] text-slate-400 mt-1 italic">Catatan: "{d.notes}"</div>}
                             </td>
                             {currentUser.role === 'admin' && (
                               <td className="p-4 text-center">
