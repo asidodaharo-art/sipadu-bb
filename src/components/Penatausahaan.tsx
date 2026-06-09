@@ -111,6 +111,140 @@ export default function Penatausahaan({
   // Search query state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Reference Date for calculations (as of current system clock date)
+  const referenceDate = new Date('2026-06-09');
+
+  // 1. Data Pensiun (< 1 tahun dari usia pensiun 58 tahun)
+  const pensionAlerts = staff.map(s => {
+    if (!s.tanggalLahir) return null;
+    const birthDate = new Date(s.tanggalLahir);
+    if (isNaN(birthDate.getTime())) return null;
+    
+    // Retirement Date = Birth Date + 58 years
+    const pensionDate = new Date(birthDate);
+    pensionDate.setFullYear(birthDate.getFullYear() + 58);
+    
+    const diffMs = pensionDate.getTime() - referenceDate.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    return {
+      staff: s,
+      pensionDate,
+      diffDays,
+      formattedDate: s.tanggalLahir
+    };
+  }).filter((item): item is NonNullable<typeof item> => 
+    item !== null && item.diffDays >= 0 && item.diffDays <= 365
+  );
+
+  // 2. Kenaikan Pangkat (< 1 tahun, tanggal SK terakhir + 4 tahun)
+  const promotionAlerts = staff.map(s => {
+    let lastSkDate: Date | null = null;
+    let source = '';
+    
+    if (s.riwayatKepangkatan && s.riwayatKepangkatan.length > 0) {
+      const sorted = [...s.riwayatKepangkatan].sort((a, b) => {
+        const da = new Date(a.tglSk || a.tmt);
+        const db = new Date(b.tglSk || b.tmt);
+        return db.getTime() - da.getTime();
+      });
+      const latest = sorted[0];
+      if (latest.tglSk || latest.tmt) {
+        lastSkDate = new Date(latest.tglSk || latest.tmt);
+        source = `SK Terakhir (${latest.noSk || 'Tanpa Nomor'})`;
+      }
+    }
+    
+    // Fallback to NIP CPNS
+    if (!lastSkDate) {
+      const nipCompact = s.nip?.replace(/\s+/g, '') || '';
+      if (nipCompact.length >= 14) {
+        const cpnsYear = parseInt(nipCompact.substring(8, 12), 10);
+        const cpnsMonth = parseInt(nipCompact.substring(12, 14), 10) - 1;
+        if (!isNaN(cpnsYear) && !isNaN(cpnsMonth)) {
+          lastSkDate = new Date(cpnsYear, cpnsMonth, 1);
+          source = 'NIP CPNS (Kenaikan berkala 4 tahun)';
+        }
+      }
+    }
+    
+    if (!lastSkDate) return null;
+    
+    let nextPromotionDate = new Date(lastSkDate);
+    nextPromotionDate.setFullYear(lastSkDate.getFullYear() + 4);
+    
+    // Project in 4-year steps if the date is far in the past
+    while (nextPromotionDate.getTime() < referenceDate.getTime() - (30 * 24 * 60 * 60 * 1000)) {
+      nextPromotionDate.setFullYear(nextPromotionDate.getFullYear() + 4);
+    }
+    
+    const diffMs = nextPromotionDate.getTime() - referenceDate.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    return {
+      staff: s,
+      nextPromotionDate,
+      diffDays,
+      source
+    };
+  }).filter((item): item is NonNullable<typeof item> => 
+    item !== null && item.diffDays >= 0 && item.diffDays <= 365
+  );
+
+  // 3. Kenaikan Gaji Berkala (< 1 tahun, tanggal gaji berkala terakhir + 2 tahun)
+  const salaryAlerts = staff.map(s => {
+    let lastGajiDate: Date | null = null;
+    let source = '';
+    
+    if (s.riwayatGaji && s.riwayatGaji.length > 0) {
+      const sorted = [...s.riwayatGaji].sort((a, b) => {
+        const da = new Date(a.tglSk || a.tmtGaji);
+        const db = new Date(b.tglSk || b.tmtGaji);
+        return db.getTime() - da.getTime();
+      });
+      const latest = sorted[0];
+      if (latest.tglSk || latest.tmtGaji) {
+        lastGajiDate = new Date(latest.tglSk || latest.tmtGaji);
+        source = `SK Gaji Terakhir (${latest.noSk || 'Tanpa Nomor'})`;
+      }
+    }
+    
+    // Fallback to NIP CPNS
+    if (!lastGajiDate) {
+      const nipCompact = s.nip?.replace(/\s+/g, '') || '';
+      if (nipCompact.length >= 14) {
+        const cpnsYear = parseInt(nipCompact.substring(8, 12), 10);
+        const cpnsMonth = parseInt(nipCompact.substring(12, 14), 10) - 1;
+        if (!isNaN(cpnsYear) && !isNaN(cpnsMonth)) {
+          lastGajiDate = new Date(cpnsYear, cpnsMonth, 1);
+          source = 'NIP CPNS (KGB berkala 2 tahun)';
+        }
+      }
+    }
+    
+    if (!lastGajiDate) return null;
+    
+    let nextGajiDate = new Date(lastGajiDate);
+    nextGajiDate.setFullYear(lastGajiDate.getFullYear() + 2);
+    
+    // Project in 2-year steps
+    while (nextGajiDate.getTime() < referenceDate.getTime() - (15 * 24 * 60 * 60 * 1000)) {
+      nextGajiDate.setFullYear(nextGajiDate.getFullYear() + 2);
+    }
+    
+    const diffMs = nextGajiDate.getTime() - referenceDate.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    return {
+      staff: s,
+      nextGajiDate,
+      diffDays,
+      source
+    };
+  }).filter((item): item is NonNullable<typeof item> => 
+    item !== null && item.diffDays >= 0 && item.diffDays <= 365
+  );
+
   const updateDraftField = (field: keyof Staff, value: any) => {
     if (editStaffDraft) {
       setEditStaffDraft({
@@ -820,70 +954,263 @@ export default function Penatausahaan({
             </div>
           </div>
 
-          {/* Feature redirect map cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {[
-              {
-                id: 'adm_umum',
-                title: 'Administrasi Umum',
-                desc: 'Kelola arsip surat masuk dan keluar resmi dinas.',
-                count: `${mails.length} Dokumen`,
-              },
-              {
-                id: 'personalia',
-                title: 'Personalia',
-                desc: 'Database & NIP pegawai terdaftar pada kearsipan.',
-                count: `${staff.length} Pegawai`,
-              },
-              {
-                id: 'aset_inventaris',
-                title: 'Aset & Inventaris',
-                desc: 'Registrasi kelayakan inventaris alat & kendaraan.',
-                count: `${assets.length} Item`,
-              },
-              {
-                id: 'keuangan',
-                title: 'Keuangan',
-                desc: 'Penyusunan anggaran belanja & kas operasional.',
-                count: 'Buku Kas Aktif',
-              }
-            ].map((card) => (
+          {/* SECTION: STATISTIK KEARSIPAN SURAT */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Archive className="w-4 h-4 text-slate-500" />
+              <span>Statistik Administrasi Kearsipan Surat</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Card 1: Surat Masuk */}
               <div 
-                key={card.id}
-                onClick={() => onSubTabChange(card.id as any)}
-                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-400/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('masuk'); }}
+                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
               >
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">MODUL TU</span>
-                    <span className="text-[10px] font-extrabold bg-slate-50 text-slate-500 py-0.5 px-2 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                      Buka →
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Masuk</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-slate-800 tracking-tight">
+                      {mails.filter(m => m.type === 'masuk').length}
                     </span>
+                    <span className="text-[11px] text-slate-500">Berkas surat diterima</span>
                   </div>
-                  <h3 className="font-bold text-xs text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
-                    {card.title}
-                  </h3>
-                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
-                    {card.desc}
-                  </p>
+                  <span className="text-[10px] text-blue-600 font-bold group-hover:underline flex items-center gap-1">
+                    Buka Administrasi Surat Masuk <ChevronRight className="w-3 h-3" />
+                  </span>
                 </div>
-                <div className="pt-2 border-t border-slate-50 flex justify-between items-center text-[10px] font-bold text-slate-400">
-                  <span>Status data</span>
-                  <span className="text-slate-700">{card.count}</span>
+                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-105 transition-transform">
+                  <Inbox className="w-6 h-6" />
                 </div>
               </div>
-            ))}
+
+              {/* Card 2: Surat Keluar */}
+              <div 
+                onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('keluar'); }}
+                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
+              >
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Keluar</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-slate-800 tracking-tight">
+                      {mails.filter(m => m.type === 'keluar').length}
+                    </span>
+                    <span className="text-[11px] text-slate-500">Berkas surat terkirim</span>
+                  </div>
+                  <span className="text-[10px] text-indigo-600 font-bold group-hover:underline flex items-center gap-1">
+                    Buka Administrasi Surat Keluar <ChevronRight className="w-3 h-3" />
+                  </span>
+                </div>
+                <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-105 transition-transform">
+                  <Send className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Customization Blueprint Block */}
-          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
-            <span className="mx-auto h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3">
-              <Plus className="w-5 h-5" />
-            </span>
-            <h4 className="font-bold text-xs text-slate-700">Custom Dynamic Workspace</h4>
-            <p className="text-[10px] text-slate-400 font-medium max-w-sm mx-auto mt-1 leading-normal">
-              Gunakan area kosong ini untuk menyematkan ringkasan analitik, grafis D3, kalender agenda internal, atau modul widget dinas sesuai instruksi penugasan Anda berikutnya.
-            </p>
+          {/* SECTION: MONITORING KEPEGAWAIAN (< 1 TAHUN) */}
+          <div className="space-y-4">
+            <div className="border-b border-slate-200 pb-2">
+              <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span>Monitoring Agenda Kepegawaian (Masa Efektif &lt; 1 Tahun)</span>
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                Peringatan berkala otomatis untuk mengantisipasi siklus kepegawaian esensial, disinkronisasikan dari pangkalan data personalia (Tanggal Lahir, Riwayat Kepangkatan, &amp; Riwayat Gaji Berkala).
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* KOLOM A: RENCANA MASA PENSIUN */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                        <Heart className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-800">Masa Pensiun (58 Thn)</h4>
+                        <p className="text-[9px] text-slate-400 font-medium">Berdasarkan tanggal lahir</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                      {pensionAlerts.length} Pegawai
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                    {pensionAlerts.length > 0 ? (
+                      pensionAlerts.map(p => (
+                        <div 
+                          key={p.staff.id}
+                          className="p-3 bg-amber-50/40 border border-amber-100/75 rounded-xl hover:bg-amber-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div 
+                                onClick={() => onSubTabChange('personalia')}
+                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                              >
+                                {p.staff.name}
+                              </div>
+                              <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
+                            </div>
+                            <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                              {p.diffDays} Hari Lagi
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-amber-100/30 pt-1.5">
+                            <span>Lahir: {p.formattedDate}</span>
+                            <span>Est: <strong>{p.pensionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
+                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Pengingat Pensiun</span>
+                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
+                          Tidak terdeteksi pegawai yang akan mencapai batas usia pensiun (58 tahun) dalam kurun waktu kurang dari 12 bulan ke depan.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => onSubTabChange('personalia')}
+                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
+                >
+                  Kelola Personalia Pegawai →
+                </button>
+              </div>
+
+              {/* KOLOM B: RENCANA KENAIKAN PANGKAT */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-800">Kenaikan Pangkat (4 Keatas)</h4>
+                        <p className="text-[9px] text-slate-400 font-medium">+4 tahun dari tanggal SK terakhir</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                      {promotionAlerts.length} Pegawai
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                    {promotionAlerts.length > 0 ? (
+                      promotionAlerts.map(p => (
+                        <div 
+                          key={p.staff.id}
+                          className="p-3 bg-blue-50/40 border border-blue-100/75 rounded-xl hover:bg-blue-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div 
+                                onClick={() => onSubTabChange('personalia')}
+                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                              >
+                                {p.staff.name}
+                              </div>
+                              <div className="text-[9px] text-slate-500 font-medium mt-0.5">
+                                {p.staff.pangkat} &bull; <strong className="font-mono text-slate-700">{p.staff.golongan}</strong>
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                              {p.diffDays} Hari Lagi
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-blue-100/50 pt-1.5">
+                            <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
+                            <span>Rencana: <strong>{p.nextPromotionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
+                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Usulan Pangkat</span>
+                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
+                          Tidak terdeteksi pegawai yang masuk jadwal siklus kenaikan pangkat reguler 4 tahunan dalam kurun waktu kurang dari 12 bulan ke depan.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => onSubTabChange('personalia')}
+                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
+                >
+                  Kelola Personalia Pegawai →
+                </button>
+              </div>
+
+              {/* KOLOM C: RENCANA KENAIKAN GAJI BERKALA */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-800">Kenaikan Gaji Berkala (KGB)</h4>
+                        <p className="text-[9px] text-slate-400 font-medium">+2 tahun dari tanggal gaji terakhir</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                      {salaryAlerts.length} Pegawai
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                    {salaryAlerts.length > 0 ? (
+                      salaryAlerts.map(p => (
+                        <div 
+                          key={p.staff.id}
+                          className="p-3 bg-indigo-50/40 border border-indigo-100/75 rounded-xl hover:bg-indigo-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div 
+                                onClick={() => onSubTabChange('personalia')}
+                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                              >
+                                {p.staff.name}
+                              </div>
+                              <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
+                            </div>
+                            <span className="text-[9px] font-black bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                              {p.diffDays} Hari Lagi
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-indigo-100/50 pt-1.5">
+                            <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
+                            <span>Rencana: <strong>{p.nextGajiDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
+                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Pengingat KGB</span>
+                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
+                          Tidak terdeteksi pegawai yang terjadwal memperoleh kenaikan gaji berkala (KGB) 2 tahunan dalam kurun waktu kurang dari 12 bulan ke depan.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => onSubTabChange('personalia')}
+                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
+                >
+                  Kelola Personalia Pegawai →
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
