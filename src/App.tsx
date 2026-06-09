@@ -8,7 +8,8 @@ import {
   INITIAL_WATER_LOGS, 
   INITIAL_DAMAGE_REPORTS, 
   INITIAL_PROFILE, 
-  INITIAL_FOOTER 
+  INITIAL_FOOTER,
+  INITIAL_ASSETS
 } from './initial_data';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -76,7 +77,7 @@ export default function App() {
 
   const [assets, setAssets] = useState<Asset[]>(() => {
     const saved = localStorage.getItem('uptd_v3_assets');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? JSON.parse(saved) : INITIAL_ASSETS;
   });
 
   const [finances, setFinances] = useState<FinanceTransaction[]>(() => {
@@ -638,6 +639,7 @@ export default function App() {
                 waterLogs={waterLogs}
                 damageReports={damageReports}
                 instansiName={profile.name}
+                assets={assets}
               />
             )}
 

@@ -1,4 +1,4 @@
-import { User, Mail, Staff, Project, WaterLog, DamageReport, InstansiProfile, FooterConfig } from './types';
+import { User, Mail, Staff, Project, WaterLog, DamageReport, InstansiProfile, FooterConfig, Asset } from './types';
 
 export const INITIAL_USERS: User[] = [
   {
@@ -206,3 +206,84 @@ export const INITIAL_FOOTER: FooterConfig = {
   footerText: 'Sistem Informasi Terpadu UPTD PSDA Bah Bolon Dinas Sumber Daya Air, Cipta Karya dan Tata Ruang Provinsi Sumatera Utara.',
   copyrightText: '© 2026 UPTD PSDA Bah Bolon. Hak Cipta Dilindungi Undang-Undang.'
 };
+
+export const INITIAL_ASSETS: Asset[] = [
+  {
+    id: 'a-1',
+    name: 'Laptop Admin HP ProBook 440 G9',
+    code: 'KIB-B.2026.0021',
+    condition: 'Baik',
+    location: 'Ruang Tata Usaha (TU)',
+    quantity: 1,
+    purchaseDate: '2026-02-15',
+    kibCategory: 'KIB B',
+    price: 14500000,
+    brand: 'HP',
+    notes: 'Digunakan oleh Hadi Wijaya, S.T. untuk input dokumen penatausahaan'
+  },
+  {
+    id: 'a-2',
+    name: 'GPS Handheld Garmin Oregon 750',
+    code: 'KIB-B.2025.0114',
+    condition: 'Baik',
+    location: 'Gudang Lapangan UPTD',
+    quantity: 2,
+    purchaseDate: '2025-06-12',
+    kibCategory: 'KIB B',
+    price: 8200000,
+    brand: 'Garmin',
+    notes: 'Operational survey hidrologi dan debit aliran sub-bendung'
+  },
+  {
+    id: 'a-3',
+    name: 'Alat Ukur Debit Air (Current Meter) Flowatch FL-03',
+    code: 'KIB-B.2024.0042',
+    condition: 'Baik',
+    location: 'Gudang Alat Deteksi',
+    quantity: 1,
+    purchaseDate: '2024-11-20',
+    kibCategory: 'KIB B',
+    price: 24800000,
+    brand: 'Flowatch',
+    notes: 'Dipakai untuk mengukur laju debit aliran sungai sub-DAS Bah Bolon'
+  },
+  {
+    id: 'a-4',
+    name: 'Gedung Kantor UPTD PSDA Bah Bolon',
+    code: 'KIB-C.1994.0001',
+    condition: 'Baik',
+    location: 'Jl. Merdeka No. 45, Pematangsiantar',
+    quantity: 1,
+    purchaseDate: '1994-10-01',
+    kibCategory: 'KIB C',
+    price: 1450000000,
+    brand: 'Pemerintah Provinsi SU',
+    notes: 'Gedung operasional utama UPTD PSDA Bah Bolon'
+  },
+  {
+    id: 'a-5',
+    name: 'Mobil Pick-Up Operasional Isuzu D-Max 4x4',
+    code: 'KIB-B.2021.0005',
+    condition: 'Baik',
+    location: 'Garasi UPTD',
+    quantity: 1,
+    purchaseDate: '2021-03-10',
+    kibCategory: 'KIB B',
+    price: 385000000,
+    brand: 'Isuzu',
+    notes: 'Kendaraan dinas darurat bencana banjir dan survei lapangan'
+  },
+  {
+    id: 'a-6',
+    name: 'Pintu Air Pengatur Sekunder Baja Cor-Aluminium 120cm',
+    code: 'KIB-D.2023.0031',
+    condition: 'Baik',
+    location: 'Bendung Bah Bolon (Sektor Kanan)',
+    quantity: 4,
+    purchaseDate: '2023-08-15',
+    kibCategory: 'KIB D',
+    price: 18500000,
+    brand: 'Barata Indonesia',
+    notes: 'Aset konstruksi pintu pembagi debit air irigasi'
+  }
+];

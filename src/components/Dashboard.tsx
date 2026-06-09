@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Project, WaterLog, DamageReport, Staff } from '../types';
+import { Mail, Project, WaterLog, DamageReport, Staff, Asset } from '../types';
 import { 
   Droplet, 
   Layers, 
@@ -17,7 +17,9 @@ import {
   Award,
   BookOpen,
   Heart,
-  Briefcase
+  Briefcase,
+  Coins,
+  Package
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -28,9 +30,10 @@ interface DashboardProps {
   waterLogs: WaterLog[];
   damageReports: DamageReport[];
   instansiName: string;
+  assets: Asset[];
 }
 
-export default function Dashboard({ mails, staff, projects, waterLogs, damageReports, instansiName }: DashboardProps) {
+export default function Dashboard({ mails, staff, projects, waterLogs, damageReports, instansiName, assets = [] }: DashboardProps) {
   // Key Stats
   const activeProjectsCount = projects.filter(p => p.status === 'Konstruksi').length;
   const completedProjectsCount = projects.filter(p => p.status === 'Selesai').length;
@@ -162,6 +165,10 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
     .map(level => ({ name: level, count: eduDistribution[level] || 0 }))
     .filter(item => item.count > 0);
 
+  // Calculate Total Assets Value (Nilai Aset PSDA Bah Bolon)
+  const totalAssetValue = assets.reduce((sum, a) => sum + ((a.price || 0) * (a.quantity || 1)), 0);
+  const totalAssetCount = assets.reduce((sum, a) => sum + (a.quantity || 1), 0);
+
   return (
     <div className="space-y-6" id="dashboard-tab-content">
       {/* Header and Welcome */}
@@ -194,6 +201,110 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
             </div>
           </div>
         </div>
+      </div>
+
+      {/* SECTION: RINGKASAN DATA & NILAI ASET UTAMA */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="dashboard-kpi-grid">
+        
+        {/* Card 1: Nilai Aset PSDA Bah Bolon (Primary Highlight Card) */}
+        <div className="md:col-span-2 bg-gradient-to-br from-indigo-950 via-blue-900 to-slate-900 text-white p-6 rounded-3xl shadow-xl flex flex-col justify-between relative overflow-hidden border border-indigo-900/40 shadow-indigo-950/10 min-h-[170px]" id="kpi-nilai-aset-card">
+          <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none">
+            <svg viewBox="0 0 100 100" className="w-48 h-48 transform translate-x-12 -translate-y-8 fill-white">
+              <circle cx="50" cy="50" r="40" />
+            </svg>
+          </div>
+          
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="p-2 bg-white/10 rounded-xl backdrop-blur-xs">
+                  <Coins className="w-5 h-5 text-amber-400" />
+                </span>
+                <span className="text-xs font-extrabold text-blue-200 uppercase tracking-widest">ASET &amp; INVENTARIS</span>
+              </div>
+              <span className="bg-amber-400 text-slate-900 font-extrabold text-[9px] px-2 py-0.5 rounded tracking-wider uppercase">
+                Nilai Akumulasi
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[10px] text-blue-200 font-bold uppercase tracking-wider">
+                NILAI ASET PEROLEHAN UPTD PSDA BAH BOLON
+              </div>
+              <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-amber-300 via-white to-blue-100 bg-clip-text text-transparent leading-none">
+                Rp {totalAssetValue.toLocaleString('id-ID')}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] text-blue-200 font-medium">
+            <div className="flex items-center gap-1.5">
+              <span className="bg-white/15 px-2.5 py-0.5 rounded font-extrabold text-white text-[10px]">
+                {assets.length} Macam Barang
+              </span>
+              <span>&bull;</span>
+              <span>{totalAssetCount} Unit Registrasi</span>
+            </div>
+            <span className="text-[10px] text-amber-400 font-black uppercase flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+              <Package className="w-3.5 h-3.5" /> Terhitung Dinamis
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Kinerja Pembangunan */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm shadow-indigo-100/30 flex flex-col justify-between" id="kpi-pembangunan-card">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
+                <Layers className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded uppercase tracking-wider">
+                PROGRES FISIK
+              </span>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">Pembangunan Fisik</div>
+              <div className="text-2xl font-black text-slate-850 tracking-tight">
+                {projects.length} Paket Kerja
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                <strong>{activeProjectsCount}</strong> sedang konstruksi &bull; <strong>{completedProjectsCount}</strong> paket selesai.
+              </p>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-50 text-[10px] text-slate-400 font-semibold flex justify-between items-center">
+            <span>Daftar Progres Terhitung</span>
+            <span className="text-emerald-600 font-bold">Dinamis</span>
+          </div>
+        </div>
+
+        {/* Card 3: Administrasi Umum & Surat */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm shadow-indigo-100/30 flex flex-col justify-between" id="kpi-kearsipan-card">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600">
+                <FileText className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 px-2 py-0.5 rounded uppercase tracking-wider">
+                KEARSIPAN
+              </span>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">Administrasi Surat</div>
+              <div className="text-2xl font-black text-slate-850 tracking-tight">
+                {mailCount} Dokumen
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                <strong>{mails.filter(m => m.type === 'masuk').length}</strong> Surat Masuk &bull; <strong>{mails.filter(m => m.type === 'keluar').length}</strong> Surat Keluar.
+              </p>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-50 text-[10px] text-slate-400 font-semibold flex justify-between items-center">
+            <span>TMT Surat Tercatat</span>
+            <span className="text-blue-600 font-bold">Dinamis</span>
+          </div>
+        </div>
+
       </div>
 
 
