@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Informasi Terpadu UPTD PSDA Bah Bolon",
+  "description": "Sistem Informasi Terpadu UPTD PSDA Bah Bolon untuk penatausahaan, pembangunan, operasional, dan profil instansi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

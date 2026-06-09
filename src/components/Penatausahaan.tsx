@@ -1,0 +1,4370 @@
+import React, { useState, useEffect } from 'react';
+import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply } from '../types';
+import { 
+  FileText, 
+  Users, 
+  Search, 
+  Plus, 
+  FolderPlus, 
+  MailOpen, 
+  Send, 
+  ChevronRight, 
+  UserPlus, 
+  Phone, 
+  CreditCard,
+  Trash2,
+  Filter,
+  CheckCircle,
+  HelpCircle,
+  Box,
+  Wallet,
+  Calendar,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownLeft,
+  DollarSign,
+  Tag,
+  Upload,
+  FileUp,
+  FileText as FileIcon,
+  X,
+  Eye,
+  Download,
+  FileSpreadsheet,
+  Edit3,
+  Award,
+  GraduationCap,
+  Heart,
+  Baby,
+  Archive,
+  Inbox,
+  Share2,
+  TrendingUp,
+  Sliders,
+  Sparkles
+} from 'lucide-react';
+import { motion } from 'motion/react';
+
+interface PenatausahaanProps {
+  currentUser: User;
+  mails: Mail[];
+  staff: Staff[];
+  assets: Asset[];
+  finances: FinanceTransaction[];
+  activeSubTab: 'landing' | 'adm_umum' | 'personalia' | 'aset_inventaris' | 'keuangan';
+  onSubTabChange: (tab: 'landing' | 'adm_umum' | 'personalia' | 'aset_inventaris' | 'keuangan') => void;
+  onAddMail: (newMail: Mail) => void;
+  onUpdateMail: (updatedMail: Mail) => void;
+  onAddStaff: (newStaff: Staff) => void;
+  onUpdateStaff: (updatedStaff: Staff) => void;
+  onDeleteMail: (id: string) => void;
+  onDeleteStaff: (id: string) => void;
+  onAddAsset: (newAsset: Asset) => void;
+  onUpdateAsset: (updatedAsset: Asset) => void;
+  onDeleteAsset: (id: string) => void;
+  onAddFinance: (newFinance: FinanceTransaction) => void;
+  onUpdateFinance: (updatedFinance: FinanceTransaction) => void;
+  onDeleteFinance: (id: string) => void;
+}
+
+const RANK_MAPPINGS = [
+  { pangkat: 'Juru Muda', golongan: 'I/a' },
+  { pangkat: 'Juru Muda Tingkat I', golongan: 'I/b' },
+  { pangkat: 'Juru', golongan: 'I/c' },
+  { pangkat: 'Juru Tingkat I', golongan: 'I/d' },
+  { pangkat: 'Pengatur Muda', golongan: 'II/a' },
+  { pangkat: 'Pengatur Muda Tingkat I', golongan: 'II/b' },
+  { pangkat: 'Pengatur', golongan: 'II/c' },
+  { pangkat: 'Pengatur Tingkat I', golongan: 'II/d' },
+  { pangkat: 'Penata Muda', golongan: 'III/a' },
+  { pangkat: 'Penata Muda Tingkat I', golongan: 'III/b' },
+  { pangkat: 'Penata', golongan: 'III/c' },
+  { pangkat: 'Penata Tingkat I', golongan: 'III/d' },
+  { pangkat: 'Pembina', golongan: 'IV/a' },
+  { pangkat: 'Pembina Tingkat I', golongan: 'IV/b' },
+  { pangkat: 'Pembina Utama Muda', golongan: 'IV/c' },
+  { pangkat: 'Pembina Utama Madya', golongan: 'IV/d' },
+  { pangkat: 'Pembina Utama', golongan: 'IV/e' }
+];
+
+export default function Penatausahaan({ 
+  currentUser, 
+  mails, 
+  staff, 
+  assets = [],
+  finances = [],
+  activeSubTab = 'landing',
+  onSubTabChange,
+  onAddMail,
+  onUpdateMail,
+  onAddStaff,
+  onUpdateStaff,
+  onDeleteMail,
+  onDeleteStaff,
+  onAddAsset,
+  onUpdateAsset,
+  onDeleteAsset,
+  onAddFinance,
+  onUpdateFinance,
+  onDeleteFinance
+}: PenatausahaanProps) {
+  // Search query state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const updateDraftField = (field: keyof Staff, value: any) => {
+    if (editStaffDraft) {
+      setEditStaffDraft({
+        ...editStaffDraft,
+        [field]: value
+      });
+    }
+  };
+
+  const updateDraftNested = (parentField: 'riwayatOrangTua' | 'riwayatPasangan', childField: string, value: any) => {
+    if (editStaffDraft) {
+      const parentVal = editStaffDraft[parentField] || {};
+      setEditStaffDraft({
+        ...editStaffDraft,
+        [parentField]: {
+          ...parentVal,
+          [childField]: value
+        } as any
+      });
+    }
+  };
+  const [mailSubTab, setMailSubTab] = useState<'masuk' | 'keluar'>('masuk');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('');
+
+  useEffect(() => {
+    if (mailSubTab === 'masuk') {
+      setRecipient('UPTD PSDA Bah Bolon');
+      setSender('');
+      setMailStatus('Diterima');
+    } else {
+      setSender('UPTD PSDA Bah Bolon');
+      setRecipient('');
+      setMailStatus('Terkirim');
+    }
+  }, [mailSubTab]);
+  
+  // Mail Form States
+  const [isMailFormOpen, setIsMailFormOpen] = useState(false);
+  const [mailType, setMailType] = useState<'masuk' | 'keluar'>('masuk');
+  const [refNumber, setRefNumber] = useState('');
+  const [sender, setSender] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [subject, setSubject] = useState('');
+  const [mailDate, setMailDate] = useState('');
+  const [mailStatus, setMailStatus] = useState<'Diterima' | 'Diproses' | 'Diarsipkan' | 'Terkirim'>('Diterima');
+
+  // Khusus Surat Masuk Baru & PDF Upload
+  const [originalLetterNumber, setOriginalLetterNumber] = useState('');
+  const [letterDate, setLetterDate ] = useState('');
+  const [pdfFile, setPdfFile] = useState<string>('');
+  const [pdfName, setPdfName] = useState<string>('');
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Preview Modal State for PDFs
+  const [viewingPdfMail, setViewingPdfMail] = useState<Mail | null>(null);
+
+  const processFile = (file: File) => {
+    if (file.type !== 'application/pdf') {
+      alert('Hanya diperbolehkan mengupload dokumen dengan format PDF (*.pdf).');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Ukuran file PDF terlalu besar. Maksimum batas ukuran adalah 8MB.');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setPdfFile(event.target.result as string);
+        setPdfName(file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  // Staff Form States
+  const [isStaffFormOpen, setIsStaffFormOpen] = useState(false);
+  const [staffName, setStaffName] = useState('');
+  const [staffNip, setStaffNip] = useState('');
+  const [staffPosition, setStaffPosition] = useState('');
+  const [staffPangkat, setStaffPangkat] = useState('');
+  const [staffGolongan, setStaffGolongan] = useState('');
+
+  // Sub-tab form states for adding items
+  const [newPangkatName, setNewPangkatName] = useState('');
+  const [newPangkatGolongan, setNewPangkatGolongan] = useState('');
+  const [newPangkatTmt, setNewPangkatTmt] = useState('');
+  const [newPangkatNoSk, setNewPangkatNoSk] = useState('');
+  const [newPangkatTglSk, setNewPangkatTglSk] = useState('');
+
+  const [newGajiTmt, setNewGajiTmt] = useState('');
+  const [newGajiNominal, setNewGajiNominal] = useState(0);
+  const [newGajiNoSk, setNewGajiNoSk] = useState('');
+  const [newGajiTglSk, setNewGajiTglSk] = useState('');
+  const [newGajiPejabat, setNewGajiPejabat] = useState('');
+
+  const [newEduJenjang, setNewEduJenjang] = useState('S1');
+  const [newEduInstitusi, setNewEduInstitusi] = useState('');
+  const [newEduJurusan, setNewEduJurusan] = useState('');
+  const [newEduTahun, setNewEduTahun] = useState('');
+  const [newEduNoIjazah, setNewEduNoIjazah] = useState('');
+
+  const [newAnakNama, setNewAnakNama] = useState('');
+  const [newAnakTglLahir, setNewAnakTglLahir] = useState('');
+  const [newAnakJkel, setNewAnakJkel] = useState('Laki-laki');
+  const [newAnakStatus, setNewAnakStatus] = useState('Anak Kandung');
+
+  // Sub Sub Tab states inside Aset & Inventaris
+  const [assetSubTab, setAssetSubTab] = useState<'inventaris_kib' | 'distribusi' | 'persediaan'>('inventaris_kib');
+  const [activeKibFilter, setActiveKibFilter] = useState<'ALL' | 'KIB A' | 'KIB B' | 'KIB C' | 'KIB D' | 'KIB E' | 'KIB F'>('ALL');
+
+  // Extended Asset Form States
+  const [assetKibCategory, setAssetKibCategory] = useState<'KIB A' | 'KIB B' | 'KIB C' | 'KIB D' | 'KIB E' | 'KIB F'>('KIB B');
+  const [assetPrice, setAssetPrice] = useState<number>(0);
+  const [assetBrand, setAssetBrand] = useState<string>('');
+  const [assetNotes, setAssetNotes] = useState<string>('');
+
+  // Asset Distribution module states
+  const [distributions, setDistributions] = useState<AssetDistribution[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_asset_distributions');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'dist-1',
+        assetId: 'a-1',
+        assetName: 'Laptop Admin HP ProBook',
+        staffId: 'staff-1',
+        staffName: 'Hadi Wijaya, S.T.',
+        quantity: 1,
+        location: 'Ruang Tata Usaha (TU)',
+        allocationDate: '2026-02-15',
+        conditionAtAllocation: 'Baik',
+        notes: 'Digunakan untuk input surat masuk dan keluar secara digital'
+      },
+      {
+        id: 'dist-2',
+        assetId: 'a-2',
+        assetName: 'Alat Survey Current Meter Flowatch FL-03',
+        staffId: 'staff-2',
+        staffName: 'Siti Rahma, S.Kom.',
+        quantity: 1,
+        location: 'Gudang Lapangan UPTD',
+        allocationDate: '2026-03-20',
+        conditionAtAllocation: 'Baik',
+        notes: 'Operational survey hidrologi dan debit aliran sub-bendung'
+      }
+    ];
+  });
+
+  const [isDistFormOpen, setIsDistFormOpen] = useState(false);
+  const [distAssetId, setDistAssetId] = useState('');
+  const [distStaffId, setDistStaffId] = useState('');
+  const [distQuantity, setDistQuantity] = useState(1);
+  const [distLocation, setDistLocation] = useState('');
+  const [distAllocationDate, setDistAllocationDate] = useState('');
+  const [distCondition, setDistCondition] = useState<'Baik' | 'Rusak Ringan' | 'Rusak Berat'>('Baik');
+  const [distNotes, setDistNotes] = useState('');
+  const [editingDist, setEditingDist] = useState<AssetDistribution | null>(null);
+
+  // Consumable Supplies (Persediaan) states
+  const [supplies, setSupplies] = useState<ConsumableSupply[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_consumables');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'sup-1',
+        itemName: 'Kertas HVS Sinar Dunia A4 80gr',
+        category: 'ATK',
+        stock: 45,
+        unit: 'Rim',
+        minStock: 10,
+        location: 'Lemari ATK Seksi TU',
+        lastUpdated: '2026-06-01',
+        history: [
+          { id: 'h-11', date: '2026-06-01', type: 'Masuk', quantity: 50, notes: 'Pengadaan ATK Triwulan II', recordedBy: 'Admin' },
+          { id: 'h-12', date: '2026-06-05', type: 'Keluar', quantity: 5, notes: 'Pembuatan Dokumen Laporan Kinerja', recordedBy: 'Admin' }
+        ]
+      },
+      {
+        id: 'sup-2',
+        itemName: 'Oli Mesin Diesel SAE 40 Pompa Air 1L',
+        category: 'Bahan Bakar/Oli',
+        stock: 12,
+        unit: 'Botol',
+        minStock: 4,
+        location: 'Gudang Mesin / Pintu Air Utama',
+        lastUpdated: '2026-05-25',
+        history: [
+          { id: 'h-21', date: '2026-05-25', type: 'Masuk', quantity: 15, notes: 'Stok berkala pintu air', recordedBy: 'Admin' },
+          { id: 'h-22', date: '2026-06-02', type: 'Keluar', quantity: 3, notes: 'Ganti oli mesin genset pintu regulator', recordedBy: 'Admin' }
+        ]
+      },
+      {
+        id: 'sup-3',
+        itemName: 'Sapu Lidi Tebal & Alat Kebersihan Kantor',
+        category: 'Alat Bersih',
+        stock: 6,
+        unit: 'Pcs',
+        minStock: 2,
+        location: 'Pos Jaga Bendung',
+        lastUpdated: '2026-05-10',
+        history: []
+      },
+      {
+        id: 'sup-4',
+        itemName: 'Bearing Karet Seal Gate Valve 3 Inch',
+        category: 'Suku Cadang',
+        stock: 8,
+        unit: 'Pcs',
+        minStock: 3,
+        location: 'Workshop Peralatan Hidrolik',
+        lastUpdated: '2026-06-04',
+        history: [
+          { id: 'h-41', date: '2026-06-04', type: 'Masuk', quantity: 8, notes: 'Penerimaan suku cadang pemeliharaan', recordedBy: 'Admin' }
+        ]
+      }
+    ];
+  });
+
+  const [isSupplyFormOpen, setIsSupplyFormOpen] = useState(false);
+  const [supName, setSupName] = useState('');
+  const [supCategory, setSupCategory] = useState<'ATK' | 'Bahan Bakar/Oli' | 'Alat Bersih' | 'Suku Cadang' | 'Lainnya'>('ATK');
+  const [supStock, setSupStock] = useState(0);
+  const [supUnit, setSupUnit] = useState('Pcs');
+  const [supMinStock, setSupMinStock] = useState(1);
+  const [supLocation, setSupLocation] = useState('');
+  const [editingSupply, setEditingSupply] = useState<ConsumableSupply | null>(null);
+  const [activeSupplyFilter, setActiveSupplyFilter] = useState<'ALL' | 'ATK' | 'Bahan Bakar/Oli' | 'Alat Bersih' | 'Suku Cadang' | 'Lainnya'>('ALL');
+
+  // Supply adjustment states
+  const [adjustingSupply, setAdjustingSupply] = useState<ConsumableSupply | null>(null);
+  const [adjustmentType, setAdjustmentType] = useState<'Masuk' | 'Keluar'>('Masuk');
+  const [adjustmentQty, setAdjustmentQty] = useState<number>(1);
+  const [adjustmentNotes, setAdjustmentNotes] = useState<string>('');
+
+  // Sync to local storage
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify(distributions));
+  }, [distributions]);
+
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_consumables', JSON.stringify(supplies));
+  }, [supplies]);
+
+  // Asset Form States
+  const [isAssetFormOpen, setIsAssetFormOpen] = useState(false);
+  const [assetName, setAssetName] = useState('');
+  const [assetCode, setAssetCode] = useState('');
+  const [assetCondition, setAssetCondition] = useState<'Baik' | 'Rusak Ringan' | 'Rusak Berat'>('Baik');
+  const [assetLocation, setAssetLocation] = useState('');
+  const [assetQuantity, setAssetQuantity] = useState(1);
+  const [assetDate, setAssetDate] = useState('');
+
+  // Finance Form States
+  const [isFinanceFormOpen, setIsFinanceFormOpen] = useState(false);
+  const [financeDate, setFinanceDate] = useState('');
+  const [financeDescription, setFinanceDescription] = useState('');
+  const [financeAmount, setFinanceAmount] = useState(0);
+  const [financeType, setFinanceType] = useState<'pemasukan' | 'pengeluaran'>('pemasukan');
+  const [financeCategory, setFinanceCategory] = useState('Anggaran Rutin');
+
+  // Editing individual item states for CRUD updates
+  const [editingMail, setEditingMail] = useState<Mail | null>(null);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [editStaffDraft, setEditStaffDraft] = useState<Staff | null>(null);
+  const [editModalTab, setEditModalTab] = useState<'biodata' | 'pangkat' | 'gaji' | 'pendidikan' | 'ortu' | 'pasangan' | 'anak'>('biodata');
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [editingFinance, setEditingFinance] = useState<FinanceTransaction | null>(null);
+
+  const handleStartEditMail = (mail: Mail) => {
+    setEditingMail(mail);
+    setRefNumber(mail.referenceNumber);
+    setSender(mail.sender);
+    setRecipient(mail.recipient);
+    setSubject(mail.subject);
+    setMailDate(mail.date);
+    setMailStatus(mail.status);
+    setOriginalLetterNumber(mail.originalLetterNumber || '');
+    setLetterDate(mail.letterDate || '');
+    setPdfFile(mail.pdfFile || '');
+    setPdfName(mail.pdfName || '');
+    setIsMailFormOpen(true);
+  };
+
+  const handleStartEditStaff = (person: Staff) => {
+    setEditingStaff(person);
+    setEditStaffDraft({
+      ...person,
+      tempatLahir: person.tempatLahir || '',
+      tanggalLahir: person.tanggalLahir || '',
+      jenisKelamin: person.jenisKelamin || 'Laki-laki',
+      agama: person.agama || 'Islam',
+      telepon: person.telepon || '',
+      email: person.email || '',
+      alamat: person.alamat || '',
+      riwayatKepangkatan: person.riwayatKepangkatan || [],
+      riwayatGaji: person.riwayatGaji || [],
+      riwayatPendidikan: person.riwayatPendidikan || [],
+      riwayatOrangTua: person.riwayatOrangTua || { namaAyah: '', pekerjaanAyah: '', namaIbu: '', pekerjaanIbu: '' },
+      riwayatPasangan: person.riwayatPasangan || { namaPasangan: '', pekerjaan: '', tanggalLahir: '', tanggalNikah: '', statusPasangan: 'Istri' },
+      riwayatAnak: person.riwayatAnak || []
+    });
+    setEditModalTab('biodata');
+    setStaffName(person.name);
+    setStaffNip(person.nip);
+    setStaffPosition(person.position);
+    setStaffPangkat(person.pangkat);
+    setStaffGolongan(person.golongan);
+    setIsStaffFormOpen(true);
+  };
+
+  const handleStartEditAsset = (asset: Asset) => {
+    setEditingAsset(asset);
+    setAssetName(asset.name);
+    setAssetCode(asset.code);
+    setAssetCondition(asset.condition);
+    setAssetLocation(asset.location);
+    setAssetQuantity(asset.quantity);
+    setAssetDate(asset.purchaseDate);
+    setAssetKibCategory(asset.kibCategory || 'KIB B');
+    setAssetPrice(asset.price || 0);
+    setAssetBrand(asset.brand || '');
+    setAssetNotes(asset.notes || '');
+    setIsAssetFormOpen(true);
+  };
+
+  const handleStartEditFinance = (trans: FinanceTransaction) => {
+    setEditingFinance(trans);
+    setFinanceDate(trans.date);
+    setFinanceDescription(trans.description);
+    setFinanceAmount(trans.amount);
+    setFinanceType(trans.type);
+    setFinanceCategory(trans.category);
+    setIsFinanceFormOpen(true);
+  };
+
+  const canWrite = currentUser.role === 'admin' || currentUser.section === 'penatausahaan';
+
+  const handleMailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refNumber || !sender || !recipient || !subject || !mailDate) {
+      alert('Semua baris input surat wajib diisi.');
+      return;
+    }
+
+    if (mailSubTab === 'masuk') {
+      if (!originalLetterNumber || !letterDate) {
+        alert('Nomor surat asli dan tanggal surat pengirim wajib diisi untuk kategori Surat Masuk.');
+        return;
+      }
+    }
+
+    if (editingMail) {
+      const updated: Mail = {
+        ...editingMail,
+        type: mailSubTab,
+        referenceNumber: refNumber,
+        sender,
+        recipient,
+        subject,
+        date: mailDate,
+        status: mailStatus,
+        originalLetterNumber: mailSubTab === 'masuk' ? originalLetterNumber : undefined,
+        letterDate: mailSubTab === 'masuk' ? letterDate : undefined,
+        pdfFile: pdfFile || undefined,
+        pdfName: pdfName || undefined
+      };
+      onUpdateMail(updated);
+      setEditingMail(null);
+    } else {
+      const newMail: Mail = {
+        id: 'm-' + Math.random().toString(36).substring(2, 9),
+        type: mailSubTab,
+        referenceNumber: refNumber,
+        sender,
+        recipient,
+        subject,
+        date: mailDate,
+        status: mailStatus,
+        originalLetterNumber: mailSubTab === 'masuk' ? originalLetterNumber : undefined,
+        letterDate: mailSubTab === 'masuk' ? letterDate : undefined,
+        pdfFile: pdfFile || undefined,
+        pdfName: pdfName || undefined
+      };
+      onAddMail(newMail);
+    }
+    
+    setIsMailFormOpen(false);
+    
+    // Reset form
+    setRefNumber('');
+    setSender('');
+    setRecipient('');
+    setSubject('');
+    setMailDate('');
+    setOriginalLetterNumber('');
+    setLetterDate('');
+    setPdfFile('');
+    setPdfName('');
+  };
+
+  const handleStaffSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffName || !staffNip || !staffPosition || !staffPangkat || !staffGolongan) {
+      alert('Semua baris data pegawai wajib diisi.');
+      return;
+    }
+
+    if (editingStaff) {
+      const updated: Staff = {
+        ...editingStaff,
+        ...(editStaffDraft || {}),
+        name: staffName,
+        nip: staffNip,
+        pangkat: staffPangkat,
+        golongan: staffGolongan,
+        position: staffPosition
+      };
+      onUpdateStaff(updated);
+      setEditingStaff(null);
+      setEditStaffDraft(null);
+    } else {
+      const newStaff: Staff = {
+        id: 's-' + Math.random().toString(36).substring(2, 9),
+        name: staffName,
+        nip: staffNip,
+        pangkat: staffPangkat,
+        golongan: staffGolongan,
+        position: staffPosition,
+        tempatLahir: '',
+        tanggalLahir: '',
+        jenisKelamin: 'Laki-laki',
+        agama: 'Islam',
+        telepon: '',
+        email: '',
+        alamat: '',
+        riwayatKepangkatan: [],
+        riwayatGaji: [],
+        riwayatPendidikan: [],
+        riwayatOrangTua: { namaAyah: '', pekerjaanAyah: '', namaIbu: '', pekerjaanIbu: '' },
+        riwayatPasangan: { namaPasangan: '', pekerjaan: '', tanggalLahir: '', tanggalNikah: '', statusPasangan: 'Istri' },
+        riwayatAnak: []
+      };
+      onAddStaff(newStaff);
+    }
+    
+    setIsStaffFormOpen(false);
+
+    // Reset form
+    setStaffName('');
+    setStaffNip('');
+    setStaffPosition('');
+    setStaffPangkat('');
+    setStaffGolongan('');
+  };
+
+  const handleAssetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assetName || !assetCode || !assetLocation || !assetDate || assetQuantity <= 0) {
+      alert('Semua baris data aset wajib diisi.');
+      return;
+    }
+
+    if (editingAsset) {
+      const updated: Asset = {
+        ...editingAsset,
+        name: assetName,
+        code: assetCode,
+        condition: assetCondition,
+        location: assetLocation,
+        quantity: Number(assetQuantity),
+        purchaseDate: assetDate,
+        kibCategory: assetKibCategory,
+        price: Number(assetPrice) || 0,
+        brand: assetBrand,
+        notes: assetNotes
+      };
+      onUpdateAsset(updated);
+      setEditingAsset(null);
+    } else {
+      const newAsset: Asset = {
+        id: 'a-' + Math.random().toString(36).substring(2, 9),
+        name: assetName,
+        code: assetCode,
+        condition: assetCondition,
+        location: assetLocation,
+        quantity: Number(assetQuantity),
+        purchaseDate: assetDate,
+        kibCategory: assetKibCategory,
+        price: Number(assetPrice) || 0,
+        brand: assetBrand,
+        notes: assetNotes
+      };
+      onAddAsset(newAsset);
+    }
+    
+    setIsAssetFormOpen(false);
+
+    // Reset form
+    setAssetName('');
+    setAssetCode('');
+    setAssetCondition('Baik');
+    setAssetLocation('');
+    setAssetQuantity(1);
+    setAssetDate('');
+    setAssetKibCategory('KIB B');
+    setAssetPrice(0);
+    setAssetBrand('');
+    setAssetNotes('');
+  };
+
+  const handleFinanceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!financeDate || !financeDescription || financeAmount <= 0) {
+      alert('Semua baris data transaksi wajib diisi.');
+      return;
+    }
+
+    if (editingFinance) {
+      const updated: FinanceTransaction = {
+        ...editingFinance,
+        date: financeDate,
+        description: financeDescription,
+        amount: Number(financeAmount),
+        type: financeType,
+        category: financeCategory
+      };
+      onUpdateFinance(updated);
+      setEditingFinance(null);
+    } else {
+      const newFinance: FinanceTransaction = {
+        id: 'f-' + Math.random().toString(36).substring(2, 9),
+        date: financeDate,
+        description: financeDescription,
+        amount: Number(financeAmount),
+        type: financeType,
+        category: financeCategory,
+        registeredBy: currentUser.name
+      };
+      onAddFinance(newFinance);
+    }
+    
+    setIsFinanceFormOpen(false);
+
+    // Reset form
+    setFinanceDate('');
+    setFinanceDescription('');
+    setFinanceAmount(0);
+    setFinanceType('pemasukan');
+    setFinanceCategory('Anggaran Rutin');
+  };
+
+  // Filters
+  const filteredMails = mails.filter(m => {
+    const matchesSearch = m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          m.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          m.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          m.recipient.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = m.type === mailSubTab;
+    const matchesMonth = selectedMonth === 'all' || (m.date && m.date.split('-')[1] === selectedMonth);
+    const matchesYear = !selectedYear || (m.date && m.date.split('-')[0] === selectedYear);
+    return matchesSearch && matchesType && matchesMonth && matchesYear;
+  });
+
+  const handleExportToExcel = () => {
+    const isMasuk = mailSubTab === 'masuk';
+    const headers = isMasuk 
+      ? ['No', 'Nomor Agenda', 'Nomor Surat Asli', 'Tanggal Diterima', 'Tanggal Fisik Surat', 'Pengirim (Asal)', 'Penerima UPTD', 'Perihal', 'Status']
+      : ['No', 'Nomor Surat Keluar', 'Tanggal Pengiriman', 'Pengirim UPTD', 'Penerima (Tujuan)', 'Perihal', 'Status'];
+    
+    const rows = filteredMails.map((mail, index) => {
+      if (isMasuk) {
+        return [
+          index + 1,
+          mail.referenceNumber,
+          mail.originalLetterNumber || '-',
+          mail.date,
+          mail.letterDate || '-',
+          mail.sender,
+          mail.recipient,
+          mail.subject,
+          mail.status
+        ];
+      } else {
+        return [
+          index + 1,
+          mail.referenceNumber,
+          mail.date,
+          mail.sender,
+          mail.recipient,
+          mail.subject,
+          mail.status
+        ];
+      }
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => {
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(','))
+    ].join('\n');
+
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    const monthLabel = selectedMonth === 'all' ? 'Semua_Bulan' : `Bulan_${selectedMonth}`;
+    const yearLabel = selectedYear ? `Tahun_${selectedYear}` : 'Semua_Tahun';
+    const typeLabel = isMasuk ? 'Surat_Masuk' : 'Surat_Keluar';
+    link.href = url;
+    link.setAttribute('download', `Rekap_Arsip_${typeLabel}_${monthLabel}_${yearLabel}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredStaff = staff.filter(s => {
+    return s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           s.nip.includes(searchQuery) ||
+           s.position.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const filteredAssets = assets.filter(a => {
+    return a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           a.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           a.location.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const filteredFinances = finances.filter(f => {
+    return f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           f.category.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  // Rupiah Formatter
+  const formatRupiah = (num: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(num);
+  };
+
+  const getSearchPlaceholder = () => {
+    switch (activeSubTab) {
+      case 'adm_umum': return 'Cari nomor / subjek surat...';
+      case 'personalia': return 'Cari nama / NIP pegawai...';
+      case 'aset_inventaris': return 'Cari nama, kode, atau lokasi aset...';
+      case 'keuangan': return 'Cari deskripsi atau kategori keuangan...';
+      default: return 'Cari...';
+    }
+  };
+
+  return (
+    <div className="space-y-6" id="penatausahaan-tab-content">
+      {/* LANDING PAGE DEFAULT EMPTY CUSTOMIZABLE AREA */}
+      {activeSubTab === 'landing' && (
+        <div className="space-y-6 animate-fade-in" id="penatausahaan-landing-panel">
+          {/* Welcome Banner */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-3xl text-white shadow-md relative overflow-hidden">
+            <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+            <div className="relative z-10 max-w-2xl">
+              <span className="bg-blue-500/30 text-blue-100 text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded">
+                Seksi Tata Usaha (TU)
+              </span>
+              <h1 className="text-xl md:text-2xl font-black mt-3 uppercase tracking-tight">
+                Penatausahaan Kantor
+              </h1>
+              <p className="text-xs text-blue-100 font-medium mt-2 leading-relaxed">
+                Halaman utama Penatausahaan saat ini telah dikosongkan dan siap dikustomisasi sesuai dengan kebutuhan operasional spesifik Anda. Seluruh data sub-halaman telah dipindahkan sepenuhnya ke dalam daftar sub-halaman di menu samping (sidebar).
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <div className="bg-white/10 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>System Customizable</span>
+                </div>
+                <div className="bg-white/10 px-3 py-1.5 rounded-lg text-[11px] font-semibold">
+                  Seksi: Penatausahaan / TU
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature redirect map cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {[
+              {
+                id: 'adm_umum',
+                title: 'Administrasi Umum',
+                desc: 'Kelola arsip surat masuk dan keluar resmi dinas.',
+                count: `${mails.length} Dokumen`,
+              },
+              {
+                id: 'personalia',
+                title: 'Personalia',
+                desc: 'Database & NIP pegawai terdaftar pada kearsipan.',
+                count: `${staff.length} Pegawai`,
+              },
+              {
+                id: 'aset_inventaris',
+                title: 'Aset & Inventaris',
+                desc: 'Registrasi kelayakan inventaris alat & kendaraan.',
+                count: `${assets.length} Item`,
+              },
+              {
+                id: 'keuangan',
+                title: 'Keuangan',
+                desc: 'Penyusunan anggaran belanja & kas operasional.',
+                count: 'Buku Kas Aktif',
+              }
+            ].map((card) => (
+              <div 
+                key={card.id}
+                onClick={() => onSubTabChange(card.id as any)}
+                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-400/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">MODUL TU</span>
+                    <span className="text-[10px] font-extrabold bg-slate-50 text-slate-500 py-0.5 px-2 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      Buka →
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-xs text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+                    {card.title}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
+                    {card.desc}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-50 flex justify-between items-center text-[10px] font-bold text-slate-400">
+                  <span>Status data</span>
+                  <span className="text-slate-700">{card.count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Customization Blueprint Block */}
+          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
+            <span className="mx-auto h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3">
+              <Plus className="w-5 h-5" />
+            </span>
+            <h4 className="font-bold text-xs text-slate-700">Custom Dynamic Workspace</h4>
+            <p className="text-[10px] text-slate-400 font-medium max-w-sm mx-auto mt-1 leading-normal">
+              Gunakan area kosong ini untuk menyematkan ringkasan analitik, grafis D3, kalender agenda internal, atau modul widget dinas sesuai instruksi penugasan Anda berikutnya.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Page Header with Search context */}
+      {activeSubTab !== 'landing' && (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-100 gap-4">
+          <div>
+            <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
+              {activeSubTab === 'adm_umum' && <><FileText className="w-4 h-4 text-blue-600" /><span>Administrasi Umum (Kearsipan Surat)</span></>}
+              {activeSubTab === 'personalia' && <><Users className="w-4 h-4 text-blue-600" /><span>Ketenagakerjaan & Kepegawaian (Personalia)</span></>}
+              {activeSubTab === 'aset_inventaris' && <><Box className="w-4 h-4 text-blue-600" /><span>Aset & Inventaris UPTD</span></>}
+              {activeSubTab === 'keuangan' && <><Wallet className="w-4 h-4 text-blue-600" /><span>Kas & Dokumen Keuangan</span></>}
+            </h2>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+              {activeSubTab === 'adm_umum' && 'Kelola pencatatan surat masuk dan surat keluar resmi dinas.'}
+              {activeSubTab === 'personalia' && 'Database rekap data kepegawaian, jabatan, dan strukural UPTD.'}
+              {activeSubTab === 'aset_inventaris' && 'Daftar inventaris sarana prasarana, kendaraan dinas, dan peralatan ukur.'}
+              {activeSubTab === 'keuangan' && 'Pencatatan aliran alokasi dana, ATK, belanja dinas, dan rincian kas aktif.'}
+            </p>
+          </div>
+
+          {/* Search, Filter & Export tools for the current sub page context */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+            {/* Search Input */}
+            <div className="relative w-full md:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder={getSearchPlaceholder()}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium transition-all"
+              />
+            </div>
+
+            {/* Conditionally render Year/Month Filter and Export to Excel on Administrative Umum (adm_umum) page */}
+            {activeSubTab === 'adm_umum' && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* Year Filter (Manual) */}
+                <div className="relative flex-1 sm:flex-initial flex items-center bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2.5 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                  <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                  <input
+                    type="text"
+                    maxLength={4}
+                    placeholder="Tahun..."
+                    value={selectedYear}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, ''); // only allow numbers
+                      setSelectedYear(val);
+                    }}
+                    className="bg-transparent text-xs font-bold text-slate-600 placeholder-slate-400 focus:outline-none w-16"
+                  />
+                  {selectedYear && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedYear('')}
+                      className="ml-1 text-slate-400 hover:text-slate-600 focus:outline-none shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Month Filter */}
+                <div className="relative flex-1 sm:flex-initial flex items-center bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2.5 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                  <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-600 focus:outline-none cursor-pointer pr-1"
+                  >
+                    <option value="all">Semua Bulan</option>
+                    <option value="01">Januari</option>
+                    <option value="02">Februari</option>
+                    <option value="03">Maret</option>
+                    <option value="04">April</option>
+                    <option value="05">Mei</option>
+                    <option value="06">Juni</option>
+                    <option value="07">Juli</option>
+                    <option value="08">Agustus</option>
+                    <option value="09">September</option>
+                    <option value="10">Oktober</option>
+                    <option value="11">November</option>
+                    <option value="12">Desember</option>
+                  </select>
+                </div>
+
+                {/* Export Excel Button */}
+                <button
+                  type="button"
+                  onClick={handleExportToExcel}
+                  className="flex-1 sm:flex-initial py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-emerald-600/10 active:scale-95 cursor-pointer shrink-0"
+                  title="Ekspor Data ke Excel (.csv)"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span className="whitespace-nowrap">Ekspor Excel</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}      {/* SUBTAB 1: SURAT MASUK KELUAR */}
+      {activeSubTab === 'adm_umum' && (
+        <div className="space-y-4 font-sans" id="surat-panel">
+          
+          {/* Header Action Control with sub-navigation */}
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 gap-4">
+            {/* Sub-halaman: Surat Masuk & Surat Keluar selector */}
+            <div className="flex bg-slate-200/60 p-1 rounded-xl max-w-md w-full">
+              <button
+                onClick={() => { setMailSubTab('masuk'); setIsMailFormOpen(false); }}
+                className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+                  mailSubTab === 'masuk'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                <MailOpen className="w-3.5 h-3.5" />
+                <span>Surat Masuk</span>
+                <span className={`text-[9px] py-0.5 px-2 rounded-full font-bold ${
+                  mailSubTab === 'masuk' ? 'bg-blue-700 text-white' : 'bg-slate-300 text-slate-700'
+                }`}>
+                  {mails.filter(m => m.type === 'masuk').length}
+                </span>
+              </button>
+              <button
+                onClick={() => { setMailSubTab('keluar'); setIsMailFormOpen(false); }}
+                className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+                  mailSubTab === 'keluar'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Surat Keluar</span>
+                <span className={`text-[9px] py-0.5 px-2 rounded-full font-bold ${
+                  mailSubTab === 'keluar' ? 'bg-blue-700 text-white' : 'bg-slate-300 text-slate-700'
+                }`}>
+                  {mails.filter(m => m.type === 'keluar').length}
+                </span>
+              </button>
+            </div>
+
+            {/* Input Action Trigger */}
+            {canWrite ? (
+              <button
+                onClick={() => setIsMailFormOpen(!isMailFormOpen)}
+                id="btn-add-mail"
+                className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Entri {mailSubTab === 'masuk' ? 'Surat Masuk' : 'Surat Keluar'} Baru</span>
+              </button>
+            ) : (
+              <div className="text-[10px] bg-slate-100 px-3 py-1.5 text-slate-500 rounded-lg font-semibold flex items-center justify-center text-center">
+                *Hanya TU / Admin yang dapat memasukkan data
+              </div>
+            )}
+          </div>
+
+          {/* Form Modal/Collapsible to insert mail */}
+          {isMailFormOpen && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-sans select-none overflow-y-auto"
+              onClick={() => {
+                setIsMailFormOpen(false);
+                setRefNumber('');
+                setSender('');
+                setRecipient('');
+                setSubject('');
+                setMailDate('');
+                setOriginalLetterNumber('');
+                setLetterDate('');
+                setPdfFile('');
+                setPdfName('');
+              }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+                id="mail-form-container"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1.5 tracking-tight uppercase">
+                    <FolderPlus className="w-4 h-4 text-blue-600" />
+                    {editingMail ? 'Ubah Arsip Data Surat' : `Formulir Penatausahaan ${mailSubTab === 'masuk' ? 'Surat Masuk' : 'Surat Keluar'} Baru`}
+                  </h3>
+                  <button 
+                    onClick={() => {
+                      setIsMailFormOpen(false);
+                      setEditingMail(null);
+                      setRefNumber('');
+                      setSender('');
+                      setRecipient('');
+                      setSubject('');
+                      setMailDate('');
+                      setOriginalLetterNumber('');
+                      setLetterDate('');
+                      setPdfFile('');
+                      setPdfName('');
+                    }} 
+                    className="text-xs text-slate-400 hover:text-slate-600 font-bold transition-colors"
+                  >
+                    Batal
+                  </button>
+                </div>
+
+                <form onSubmit={handleMailSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs select-none">
+                  {/* 1. KODE AGENDA / NO Rujukan */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {mailSubTab === 'masuk' ? 'Nomor Agenda Surat Masuk' : 'Nomor Surat Keluar Resmi'} <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder={mailSubTab === 'masuk' ? "Contoh: B/132/PSDA-SU/V/2026" : "Contoh: 005/321/PSDA-SU/2026"}
+                      value={refNumber}
+                      onChange={(e) => setRefNumber(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* 2. KHUSUS SURAT MASUK: NOMOR SURAT ASLI & TANGGAL SURAT */}
+                  {mailSubTab === 'masuk' && (
+                    <>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1 flex items-center">
+                          Nomor Surat Asli <span className="text-[10px] text-slate-400 font-medium ml-1">(dari Pengirim)</span> <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          placeholder="Contoh: 005/456/AS/2026"
+                          value={originalLetterNumber}
+                          onChange={(e) => setOriginalLetterNumber(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1 flex items-center">
+                          Tanggal Fisik Surat <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <input 
+                          type="date"
+                          value={letterDate}
+                          onChange={(e) => setLetterDate(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* 3. TANGGAL SURAT DITERIMA / DIKIRIM */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {mailSubTab === 'masuk' ? 'Tanggal Diterima Dinas' : 'Tanggal Pengiriman Surat'} <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="date"
+                      value={mailDate}
+                      onChange={(e) => setMailDate(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* 4. STATUS DISPOSISI / PENGIRIMAN */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {mailSubTab === 'masuk' ? 'Status Disposisi / Kelayakan' : 'Status Pengiriman'} <span className="text-red-500">*</span>
+                    </label>
+                    <select 
+                      value={mailStatus} 
+                      onChange={(e: any) => setMailStatus(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    >
+                      {mailSubTab === 'masuk' ? (
+                        <>
+                          <option value="Diterima">Diterima (Proses Agenda)</option>
+                          <option value="Diproses">Diproses & Disposisi</option>
+                          <option value="Diarsipkan">Diarsipkan</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Terkirim">Terkirim</option>
+                          <option value="Diarsipkan">Diarsipkan</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* 5. INSTANSI PENGIRIM */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Instansi Pengirim / Asal <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder={mailSubTab === 'masuk' ? "Nama instansi pengirim / kelompok tani" : "UPTD PSDA Bah Bolon"}
+                      value={sender}
+                      onChange={(e) => setSender(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* 6. PENERIMA / TUJUAN */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Penerima / Tujuan Dokumen <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder={mailSubTab === 'masuk' ? "UPTD PSDA Bah Bolon" : "Dinas SDA Provsu / Camat"}
+                      value={recipient}
+                      onChange={(e) => setRecipient(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* 7. PERIHAL */}
+                  <div className="md:col-span-3">
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Subjek / Perihal Ringkasan Surat <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Contoh: Undangan Koordinasi Pompanisasi / Permohonan Izin Aliran Air..."
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* 8. UPLOAD PDF DENGAN DRAG AND DROP */}
+                  <div className="md:col-span-3">
+                    <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Upload Berkas / Lampiran Surat (Format PDF)</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Opsional</span>
+                    </label>
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center cursor-pointer text-center ${
+                        isDragging 
+                          ? 'border-blue-500 bg-blue-50/40 shadow-inner' 
+                          : pdfFile 
+                            ? 'border-emerald-500 bg-emerald-50/10' 
+                            : 'border-slate-300 hover:border-slate-400 bg-slate-50/60 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input 
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="pdf-file-upload-input"
+                      />
+                      
+                      <label htmlFor="pdf-file-upload-input" className="w-full h-full cursor-pointer flex flex-col items-center justify-center">
+                        {pdfFile ? (
+                          <div className="space-y-3">
+                            <div className="inline-flex p-3 bg-emerald-100 text-emerald-600 rounded-2xl shadow-sm">
+                              <FileIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 text-sm max-w-md mx-auto truncate" title={pdfName}>{pdfName}</p>
+                              <p className="text-[10px] text-emerald-600 font-bold tracking-wider uppercase mt-0.5">Dokumen PDF Terlampir</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPdfFile('');
+                                setPdfName('');
+                              }}
+                              className="py-1.5 px-4 bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 rounded-xl text-[10px] font-bold inline-flex items-center space-x-1.5 transition-all cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Batalkan / Ganti File</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 py-2">
+                            <div className="inline-flex p-3.5 bg-blue-50 rounded-2xl text-blue-600 ring-4 ring-blue-50/50">
+                              <Upload className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-slate-700 text-xs">
+                                Seret & letakkan berkas PDF di sini, atau <span className="text-blue-600 hover:underline">cari berkas</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-medium mt-1">Menerima format dokumen .pdf (Maksimal ukuran file: 8 megabytes)</p>
+                            </div>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-3 flex justify-end gap-2 pt-2">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsMailFormOpen(false);
+                        setEditingMail(null);
+                        setRefNumber('');
+                        setSender('');
+                        setRecipient('');
+                        setSubject('');
+                        setMailDate('');
+                        setOriginalLetterNumber('');
+                        setLetterDate('');
+                        setPdfFile('');
+                        setPdfName('');
+                      }}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl transition-all cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button 
+                      type="submit" 
+                      id="submit-mail-form"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-sm shadow-emerald-600/10 cursor-pointer"
+                    >
+                      {editingMail ? 'Simpan Perubahan' : 'Simpan & Daftarkan Surat'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Letter Log Directory Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto rounded-2xl">
+              <table className="w-full text-left border-collapse" id="mails-table">
+                <thead>
+                  <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100">
+                    <th className="p-4 w-12">No.</th>
+                    <th className="p-4">{mailSubTab === 'masuk' ? 'No. Agenda & Surat Asli' : 'No. Surat Keluar'}</th>
+                    <th className="p-4">Tanggal</th>
+                    <th className="p-4">{mailSubTab === 'masuk' ? 'Pengirim (Asal)' : 'Pengirim'}</th>
+                    <th className="p-4">{mailSubTab === 'masuk' ? 'Penerima UPTD' : 'Penerima (Tujuan)'}</th>
+                    <th className="p-4">Perihal/Subjek</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-center w-32">Lampiran</th>
+                    {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                  {filteredMails.length > 0 ? (
+                    filteredMails.map((mail, idx) => (
+                      <tr key={mail.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 font-mono text-slate-400">{idx + 1}</td>
+                        <td className="p-4 font-semibold text-slate-850">
+                          <div className="font-mono font-bold text-blue-600">{mail.referenceNumber}</div>
+                          {mail.type === 'masuk' && mail.originalLetterNumber && (
+                            <div className="text-[10px] text-slate-500 mt-1 font-medium bg-slate-100/70 inline-block px-1.5 py-0.5 rounded-md">
+                              No. Asli: <span className="font-mono font-semibold text-slate-700">{mail.originalLetterNumber}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4 font-semibold text-slate-800">
+                          <div className="font-medium text-slate-700">{mail.date}</div>
+                          {mail.type === 'masuk' && mail.letterDate && (
+                            <div className="text-[10px] text-slate-400 mt-1 font-normal">
+                              Tgl Surat: <span className="text-slate-500 font-semibold">{mail.letterDate}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4 font-medium">{mail.sender}</td>
+                        <td className="p-4 font-medium">{mail.recipient}</td>
+                        <td className="p-4 font-semibold text-slate-800 max-w-xs truncate" title={mail.subject}>
+                          {mail.subject}
+                        </td>
+                        <td className="p-4">
+                          <span className={`py-1 px-2.5 rounded-full text-[10px] font-bold inline-block whitespace-nowrap ${
+                            mail.status === 'Selesai' || mail.status === 'Terkirim' || mail.status === 'Diarsipkan'
+                              ? 'bg-emerald-50 border border-emerald-100 text-emerald-700'
+                              : 'bg-amber-50 border border-amber-100 text-amber-700'
+                          }`}>
+                            {mail.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          {mail.pdfFile ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => setViewingPdfMail(mail)}
+                                className="py-1 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 rounded-lg text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition-all"
+                                title="Pratinjau File Lampiran"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Lihat</span>
+                              </button>
+                              <a
+                                href={mail.pdfFile}
+                                download={mail.pdfName || `surat-${mail.referenceNumber}.pdf`}
+                                className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 border border-slate-200 rounded-lg transition-all"
+                                title="Unduh File Lampiran"
+                              >
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium italic">-</span>
+                          )}
+                        </td>
+                        {currentUser.role === 'admin' && (
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleStartEditMail(mail)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer"
+                                title="Ubah Arsip Surat"
+                                id={`edit-mail-${mail.id}`}
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteMail(mail.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer"
+                                title="Hapus Arsip Surat"
+                                id={`delete-mail-${mail.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={currentUser.role === 'admin' ? 9 : 8} className="p-8 text-center text-slate-400 font-medium">
+                        Tidak ada arsip dokumen {mailSubTab === 'masuk' ? 'surat masuk' : 'surat keluar'} ditemukan.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* PDF PREVIEW MODAL */}
+          {viewingPdfMail && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-sans select-none"
+              onClick={() => setViewingPdfMail(null)}
+            >
+              <div 
+                className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col h-[85vh] animate-in fade-in zoom-in duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-150 flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
+                      <FileIcon className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-extrabold text-xs text-slate-800 tracking-tight uppercase">Pratinjau Dokumen Lampiran</h3>
+                      <p className="text-[10px] text-slate-500 font-semibold max-w-sm truncate" title={viewingPdfMail.pdfName || 'surat_lampiran.pdf'}>
+                        {viewingPdfMail.pdfName || 'surat_lampiran.pdf'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <a 
+                      href={viewingPdfMail.pdfFile} 
+                      download={viewingPdfMail.pdfName || `surat-${viewingPdfMail.referenceNumber}.pdf`}
+                      className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Berkas</span>
+                    </a>
+                    <button 
+                      onClick={() => setViewingPdfMail(null)} 
+                      className="p-2 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-all cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content Embedded Document Viewer */}
+                <div className="p-4 flex-1 bg-slate-100 overflow-hidden flex justify-center items-center">
+                  {viewingPdfMail.pdfFile ? (
+                    <iframe 
+                      src={viewingPdfMail.pdfFile} 
+                      className="w-full h-full rounded-xl border border-slate-200 shadow-inner bg-white"
+                      title="PDF Document Viewer"
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400 font-medium">
+                      Gagal menampilkan pratinjau dokumen. Silakan unduh berkas secara manual.
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer details */}
+                <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 text-[10px] text-slate-500 font-bold flex justify-between items-center uppercase tracking-wider">
+                  <span>Agenda Rujukan: <strong className="text-slate-700 font-mono">{viewingPdfMail.referenceNumber}</strong></span>
+                  <span>Sirkulasi: <strong className="text-slate-700">{viewingPdfMail.type === 'masuk' ? 'Surat Masuk' : 'Surat Keluar'}</strong></span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SUBTAB 2: KETENAGAKERJAAN / PEGAWAI */}
+      {activeSubTab === 'personalia' && (
+        <div className="space-y-4" id="pegawai-panel">
+          
+          {/* Header Action Control */}
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div className="text-xs text-slate-500 font-medium">
+              Menampilkan <span className="font-bold text-slate-800">{filteredStaff.length}</span> Pegawai UPTD PSDA Bah Bolon Sumut
+            </div>
+            
+            {currentUser.role === 'admin' ? (
+              <button
+                onClick={() => setIsStaffFormOpen(!isStaffFormOpen)}
+                id="btn-add-staff"
+                className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Tambah Pegawai</span>
+              </button>
+            ) : (
+              <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                *Hanya Administrator pusat yang dapat menginput Pegawai baru
+              </div>
+            )}
+          </div>
+
+          {/* Form to insert details of a new Employee - POPUP MODAL */}
+          {isStaffFormOpen && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-sans select-none overflow-y-auto"
+              onClick={() => {
+                setIsStaffFormOpen(false);
+                setEditingStaff(null);
+                setEditStaffDraft(null);
+                setStaffName('');
+                setStaffNip('');
+                setStaffPosition('');
+                setStaffPangkat('');
+                setStaffGolongan('');
+              }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full ${editingStaff ? 'max-w-5xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}
+                id="staff-form-container"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1.5 tracking-tight uppercase">
+                    <UserPlus className="w-4 h-4 text-blue-600" />
+                    {editingStaff ? `Ubah Data Pegawai: ${editingStaff.name}` : 'Formulir Rekrutmen / Data Pegawai Baru'}
+                  </h3>
+                  <button 
+                    onClick={() => {
+                      setIsStaffFormOpen(false);
+                      setEditingStaff(null);
+                      setEditStaffDraft(null);
+                      setStaffName('');
+                      setStaffNip('');
+                      setStaffPosition('');
+                      setStaffPangkat('');
+                      setStaffGolongan('');
+                    }} 
+                    className="text-xs text-slate-400 hover:text-slate-600 font-bold transition-colors"
+                  >
+                    Batal
+                  </button>
+                </div>
+
+                {editingStaff ? (
+                  /* EDIT MODE: MULTI-TAB WORKSPACE LAYOUT */
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-xs">
+                    
+                    {/* Left tabs selector */}
+                    <div className="md:col-span-1 border-r border-slate-100 pr-2 flex flex-col space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('biodata')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'biodata' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Users className="w-4 h-4 flex-shrink-0 text-blue-600" />
+                        <span className="truncate">Data Lengkap</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('pangkat')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'pangkat' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Award className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                        <span className="truncate">Riwayat Pangkat</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('gaji')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'gaji' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <DollarSign className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                        <span className="truncate">Riwayat Gaji (KGB)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('pendidikan')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'pendidikan' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <GraduationCap className="w-4 h-4 flex-shrink-0 text-sky-500" />
+                        <span className="truncate">Riwayat Pendidikan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('ortu')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'ortu' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Heart className="w-4 h-4 flex-shrink-0 text-purple-600" />
+                        <span className="truncate">Riwayat Orang Tua</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('pasangan')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'pasangan' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Heart className="w-4 h-4 flex-shrink-0 text-pink-500 fill-pink-500/10" />
+                        <span className="truncate">Riwayat Pasangan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditModalTab('anak')}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all flex items-center space-x-2 cursor-pointer ${
+                          editModalTab === 'anak' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Baby className="w-4 h-4 flex-shrink-0 text-rose-500" />
+                        <span className="truncate">Riwayat Anak</span>
+                      </button>
+                    </div>
+
+                    {/* Right core panel contents */}
+                    <div className="md:col-span-3 space-y-4">
+                      
+                      {/* Subtab 1: BIODATA & DATA LENGKAP */}
+                      {editModalTab === 'biodata' && (
+                        <div className="space-y-4">
+                          <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50 text-[11px] text-blue-700 font-medium">
+                            Silakan perbarui biodata pokok dan alamat lengkap pegawai resmi di bawah ini.
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Nama Lengkap & Gelar <span className="text-red-500">*</span></label>
+                              <input 
+                                type="text" 
+                                value={staffName}
+                                onChange={(e) => setStaffName(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">NIP (Nomor Induk Pegawai) <span className="text-red-500">*</span></label>
+                              <input 
+                                type="text" 
+                                value={staffNip}
+                                onChange={(e) => setStaffNip(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Pangkat <span className="text-red-500">*</span></label>
+                              <select 
+                                value={staffPangkat}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setStaffPangkat(val);
+                                  const matched = RANK_MAPPINGS.find(r => r.pangkat === val);
+                                  setStaffGolongan(matched ? matched.golongan : '');
+                                }}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
+                                required
+                              >
+                                <option value="">-- Pilih Kepangkatan --</option>
+                                {RANK_MAPPINGS.map((rm) => (
+                                  <option key={rm.pangkat} value={rm.pangkat}>{rm.pangkat} ({rm.golongan})</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Golongan Ruang</label>
+                              <input 
+                                type="text" 
+                                value={staffGolongan ? `Golongan ${staffGolongan}` : ''}
+                                className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-semibold focus:outline-none cursor-not-allowed"
+                                readOnly
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="block font-bold text-slate-700 mb-1">Jabatan / Kedudukan Dinas <span className="text-red-500">*</span></label>
+                              <input 
+                                type="text" 
+                                value={staffPosition}
+                                onChange={(e) => setStaffPosition(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Tempat Lahir</label>
+                              <input 
+                                type="text" 
+                                placeholder="Contoh: Pematangsiantar"
+                                value={editStaffDraft?.tempatLahir || ''}
+                                onChange={(e) => updateDraftField('tempatLahir', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Tanggal Lahir</label>
+                              <input 
+                                type="date" 
+                                value={editStaffDraft?.tanggalLahir || ''}
+                                onChange={(e) => updateDraftField('tanggalLahir', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Jenis Kelamin</label>
+                              <select 
+                                value={editStaffDraft?.jenisKelamin || 'Laki-laki'}
+                                onChange={(e) => updateDraftField('jenisKelamin', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
+                              >
+                                <option value="Laki-laki">Laki-laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Agama</label>
+                              <select 
+                                value={editStaffDraft?.agama || 'Islam'}
+                                onChange={(e) => updateDraftField('agama', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
+                              >
+                                <option value="Islam">Islam</option>
+                                <option value="Kristen">Kristen</option>
+                                <option value="Katolik">Katolik</option>
+                                <option value="Hindu">Hindu</option>
+                                <option value="Buddha">Buddha</option>
+                                <option value="Konghucu">Konghucu</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">No. Telepon / Handphone</label>
+                              <input 
+                                type="tel" 
+                                placeholder="Contoh: 0811xxxxxx"
+                                value={editStaffDraft?.telepon || ''}
+                                onChange={(e) => updateDraftField('telepon', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">E-mail Pegawai</label>
+                              <input 
+                                type="email" 
+                                placeholder="Contoh: nama.pegawai@mail.com"
+                                value={editStaffDraft?.email || ''}
+                                onChange={(e) => updateDraftField('email', e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="block font-bold text-slate-700 mb-1">Alamat Rumah Lengkap</label>
+                              <textarea 
+                                placeholder="Tulis alamat domisili lengkap sekarang..."
+                                value={editStaffDraft?.alamat || ''}
+                                onChange={(e) => updateDraftField('alamat', e.target.value)}
+                                rows={2}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subtab 2: RIWAYAT KEPANGKATAN */}
+                      {editModalTab === 'pangkat' && (
+                        <div className="space-y-4">
+                          <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100/50 text-[11px] text-amber-700 font-medium">
+                            Masukkan riwayat golongan & pangkat dinas pegawai resmi dari yang pertama/terdahulu hingga yang mutakhir.
+                          </div>
+
+                          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                            <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
+                              <Plus className="w-3.5 h-3.5 text-blue-600" />
+                              Tambah Riwayat Kepangkatan Baru
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Pangkat</label>
+                                <select 
+                                  value={newPangkatName}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setNewPangkatName(val);
+                                    const matched = RANK_MAPPINGS.find(r => r.pangkat === val);
+                                    setNewPangkatGolongan(matched ? matched.golongan : '');
+                                  }}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                  <option value="">-- Pilih --</option>
+                                  {RANK_MAPPINGS.map((rm) => (
+                                    <option key={rm.pangkat} value={rm.pangkat}>{rm.pangkat}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Golongan (Otomatis)</label>
+                                <input 
+                                  type="text"
+                                  value={newPangkatGolongan}
+                                  readOnly
+                                  className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-bold text-[11px] focus:outline-none cursor-not-allowed"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">TMT (Terhitung Mulai Tanggal)</label>
+                                  <input 
+                                    type="date"
+                                    value={newPangkatTmt}
+                                    onChange={(e) => setNewPangkatTmt(e.target.value)}
+                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nomor SK Kepangkatan</label>
+                                  <input 
+                                    type="text"
+                                    placeholder="Contoh: 821.2/015/KEP-BKP/2021"
+                                    value={newPangkatNoSk}
+                                    onChange={(e) => setNewPangkatNoSk(e.target.value)}
+                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Tanggal SK</label>
+                                  <input 
+                                    type="date"
+                                    value={newPangkatTglSk}
+                                    onChange={(e) => setNewPangkatTglSk(e.target.value)}
+                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!newPangkatName || !newPangkatTmt || !newPangkatNoSk) {
+                                      alert('Harap lengkapi isi nama pangkat, TMT, dan nomor SK Kepangkatan.');
+                                      return;
+                                    }
+                                    const items = editStaffDraft?.riwayatKepangkatan || [];
+                                    const newItem = {
+                                      id: 'rp-' + Math.random().toString(36).substring(2, 9),
+                                      pangkat: newPangkatName,
+                                      golongan: newPangkatGolongan,
+                                      tmt: newPangkatTmt,
+                                      noSk: newPangkatNoSk,
+                                      tglSk: newPangkatTglSk
+                                    };
+                                    setEditStaffDraft({
+                                      ...editStaffDraft!,
+                                      riwayatKepangkatan: [...items, newItem]
+                                    });
+                                    // Reset inputs
+                                    setNewPangkatName('');
+                                    setNewPangkatGolongan('');
+                                    setNewPangkatTmt('');
+                                    setNewPangkatNoSk('');
+                                    setNewPangkatTglSk('');
+                                  }}
+                                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                                >
+                                  <Plus className="w-3.5 h-3.5" /> Tambah Data Riwayat
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Table of Ranks */}
+                            <div className="border border-slate-100 rounded-xl overflow-hidden bg-white max-h-48 overflow-y-auto shadow-inner">
+                              <table className="w-full text-left border-collapse text-[11px]">
+                                <thead>
+                                  <tr className="bg-slate-50 font-bold border-b border-slate-150 text-slate-500">
+                                    <th className="p-3.5 text-center w-8">No</th>
+                                    <th className="p-3.5">Pangkat / Golongan</th>
+                                    <th className="p-3.5 w-24">TMT</th>
+                                    <th className="p-3.5">Keterangan SK</th>
+                                    <th className="p-3.5 text-center w-12">Aksi</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                  {(!editStaffDraft?.riwayatKepangkatan || editStaffDraft.riwayatKepangkatan.length === 0) ? (
+                                    <tr>
+                                      <td colSpan={5} className="p-6 text-center text-slate-400 font-bold italic">Belum ada data riwayat kepangkatan pegawai.</td>
+                                    </tr>
+                                  ) : (
+                                    editStaffDraft.riwayatKepangkatan.map((r, i) => (
+                                      <tr key={r.id}>
+                                        <td className="p-3 text-center text-slate-400">{i + 1}</td>
+                                        <td className="p-3 font-bold text-slate-800">{r.pangkat} ({r.golongan})</td>
+                                        <td className="p-3 text-blue-600 font-semibold">{r.tmt}</td>
+                                        <td className="p-3 text-xs">
+                                          <div>SK No: <span className="font-mono text-slate-800 font-bold">{r.noSk}</span></div>
+                                          {r.tglSk && <div className="text-[10px] text-slate-400">Tanggal SK: {r.tglSk}</div>}
+                                        </td>
+                                        <td className="p-3 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditStaffDraft({
+                                                ...editStaffDraft!,
+                                                riwayatKepangkatan: editStaffDraft?.riwayatKepangkatan?.filter(item => item.id !== r.id) || []
+                                              });
+                                            }}
+                                            className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                      )}
+
+                      {/* Subtab 3: RIWAYAT GAJI BERKALA */}
+                      {editModalTab === 'gaji' && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50 text-[11px] text-emerald-700 font-medium">
+                            Daftarkan seluruh riwayat Kenaikan Gaji Berkala (KGB) yang pernah dikeluarkan secara resmi untuk dinas pegawai.
+                          </div>
+
+                          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                            <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
+                              <Plus className="w-3.5 h-3.5 text-blue-600" />
+                              Kenaikan Gaji Berkala (KGB) Baru
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">TMT Gaji</label>
+                                <input 
+                                  type="date"
+                                  value={newGajiTmt}
+                                  onChange={(e) => setNewGajiTmt(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Gaji Pokok Baru (Rp)</label>
+                                <input 
+                                  type="number"
+                                  placeholder="Contoh: 3420000"
+                                  value={newGajiNominal || ''}
+                                  onChange={(e) => setNewGajiNominal(Number(e.target.value))}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Pejabat Penandatangan SK</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Contoh: Kepala Dinas PSDA / Gubernur"
+                                  value={newGajiPejabat}
+                                  onChange={(e) => setNewGajiPejabat(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nomor SK KGB</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Contoh: 822.4/052/KGB/VI/2023"
+                                  value={newGajiNoSk}
+                                  onChange={(e) => setNewGajiNoSk(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Tanggal SK</label>
+                                <input 
+                                  type="date"
+                                  value={newGajiTglSk}
+                                  onChange={(e) => setNewGajiTglSk(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!newGajiTmt || !newGajiNominal || !newGajiNoSk) {
+                                    alert('Mohon cantumkan tanggal TMT Gaji, Nominal Gaji Pokok, dan Nomor SK KGB.');
+                                    return;
+                                  }
+                                  const items = editStaffDraft?.riwayatGaji || [];
+                                  const newItem = {
+                                    id: 'rg-' + Math.random().toString(36).substring(2, 9),
+                                    tmtGaji: newGajiTmt,
+                                    gajiPokok: newGajiNominal,
+                                    noSk: newGajiNoSk,
+                                    tglSk: newGajiTglSk,
+                                    pejabatPenandatangan: newGajiPejabat
+                                  };
+                                  setEditStaffDraft({
+                                    ...editStaffDraft!,
+                                    riwayatGaji: [...items, newItem]
+                                  });
+                                  // Clear inputs
+                                  setNewGajiTmt('');
+                                  setNewGajiNominal(0);
+                                  setNewGajiNoSk('');
+                                  setNewGajiTglSk('');
+                                  setNewGajiPejabat('');
+                                }}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Tambah KGB Baru
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Gaji List table */}
+                          <div className="border border-slate-100 rounded-xl overflow-hidden bg-white max-h-48 overflow-y-auto shadow-inner">
+                            <table className="w-full text-left border-collapse text-[11px]">
+                              <thead>
+                                <tr className="bg-slate-50 font-bold border-b border-slate-150 text-slate-500">
+                                  <th className="p-3 text-center w-8">No</th>
+                                  <th className="p-3 w-24">TMT Gaji</th>
+                                  <th className="p-3">Gaji Pokok Baru</th>
+                                  <th className="p-3">SK KGB / Pejabat</th>
+                                  <th className="p-3 text-center w-12">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                {(!editStaffDraft?.riwayatGaji || editStaffDraft.riwayatGaji.length === 0) ? (
+                                  <tr>
+                                    <td colSpan={5} className="p-6 text-center text-slate-400 font-bold italic">Belum ada berkas KGB yang ditambahkan.</td>
+                                  </tr>
+                                ) : (
+                                  editStaffDraft.riwayatGaji.map((r, i) => (
+                                    <tr key={r.id}>
+                                      <td className="p-3 text-center text-slate-400">{i + 1}</td>
+                                      <td className="p-3 text-blue-600 font-mono font-bold">{r.tmtGaji}</td>
+                                      <td className="p-3 font-bold text-emerald-600">Rp {r.gajiPokok.toLocaleString('id-ID')}</td>
+                                      <td className="p-3">
+                                        <div className="font-semibold text-slate-800">SK: {r.noSk}</div>
+                                        <div className="text-[10px] text-slate-400">Penandatangan: {r.pejabatPenandatangan || '-'} {r.tglSk && `| tgl SK ${r.tglSk}`}</div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditStaffDraft({
+                                              ...editStaffDraft!,
+                                              riwayatGaji: editStaffDraft?.riwayatGaji?.filter(item => item.id !== r.id) || []
+                                            });
+                                          }}
+                                          className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subtab 4: RIWAYAT PENDIDIKAN */}
+                      {editModalTab === 'pendidikan' && (
+                        <div className="space-y-4">
+                          <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100/50 text-[11px] text-sky-700 font-medium">
+                            Kompilasikan riwayat pendidikan formal yang berhasil diselesaikan oleh pegawai sipil dinas bersangkutan.
+                          </div>
+
+                          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                            <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
+                              <Plus className="w-3.5 h-3.5 text-blue-600" />
+                              Tambah Pendidikan Formal Baru
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Jenjang</label>
+                                <select 
+                                  value={newEduJenjang}
+                                  onChange={(e) => setNewEduJenjang(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                  <option value="SD">SD (Sekolah Dasar)</option>
+                                  <option value="SMP">SMP (Sekolah Menengah Pertama)</option>
+                                  <option value="SMA">SMA/SMK (Sekolah Menengah Atas)</option>
+                                  <option value="D3">D3 (Diploma Tiga)</option>
+                                  <option value="D4">D4 (Diploma Empat)</option>
+                                  <option value="S1">S1 (Sarjana I)</option>
+                                  <option value="S2">S2 (Magister II)</option>
+                                  <option value="S3">S3 (Doktoral III)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nama Institusi / Lembaga</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Contoh: SMA Negeri 1 / ITB"
+                                  value={newEduInstitusi}
+                                  onChange={(e) => setNewEduInstitusi(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Jurusan / Program Studi</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Contoh: IPS / Teknik Pengairan"
+                                  value={newEduJurusan}
+                                  onChange={(e) => setNewEduJurusan(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Tahun Lulus</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Contoh: 2015"
+                                  value={newEduTahun}
+                                  onChange={(e) => setNewEduTahun(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nomor SN / Ijazah Resmi</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Tulis nomor ijazah jika ada..."
+                                  value={newEduNoIjazah}
+                                  onChange={(e) => setNewEduNoIjazah(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!newEduInstitusi || !newEduTahun) {
+                                    alert('Mohon sebutkan nama sekolah/institusi, dan tahun kelulusan anda.');
+                                    return;
+                                  }
+                                  const items = editStaffDraft?.riwayatPendidikan || [];
+                                  const newItem = {
+                                    id: 're-' + Math.random().toString(36).substring(2, 9),
+                                    jenjang: newEduJenjang,
+                                    institusi: newEduInstitusi,
+                                    jurusan: newEduJurusan || '-',
+                                    tahunLulus: newEduTahun,
+                                    noIjazah: newEduNoIjazah || ''
+                                  };
+                                  setEditStaffDraft({
+                                    ...editStaffDraft!,
+                                    riwayatPendidikan: [...items, newItem]
+                                  });
+                                  // Clear inputs
+                                  setNewEduJenjang('S1');
+                                  setNewEduInstitusi('');
+                                  setNewEduJurusan('');
+                                  setNewEduTahun('');
+                                  setNewEduNoIjazah('');
+                                }}
+                                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Tambah Jenjang
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Education Table list */}
+                          <div className="border border-slate-100 rounded-xl overflow-hidden bg-white max-h-48 overflow-y-auto shadow-inner">
+                            <table className="w-full text-left border-collapse text-[11px]">
+                              <thead>
+                                <tr className="bg-slate-50 font-bold border-b border-slate-150 text-slate-500">
+                                  <th className="p-3 text-center w-8">No</th>
+                                  <th className="p-3 w-16 text-center">Jenjang</th>
+                                  <th className="p-3">Institusi & Jurusan</th>
+                                  <th className="p-3 w-20 text-center">Tahun Lulus</th>
+                                  <th className="p-3 text-center w-12">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                {(!editStaffDraft?.riwayatPendidikan || editStaffDraft.riwayatPendidikan.length === 0) ? (
+                                  <tr>
+                                    <td colSpan={5} className="p-6 text-center text-slate-400 font-bold italic">Belum ada riwayat pendidikan terlampir.</td>
+                                  </tr>
+                                ) : (
+                                  editStaffDraft.riwayatPendidikan.map((r, i) => (
+                                    <tr key={r.id}>
+                                      <td className="p-3 text-center text-slate-400">{i + 1}</td>
+                                      <td className="p-3 text-center">
+                                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded-md font-extrabold text-[10px] block">
+                                          {r.jenjang}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-slate-800">
+                                        <div className="font-bold">{r.institusi}</div>
+                                        <div className="text-[10px] text-slate-500">Program Studi: {r.jurusan} {r.noIjazah && `| Ijazah: ${r.noIjazah}`}</div>
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-slate-600 font-mono">{r.tahunLulus}</td>
+                                      <td className="p-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditStaffDraft({
+                                              ...editStaffDraft!,
+                                              riwayatPendidikan: editStaffDraft?.riwayatPendidikan?.filter(item => item.id !== r.id) || []
+                                            });
+                                          }}
+                                          className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subtab 5: RIWAYAT ORANG TUA */}
+                      {editModalTab === 'ortu' && (
+                        <div className="space-y-4">
+                          <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100/50 text-[11px] text-purple-700 font-medium">
+                            Kelola data lengkap tentang Orang Tua (Ayah & Ibu) pegawai resmi bersangkutan untuk arsip keluarga dinas.
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Ayah */}
+                            <div className="p-4 border border-slate-200 rounded-2xl space-y-3 bg-slate-50/30">
+                              <h4 className="font-extrabold text-[11px] text-slate-800 border-b border-slate-200 pb-1.5 flex items-center justify-between uppercase tracking-tight">
+                                <span>1. Biodata Ayah</span>
+                                <span className="text-[9px] font-mono text-purple-600 font-bold">PATERNAL</span>
+                              </h4>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-1">Nama Lengkap Ayah</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Nama lengkap Ayah..."
+                                  value={editStaffDraft?.riwayatOrangTua?.namaAyah || ''}
+                                  onChange={(e) => updateDraftNested('riwayatOrangTua', 'namaAyah', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-250 rounded-xl text-slate-700 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-1">Pekerjaan Ayah</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Contoh: Pensiunan PNS / Petani"
+                                  value={editStaffDraft?.riwayatOrangTua?.pekerjaanAyah || ''}
+                                  onChange={(e) => updateDraftNested('riwayatOrangTua', 'pekerjaanAyah', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Ibu */}
+                            <div className="p-4 border border-slate-200 rounded-xl space-y-3 bg-slate-50/30">
+                              <h4 className="font-extrabold text-[11px] text-slate-800 border-b border-slate-200 pb-1.5 flex items-center justify-between uppercase tracking-tight">
+                                <span>2. Biodata Ibu</span>
+                                <span className="text-[9px] font-mono text-purple-600 font-bold">MATERNAL</span>
+                              </h4>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-1">Nama Lengkap Ibu</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Nama lengkap Ibu..."
+                                  value={editStaffDraft?.riwayatOrangTua?.namaIbu || ''}
+                                  onChange={(e) => updateDraftNested('riwayatOrangTua', 'namaIbu', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-250 rounded-xl text-slate-700 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-1">Pekerjaan Ibu</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Contoh: Ibu Rumah Tangga (IRT)"
+                                  value={editStaffDraft?.riwayatOrangTua?.pekerjaanIbu || ''}
+                                  onChange={(e) => updateDraftNested('riwayatOrangTua', 'pekerjaanIbu', e.target.value)}
+                                  className="w-full p-2.5 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subtab 6: RIWAYAT PASANGAN */}
+                      {editModalTab === 'pasangan' && (
+                        <div className="space-y-4">
+                          <div className="bg-pink-50/50 p-3 rounded-xl border border-pink-100/50 text-[11px] text-pink-700 font-medium">
+                            Kelola data pasangan hidup resmi (Suami atau Istri) bersangkutan dari PNS / Juru OP Terkait.
+                          </div>
+
+                          <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50/30 space-y-4 max-w-xl mx-auto shadow-sm">
+                            <h4 className="font-bold text-[11px] text-slate-850 border-b border-slate-200 pb-1.5 flex items-center justify-between uppercase">
+                              <span>Identitas Suami / Istri Sah</span>
+                              <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
+                            </h4>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1">Klasifikasi Pasangan</label>
+                                <select 
+                                  value={editStaffDraft?.riwayatPasangan?.statusPasangan || 'Istri'}
+                                  onChange={(e) => updateDraftNested('riwayatPasangan', 'statusPasangan', e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none cursor-pointer"
+                                >
+                                  <option value="Istri">Istri (Untuk Pegawai Laki-laki)</option>
+                                  <option value="Suami">Suami (Untuk Pegawai Perempuan)</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1">Nama Pasangan Lengkap</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Nama lengkap suami/istri..."
+                                  value={editStaffDraft?.riwayatPasangan?.namaPasangan || ''}
+                                  onChange={(e) => updateDraftNested('riwayatPasangan', 'namaPasangan', e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-bold focus:outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1">Pekerjaan Pasangan</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Contoh: Pegawai BUMN / Guru / IRT"
+                                  value={editStaffDraft?.riwayatPasangan?.pekerjaan || ''}
+                                  onChange={(e) => updateDraftNested('riwayatPasangan', 'pekerjaan', e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1">Tanggal Lahir</label>
+                                <input 
+                                  type="date" 
+                                  value={editStaffDraft?.riwayatPasangan?.tanggalLahir || ''}
+                                  onChange={(e) => updateDraftNested('riwayatPasangan', 'tanggalLahir', e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none"
+                                />
+                              </div>
+
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1">Tanggal Pernikahan Resmi</label>
+                                <input 
+                                  type="date" 
+                                  value={editStaffDraft?.riwayatPasangan?.tanggalNikah || ''}
+                                  onChange={(e) => updateDraftNested('riwayatPasangan', 'tanggalNikah', e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subtab 7: RIWAYAT ANAK */}
+                      {editModalTab === 'anak' && (
+                        <div className="space-y-4">
+                          <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100/50 text-[11px] text-rose-700 font-medium">
+                            Kelola data seluruh anak kandung / tiri / angkat sah demi pengurusan hak tunjangan/keluarga pegawai.
+                          </div>
+
+                          <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                            <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
+                              <Plus className="w-3.5 h-3.5 text-blue-600" />
+                              Tambah Data Anak Baru
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nama Anak Kandung/Sah</label>
+                                <input 
+                                  type="text"
+                                  placeholder="Nama lengkap anak..."
+                                  value={newAnakNama}
+                                  onChange={(e) => setNewAnakNama(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Jenis Kelamin</label>
+                                <select 
+                                  value={newAnakJkel}
+                                  onChange={(e) => setNewAnakJkel(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none cursor-pointer"
+                                >
+                                  <option value="Laki-laki">Laki-laki</option>
+                                  <option value="Perempuan">Perempuan</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Tanggal Lahir</label>
+                                <input 
+                                  type="date"
+                                  value={newAnakTglLahir}
+                                  onChange={(e) => setNewAnakTglLahir(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Status Hubungan</label>
+                                <select 
+                                  value={newAnakStatus}
+                                  onChange={(e) => setNewAnakStatus(e.target.value)}
+                                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold text-[11px] focus:outline-none cursor-pointer"
+                                >
+                                  <option value="Anak Kandung">Anak Kandung</option>
+                                  <option value="Anak Angkat">Anak Angkat</option>
+                                  <option value="Anak Tiri">Anak Tiri</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!newAnakNama || !newAnakTglLahir) {
+                                    alert('Mohon sebutkan nama lengkap anak serta tanggal lahir anak.');
+                                    return;
+                                  }
+                                  const items = editStaffDraft?.riwayatAnak || [];
+                                  const newItem = {
+                                    id: 'ra-' + Math.random().toString(36).substring(2, 9),
+                                    namaAnak: newAnakNama,
+                                    tanggalLahir: newAnakTglLahir,
+                                    jenisKelamin: newAnakJkel,
+                                    statusAnak: newAnakStatus
+                                  };
+                                  setEditStaffDraft({
+                                    ...editStaffDraft!,
+                                    riwayatAnak: [...items, newItem]
+                                  });
+                                  // Clear inputs
+                                  setNewAnakNama('');
+                                  setNewAnakTglLahir('');
+                                  setNewAnakJkel('Laki-laki');
+                                  setNewAnakStatus('Anak Kandung');
+                                }}
+                                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Daftarkan Anak
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Kids table list */}
+                          <div className="border border-slate-100 rounded-xl overflow-hidden bg-white max-h-48 overflow-y-auto shadow-inner">
+                            <table className="w-full text-left border-collapse text-[11px]">
+                              <thead>
+                                <tr className="bg-slate-50 font-bold border-b border-slate-150 text-slate-500">
+                                  <th className="p-2.5 text-center w-8">No</th>
+                                  <th className="p-2.5">Nama Lengkap Anak</th>
+                                  <th className="p-2.5">Gender</th>
+                                  <th className="p-2.5 text-center">Tanggal Lahir</th>
+                                  <th className="p-2.5">Status Hubungan</th>
+                                  <th className="p-2.5 text-center w-12">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                {(!editStaffDraft?.riwayatAnak || editStaffDraft.riwayatAnak.length === 0) ? (
+                                  <tr>
+                                    <td colSpan={6} className="p-5 text-center text-slate-400 font-bold italic">Belum ada data anak terlampir.</td>
+                                  </tr>
+                                ) : (
+                                  editStaffDraft.riwayatAnak.map((r, i) => (
+                                    <tr key={r.id}>
+                                      <td className="p-2.5 text-center text-slate-400">{i + 1}</td>
+                                      <td className="p-2.5 font-bold text-slate-800">{r.namaAnak}</td>
+                                      <td className="p-2.5 text-slate-600">{r.jenisKelamin}</td>
+                                      <td className="p-2.5 text-center font-mono font-bold text-slate-600">{r.tanggalLahir}</td>
+                                      <td className="p-2.5">
+                                        <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-full font-bold text-[10px]">
+                                          {r.statusAnak}
+                                        </span>
+                                      </td>
+                                      <td className="p-2.5 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditStaffDraft({
+                                              ...editStaffDraft!,
+                                              riwayatAnak: editStaffDraft?.riwayatAnak?.filter(item => item.id !== r.id) || []
+                                            });
+                                          }}
+                                          className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* Master Actions at edit-level bottom */}
+                    <div className="md:col-span-4 flex justify-end gap-2 pt-4 border-t border-slate-100">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsStaffFormOpen(false);
+                          setEditingStaff(null);
+                          setEditStaffDraft(null);
+                          setStaffName('');
+                          setStaffNip('');
+                          setStaffPosition('');
+                          setStaffPangkat('');
+                          setStaffGolongan('');
+                        }}
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-750 font-extrabold rounded-xl transition-all cursor-pointer"
+                      >
+                        Batalkan Sesi
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleStaffSubmit}
+                        id="submit-staff-form-edit"
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-sm shadow-emerald-500/10 cursor-pointer"
+                      >
+                        Simpan Semua Riwayat Perubahan
+                      </button>
+                    </div>
+
+                  </div>
+                ) : (
+                  /* ADD MODE: ORIGINAL MINI-FORM LAYOUTS FOR ONBOARDING */
+                  <form onSubmit={handleStaffSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs select-none">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Nama Lengkap & Gelar <span className="text-red-500">*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="Contoh: Hadi Wijaya, S.T."
+                        value={staffName}
+                        onChange={(e) => setStaffName(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">NIP (Nomor Induk Pegawai) <span className="text-red-500">*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="Contoh: 19820415 201001 1 008"
+                        value={staffNip}
+                        onChange={(e) => setStaffNip(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Pangkat <span className="text-red-500">*</span></label>
+                      <select 
+                        value={staffPangkat}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setStaffPangkat(val);
+                          const matched = RANK_MAPPINGS.find(r => r.pangkat === val);
+                          if (matched) {
+                            setStaffGolongan(matched.golongan);
+                          } else {
+                            setStaffGolongan('');
+                          }
+                        }}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
+                        required
+                      >
+                        <option value="">-- Pilih Jenjang Kepangkatan --</option>
+                        {RANK_MAPPINGS.map((rm) => (
+                          <option key={rm.pangkat} value={rm.pangkat}>
+                            {rm.pangkat} ({rm.golongan})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Golongan Ruang <span className="text-blue-600 font-semibold ml-1">(Otomatis)</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="Terisi otomatis setelah memilih pangkat..."
+                        value={staffGolongan ? `Golongan ${staffGolongan}` : ''}
+                        className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-semibold focus:outline-none cursor-not-allowed"
+                        readOnly
+                        required
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block font-bold text-slate-700 mb-1">Jabatan / Kedudukan Dinas <span className="text-red-500">*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="Contoh: Kepala Seksi Pembangunan"
+                        value={staffPosition}
+                        onChange={(e) => setStaffPosition(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
+                        required
+                      />
+                    </div>
+
+                    <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsStaffFormOpen(false);
+                          setEditingStaff(null);
+                          setStaffName('');
+                          setStaffNip('');
+                          setStaffPosition('');
+                          setStaffPangkat('');
+                          setStaffGolongan('');
+                        }}
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl transition-all cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        type="submit" 
+                        id="submit-staff-form"
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-sm shadow-emerald-600/10 cursor-pointer"
+                      >
+                        Daftarkan Pegawai Resmi
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </motion.div>
+            </div>
+          )}
+
+          {/* Table view of Employee Directory */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm" id="staff-table-container">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs select-none">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-4 w-12 text-center">No</th>
+                    <th className="p-4">Nama Lengkap & NIP</th>
+                    <th className="p-4">Pangkat & Golongan</th>
+                    <th className="p-4">Jabatan / Kedudukan</th>
+                    {currentUser.role === 'admin' && <th className="p-4 text-center w-32">Aksi</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredStaff.length > 0 ? (
+                    filteredStaff.map((person, index) => (
+                      <tr key={person.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
+                        <td className="p-4">
+                          <div className="font-bold text-slate-800 text-sm">{person.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center">
+                            <CreditCard className="w-3.5 h-3.5 mr-1" />
+                            <span>NIP: {person.nip}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="text-xs text-slate-700 font-medium bg-slate-50 border border-slate-100 rounded px-2 py-0.5 w-fit">
+                            {person.pangkat || '-'}
+                          </div>
+                          <div className="inline-block mt-1 theme-badge text-[9px] font-black uppercase px-2 py-0.5 rounded-full border tracking-wide bg-blue-50 border-blue-150 text-blue-800">
+                             {person.golongan}
+                          </div>
+                        </td>
+                        <td className="p-4 text-slate-600 font-medium">{person.position}</td>
+                        {currentUser.role === 'admin' && (
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleStartEditStaff(person)}
+                                className="inline-flex text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-blue-150"
+                                id={`edit-staff-${person.id}`}
+                                title="Ubah Data Pegawai"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteStaff(person.id)}
+                                className="inline-flex text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-red-150"
+                                id={`delete-staff-${person.id}`}
+                                title="Hapus Pegawai"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={currentUser.role === 'admin' ? 5 : 4} className="p-8 text-center text-slate-400 font-medium">
+                        Tidak ada pegawai terdaftar dengan kata kunci tersebut.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBTAB 3: ASET & INVENTARIS */}
+      {activeSubTab === 'aset_inventaris' && (
+        <div className="space-y-4" id="assets-panel">
+          
+          {/* Navigation Bar for Asset Subpages */}
+          <div className="flex border-b border-slate-200 bg-white p-2 rounded-2xl shadow-sm gap-1.5 scrollbar-thin overflow-x-auto">
+            <button
+              onClick={() => setAssetSubTab('inventaris_kib')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                assetSubTab === 'inventaris_kib'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Archive className="w-4 h-4" />
+              <span>Inventaris Aset (KIB A s.d. F)</span>
+            </button>
+            <button
+              onClick={() => setAssetSubTab('distribusi')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                assetSubTab === 'distribusi'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Distribusi Aset Dinas</span>
+            </button>
+            <button
+              onClick={() => setAssetSubTab('persediaan')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                assetSubTab === 'persediaan'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Inbox className="w-4 h-4" />
+              <span>Persediaan (Barang Habis Pakai)</span>
+            </button>
+          </div>
+
+          {/* 1. SUBPAGE: INVENTARIS ASET (KIB A s.d F) */}
+          {assetSubTab === 'inventaris_kib' && (
+            <div className="space-y-4">
+              
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Box className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total Macam Aset</div>
+                    <div className="text-xl font-bold text-slate-800">{assets.length} item</div>
+                  </div>
+                </div>
+                
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 text-emerald-600 rounded-xl bg-emerald-50 flex items-center justify-center font-bold">
+                    <CheckCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Kondisi Baik (Terawat)</div>
+                    <div className="text-xl font-bold text-slate-800">
+                      {assets.filter(a => a.condition === 'Baik').reduce((acc, curr) => acc + curr.quantity, 0)} Pcs
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 text-amber-600 rounded-xl bg-amber-50 flex items-center justify-center font-bold">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Rusak / Servis</div>
+                    <div className="text-xl font-bold text-slate-800">
+                      {assets.filter(a => a.condition !== 'Baik').reduce((acc, curr) => acc + curr.quantity, 0)} Pcs
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Header bar with KIB classification switcher */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col space-y-3">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                  <div className="text-xs text-slate-500 font-medium">
+                    Pilih klasifikasi <strong>Kartu Inventaris Barang (KIB)</strong> untuk melihat rincian register aset dinas:
+                  </div>
+                  {canWrite ? (
+                    <button
+                      onClick={() => setIsAssetFormOpen(!isAssetFormOpen)}
+                      id="btn-add-asset"
+                      className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-xs flex items-center space-x-1.5 shadow transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Registrasi KIB Baru</span>
+                    </button>
+                  ) : (
+                    <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                      *Hanya staf TU / Admin yang dapat mengedit KIB
+                    </div>
+                  )}
+                </div>
+
+                {/* Horizontal Tab Filters for KIB classifications */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {(['ALL', 'KIB A', 'KIB B', 'KIB C', 'KIB D', 'KIB E', 'KIB F'] as const).map((kib) => {
+                    const kibNames: Record<string, string> = {
+                      ALL: 'Semua KIB',
+                      'KIB A': 'KIB A (Tanah)',
+                      'KIB B': 'KIB B (Peralatan & Mesin)',
+                      'KIB C': 'KIB C (Gedung & Bangunan)',
+                      'KIB D': 'KIB D (Jalan, Irigasi & Jaringan)',
+                      'KIB E': 'KIB E (Aset Tetap Lain)',
+                      'KIB F': 'KIB F (Kontruksi Dlm Pengerjaan)'
+                    };
+                    return (
+                      <button
+                        key={kib}
+                        onClick={() => setActiveKibFilter(kib)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                          activeKibFilter === kib
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {kibNames[kib]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Form to insert asset item */}
+              {isAssetFormOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => {
+                  setIsAssetFormOpen(false);
+                  setEditingAsset(null);
+                  setAssetName('');
+                  setAssetCode('');
+                  setAssetCondition('Baik');
+                  setAssetLocation('');
+                  setAssetQuantity(1);
+                  setAssetDate('');
+                  setAssetKibCategory('KIB B');
+                  setAssetPrice(0);
+                  setAssetBrand('');
+                  setAssetNotes('');
+                }}>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl text-xs max-h-[90vh] overflow-y-auto"
+                    id="asset-form-container"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-150">
+                      <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-800 flex items-center">
+                        <Sliders className="w-4 h-4 text-blue-600 mr-2" />
+                        {editingAsset ? 'Perbarui Data Kartu Inventaris Barang (KIB)' : 'Formulir Pengadaan / Registrasi KIB Baru'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setIsAssetFormOpen(false);
+                          setEditingAsset(null);
+                          setAssetName('');
+                          setAssetCode('');
+                          setAssetCondition('Baik');
+                          setAssetLocation('');
+                          setAssetQuantity(1);
+                          setAssetDate('');
+                          setAssetKibCategory('KIB B');
+                          setAssetPrice(0);
+                          setAssetBrand('');
+                          setAssetNotes('');
+                        }}
+                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+                        type="button"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleAssetSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nama Barang / Aset <span className="text-red-500">*</span></label>
+                        <input 
+                          type="text" 
+                          placeholder="Contoh: Mesin Pompa Air Diesel Honda, GPS"
+                          value={assetName}
+                          onChange={(e) => setAssetName(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Kode Register Aset <span className="text-red-500">*</span></label>
+                        <input 
+                          type="text" 
+                          placeholder="Contoh: 1.3.1.02.05.001.002"
+                          value={assetCode}
+                          onChange={(e) => setAssetCode(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono focus:outline-none focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Klasifikasi KIB <span className="text-red-500">*</span></label>
+                        <select 
+                          value={assetKibCategory} 
+                          onChange={(e: any) => setAssetKibCategory(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold focus:outline-none focus:border-blue-500"
+                          required
+                        >
+                          <option value="KIB A">KIB A (Tanah)</option>
+                          <option value="KIB B">KIB B (Peralatan & Mesin)</option>
+                          <option value="KIB C">KIB C (Gedung & Bangunan)</option>
+                          <option value="KIB D">KIB D (Jalan, Irigasi & Jaringan)</option>
+                          <option value="KIB E">KIB E (Aset Tetap Lainnya)</option>
+                          <option value="KIB F">KIB F (Konstruksi Dalam Pengerjaan)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Merek / Model / Ukuran</label>
+                        <input 
+                          type="text" 
+                          placeholder="Contoh: Honda GX390 / Topcon GT-100"
+                          value={assetBrand}
+                          onChange={(e) => setAssetBrand(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Kuantitas Jumlah Unit <span className="text-red-500">*</span></label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          value={assetQuantity}
+                          onChange={(e) => setAssetQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Kondisi Fisik Saat Ini <span className="text-red-500">*</span></label>
+                        <select 
+                          value={assetCondition} 
+                          onChange={(e: any) => setAssetCondition(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold focus:outline-none focus:border-blue-500"
+                          required
+                        >
+                          <option value="Baik">🟢 Baik (Siap Operasi)</option>
+                          <option value="Rusak Ringan">🟡 Rusak Ringan (Perlu Servis)</option>
+                          <option value="Rusak Berat">🔴 Rusak Berat (Rusak Total)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Lokasi Penempatan <span className="text-red-500">*</span></label>
+                        <input 
+                          type="text" 
+                          placeholder="Contoh: Gudang Induk, Pos Pengamat Air Selesai"
+                          value={assetLocation}
+                          onChange={(e) => setAssetLocation(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nilai Harga Perolehan (Rp)</label>
+                        <input 
+                          type="number" 
+                          placeholder="Contoh: 15000000"
+                          value={assetPrice || ''}
+                          onChange={(e) => setAssetPrice(Number(e.target.value) || 0)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-bold focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Tanggal Perolehan / Pembelian <span className="text-red-500">*</span></label>
+                        <input 
+                          type="date" 
+                          value={assetDate}
+                          onChange={(e) => setAssetDate(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block font-bold text-slate-700 mb-1">Keterangan / Deskripsi Lainnya</label>
+                        <textarea 
+                          placeholder="Tambahkan catatan khusus mengenai perolehan aset, spesifikasi teknis, nomor mesin, rangka dsb."
+                          value={assetNotes}
+                          onChange={(e) => setAssetNotes(e.target.value)}
+                          rows={2}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3 flex justify-end gap-2 pt-2">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setIsAssetFormOpen(false);
+                            setEditingAsset(null);
+                            setAssetName('');
+                            setAssetCode('');
+                            setAssetCondition('Baik');
+                            setAssetLocation('');
+                            setAssetQuantity(1);
+                            setAssetDate('');
+                            setAssetKibCategory('KIB B');
+                            setAssetPrice(0);
+                            setAssetBrand('');
+                            setAssetNotes('');
+                          }}
+                          className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl cursor-pointer transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl cursor-pointer transition-colors shadow-sm"
+                        >
+                          {editingAsset ? 'Simpan Perubahan' : 'Daftarkan Ke SIM KIB'}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Table rendering for select KIB Category */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse" id="assets-table">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-150">
+                        <th className="p-4 w-12 text-center">No-Rsg</th>
+                        <th className="p-4">Klasifikasi KIB</th>
+                        <th className="p-4">Nama Aset / Informasi Detail</th>
+                        <th className="p-4">Kondisi</th>
+                        <th className="p-4 text-center">Jumlah</th>
+                        <th className="p-4 text-right">Nilai Perolehan</th>
+                        <th className="p-4">Lokasi / Penempatan</th>
+                        <th className="p-4">Tgl Beli</th>
+                        {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                      {assets.filter(a => activeKibFilter === 'ALL' || a.kibCategory === activeKibFilter).length > 0 ? (
+                        assets.filter(a => activeKibFilter === 'ALL' || a.kibCategory === activeKibFilter).map((asset, idx) => (
+                          <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 font-mono text-slate-400 text-center">{idx + 1}</td>
+                            <td className="p-4">
+                              <span className="bg-blue-50 text-blue-700 text-[10px] uppercase font-extrabold px-2 py-0.5 rounded border border-blue-150">
+                                {asset.kibCategory || 'KIB B'}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold text-slate-800 text-sm">{asset.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono tracking-wider">No. Reg: {asset.code}</div>
+                              {asset.brand && <div className="text-[10px] text-slate-500 italic">Merek: {asset.brand}</div>}
+                              {asset.notes && <div className="text-[10px] text-slate-400 line-clamp-1">Ket: {asset.notes}</div>}
+                            </td>
+                            <td className="p-4">
+                              {asset.condition === 'Baik' && (
+                                <span className="bg-emerald-100/70 text-emerald-800 border border-emerald-200 py-0.5 px-2 rounded-full font-bold text-[9px]">
+                                  🟢 Baik
+                                </span>
+                              )}
+                              {asset.condition === 'Rusak Ringan' && (
+                                <span className="bg-amber-100/70 text-amber-800 border border-amber-200 py-0.5 px-2 rounded-full font-bold text-[9px]">
+                                  🟡 Rusak Ringan
+                                </span>
+                              )}
+                              {asset.condition === 'Rusak Berat' && (
+                                <span className="bg-red-100/70 text-red-800 border border-red-200 py-0.5 px-2 rounded-full font-bold text-[9px]">
+                                  🔴 Rusak Berat
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-center font-bold text-slate-750">{asset.quantity} Unit</td>
+                            <td className="p-4 text-right font-mono font-bold text-blue-600">
+                              {asset.price ? `Rp ${asset.price.toLocaleString('id-ID')}` : '-'}
+                            </td>
+                            <td className="p-4 font-medium text-slate-600">{asset.location}</td>
+                            <td className="p-4 text-slate-400 font-mono">{asset.purchaseDate}</td>
+                            {currentUser.role === 'admin' && (
+                              <td className="p-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleStartEditAsset(asset)}
+                                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer"
+                                    title="Ubah Data Aset"
+                                    id={`edit-asset-${asset.id}`}
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => onDeleteAsset(asset.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer"
+                                    title="Hapus / Lepas Aset"
+                                    id={`delete-asset-${asset.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={currentUser.role === 'admin' ? 9 : 8} className="p-12 text-center text-slate-400 font-bold font-mono">
+                            Belum ada data Kartu Inventaris Barang (KIB) yang tergolong dalam klasifikasi {activeKibFilter}.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. SUBPAGE: DISTRIBUSI ASET DINAS */}
+          {assetSubTab === 'distribusi' && (
+            <div className="space-y-4">
+              
+              <div className="bg-blue-50/50 p-4 border border-blue-100 rounded-2xl flex items-center space-x-3.5">
+                <div className="bg-blue-100 p-2 text-blue-700 rounded-xl">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div className="text-xs">
+                  <h4 className="font-bold text-slate-800">Manajemen Alokasi & Distribusi Penanggungjawab Aset UPTD</h4>
+                  <p className="text-slate-500 mt-0.5">Catat kepemilikan dan hak penggunaan alat berat, instrumen ukur, komputer dinas, serta sarana penunjang langsung pada pegawai penanggungjawab resmi.</p>
+                </div>
+              </div>
+
+              {/* Action and Form triggers */}
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+                <div className="text-xs text-slate-500 font-bold">
+                  Daftar Peminjaman & Distribusi Aset Aktif ({distributions.length} Alokasi Berlangsung)
+                </div>
+                {canWrite ? (
+                  <button
+                    onClick={() => setIsDistFormOpen(!isDistFormOpen)}
+                    className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-xs flex items-center space-x-1 shadow transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Buat Alokasi Distribusi</span>
+                  </button>
+                ) : (
+                  <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                    *Hanya staf TU / Administrator yang dapat mengalokasi
+                  </div>
+                )}
+              </div>
+
+              {/* Form to insert distribution record */}
+              {isDistFormOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => {
+                  setIsDistFormOpen(false);
+                  setDistAssetId('');
+                  setDistStaffId('');
+                  setDistQuantity(1);
+                  setDistLocation('');
+                  setDistAllocationDate('');
+                  setDistCondition('Baik');
+                  setDistNotes('');
+                }}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl text-xs max-h-[90vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center pb-2 border-b border-sidebar-100">
+                      <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 uppercase tracking-wide">
+                        <Share2 className="w-4 h-4 text-blue-600" />
+                        Formulir Distribusi Baru / Serah Terima Barang Milik Pegawai
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setIsDistFormOpen(false);
+                          setDistAssetId('');
+                          setDistStaffId('');
+                          setDistQuantity(1);
+                          setDistLocation('');
+                          setDistAllocationDate('');
+                          setDistCondition('Baik');
+                          setDistNotes('');
+                        }}
+                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+                        type="button"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!distAssetId || !distStaffId || distQuantity <= 0 || !distLocation || !distAllocationDate) {
+                          alert('Harap isi semua kolom wajib pada formulir distribusi.');
+                          return;
+                        }
+                        const selectedAsset = assets.find(a => a.id === distAssetId);
+                        const selectedStaff = staff.find(s => s.id === distStaffId);
+                        if (!selectedAsset || !selectedStaff) {
+                          alert('Aset atau staf yang dipilih tidak ditemukan.');
+                          return;
+                        }
+
+                        const newDist: AssetDistribution = {
+                          id: 'dist-' + Math.random().toString(36).substring(2, 9),
+                          assetId: distAssetId,
+                          assetName: selectedAsset.name,
+                          staffId: distStaffId,
+                          staffName: selectedStaff.name,
+                          quantity: Number(distQuantity),
+                          location: distLocation,
+                          allocationDate: distAllocationDate,
+                          conditionAtAllocation: distCondition,
+                          notes: distNotes
+                        };
+
+                        setDistributions([newDist, ...distributions]);
+                        setIsDistFormOpen(false);
+
+                        // reset
+                        setDistAssetId('');
+                        setDistStaffId('');
+                        setDistQuantity(1);
+                        setDistLocation('');
+                        setDistAllocationDate('');
+                        setDistCondition('Baik');
+                        setDistNotes('');
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs"
+                    >
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Pilih Barang / Aset <span className="text-red-500">*</span></label>
+                        <select
+                          value={distAssetId}
+                          onChange={(e) => setDistAssetId(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
+                          required
+                        >
+                          <option value="">-- Pilih Barang --</option>
+                          {assets.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name} ({a.code}) - {a.quantity} Unit Tersedia</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Penerima Alokasi / Staf <span className="text-red-500">*</span></label>
+                        <select
+                          value={distStaffId}
+                          onChange={(e) => setDistStaffId(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium"
+                          required
+                        >
+                          <option value="">-- Pilih Pegawai --</option>
+                          {staff.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name} (NIP: {s.nip})</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Kuantitas Distribusi <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={distQuantity}
+                          onChange={(e) => setDistQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">TMT Tanggal Penyerahan <span className="text-red-500">*</span></label>
+                        <input
+                          type="date"
+                          value={distAllocationDate}
+                          onChange={(e) => setDistAllocationDate(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1">Kondisi Serah Terima <span className="text-red-500">*</span></label>
+                        <select
+                          value={distCondition}
+                          onChange={(e: any) => setDistCondition(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold"
+                          required
+                        >
+                          <option value="Baik">🟢 Baik (Siap Digunakan)</option>
+                          <option value="Rusak Ringan">🟡 Rusak Ringan</option>
+                          <option value="Rusak Berat">🔴 Rusak Berat</option>
+                        </select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1">Detail Lokasi Unit Penugasan <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Mess Bendung Bah Bolon, Ruang Pengawas Irigasi"
+                          value={distLocation}
+                          onChange={(e) => setDistLocation(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-4">
+                        <label className="block font-bold text-slate-700 mb-1 font-extrabold text-blue-700">Keterangan / Berita Acara Alokasi</label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Dipinjamkan untuk memfasilitasi survei kedaulatan tanah di UPTD Selesai selama 3 bulan."
+                          value={distNotes}
+                          onChange={(e) => setDistNotes(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                        />
+                      </div>
+
+                      <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDistFormOpen(false);
+                            setDistAssetId('');
+                            setDistStaffId('');
+                            setDistQuantity(1);
+                            setDistLocation('');
+                            setDistAllocationDate('');
+                            setDistCondition('Baik');
+                            setDistNotes('');
+                          }}
+                          className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl cursor-pointer shadow-sm"
+                        >
+                          Serahkan / Catat Alokasi
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Table of Distributions */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs select-none">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <th className="p-4 w-12 text-center">No</th>
+                        <th className="p-4">Barang / Aset yang Didistribusikan</th>
+                        <th className="p-4">Pegawai Penanggung Jawab</th>
+                        <th className="p-4 text-center">Jumlah Alokasi</th>
+                        <th className="p-4">TMT Penyerahan</th>
+                        <th className="p-4">Kondisi Serah</th>
+                        <th className="p-4">Lokasi & Berita Acara</th>
+                        {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700 font-medium">
+                      {distributions.length > 0 ? (
+                        distributions.map((d, index) => (
+                          <tr key={d.id} className="hover:bg-slate-50/20 transition-all">
+                            <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
+                            <td className="p-4">
+                              <span className="font-extrabold text-slate-800 text-xs block">{d.assetName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">Asset Ref ID: {d.assetId}</span>
+                            </td>
+                            <td className="p-4">
+                              <span className="font-bold text-slate-800 text-xs block">{d.staffName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">Recipient ID: {d.staffId}</span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className="bg-blue-50 text-blue-800 font-bold border border-blue-150 py-0.5 px-2 rounded-full">
+                                {d.quantity} Unit
+                              </span>
+                            </td>
+                            <td className="p-4 text-blue-600 font-mono">{d.allocationDate}</td>
+                            <td className="p-4">
+                              {d.conditionAtAllocation === 'Baik' && (
+                                <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-200">🟢 Baik</span>
+                              )}
+                              {d.conditionAtAllocation === 'Rusak Ringan' && (
+                                <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-200">🟡 Rusak Ringan</span>
+                              )}
+                              {d.conditionAtAllocation === 'Rusak Berat' && (
+                                <span className="bg-red-100 text-red-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-red-200">🔴 Rusak Berat</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold text-slate-700">Gedung/Pos: {d.location}</div>
+                              {d.notes && <div className="text-[10px] text-slate-400 mt-0.5 italic">Catatan: "{d.notes}"</div>}
+                            </td>
+                            {currentUser.role === 'admin' && (
+                              <td className="p-4 text-center">
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Ubah status alokasi distribusi ini? Anda mengonfirmasi pemulangan barang ke persediaan umum.')) {
+                                      setDistributions(distributions.filter(dist => dist.id !== d.id));
+                                    }
+                                  }}
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 border border-red-200 hover:border-red-300 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer"
+                                  title="Pulangkan / Kembalikan Barang"
+                                >
+                                  Recall Aset
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={currentUser.role === 'admin' ? 8 : 7} className="p-12 text-center text-slate-400 font-bold italic">
+                            Belum ada satupun register distribusi barang/alat yang tercatat aktif ke pegawai dinas.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. SUBPAGE: PERSEDIAAN (BARANG HABIS PAKAI) */}
+          {assetSubTab === 'persediaan' && (
+            <div className="space-y-4">
+              
+              {/* Supply widgets metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                    <Inbox className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total Macam Persediaan</div>
+                    <div className="text-xl font-bold text-slate-800">{supplies.length} Jenis Item</div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 text-emerald-600 rounded-xl bg-emerald-50 flex items-center justify-center font-bold">
+                    <CheckCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Persediaan Aman</div>
+                    <div className="text-xl font-bold text-slate-800">
+                      {supplies.filter(s => s.stock > s.minStock).length} Item
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4 animate-pulse">
+                  <div className="h-10 w-10 text-rose-600 bg-rose-50 rounded-xl flex items-center justify-center font-bold">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Stok Menipis / Perlu Beli</div>
+                    <div className="text-xl font-bold text-slate-800 text-rose-600">
+                      {supplies.filter(s => s.stock <= s.minStock).length} Jenis Item
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Filter row */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col space-y-3">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                  <div className="text-xs text-slate-500 font-bold">
+                    Inventaris Barang Persediaan Habis Pakai (ATK, Suku Cadang, & Bahan Bakar Operasional UPTD)
+                  </div>
+                  {canWrite ? (
+                    <button
+                      onClick={() => {
+                        setEditingSupply(null);
+                        setIsSupplyFormOpen(!isSupplyFormOpen);
+                        setSupName('');
+                        setSupStock(0);
+                        setSupUnit('Pcs');
+                        setSupMinStock(1);
+                        setSupLocation('');
+                      }}
+                      className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-xs flex items-center space-x-1.5 shadow transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Tambah Item Persediaan</span>
+                    </button>
+                  ) : (
+                    <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                      *Hanya staf TU / Admin yang dapat meregistrasi stock
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub category switcher for supplies */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {(['ALL', 'ATK', 'Bahan Bakar/Oli', 'Alat Bersih', 'Suku Cadang', 'Lainnya'] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveSupplyFilter(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                        activeSupplyFilter === cat
+                          ? 'bg-purple-50 border-purple-200 text-purple-700 shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {cat === 'ALL' ? 'Semua Persediaan' : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form to insert details or edit consumable supplies */}
+              {isSupplyFormOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => {
+                  setIsSupplyFormOpen(false);
+                  setEditingSupply(null);
+                  setSupName('');
+                  setSupStock(0);
+                  setSupUnit('Pcs');
+                  setSupMinStock(1);
+                  setSupLocation('');
+                }}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl text-xs max-h-[90vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-150">
+                      <h3 className="font-bold text-xs text-slate-800 flex items-center uppercase gap-2">
+                        <Inbox className="w-4 h-4 text-purple-600" />
+                        {editingSupply ? `Update Item Persediaan: ${editingSupply.itemName}` : 'Daftarkan Barang Habis Pakai Baru'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setIsSupplyFormOpen(false);
+                          setEditingSupply(null);
+                          setSupName('');
+                          setSupStock(0);
+                          setSupUnit('Pcs');
+                          setSupMinStock(1);
+                          setSupLocation('');
+                        }}
+                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"
+                        type="button"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!supName || supStock < 0 || !supLocation || !supUnit) {
+                          alert('Silakan isi kolom Nama, Jumlah Stok, Satuan, dan Lokasi.');
+                          return;
+                        }
+
+                        if (editingSupply) {
+                          const updated = supplies.map(s => {
+                            if (s.id === editingSupply.id) {
+                              return {
+                                ...s,
+                                itemName: supName,
+                                category: supCategory,
+                                stock: Number(supStock),
+                                unit: supUnit,
+                                minStock: Number(supMinStock),
+                                location: supLocation,
+                                lastUpdated: new Date().toISOString().split('T')[0]
+                              };
+                            }
+                            return s;
+                          });
+                          setSupplies(updated);
+                          setEditingSupply(null);
+                        } else {
+                          const newSup: ConsumableSupply = {
+                            id: 'sup-' + Math.random().toString(36).substring(2, 9),
+                            itemName: supName,
+                            category: supCategory,
+                            stock: Number(supStock),
+                            unit: supUnit,
+                            minStock: Number(supMinStock),
+                            location: supLocation,
+                            lastUpdated: new Date().toISOString().split('T')[0],
+                            history: [
+                              {
+                                id: 'sh-' + Math.random().toString(36).substring(2, 9),
+                                date: new Date().toISOString().split('T')[0],
+                                type: 'Masuk',
+                                quantity: Number(supStock),
+                                notes: 'Registrasi saldo awal stok barang habis pakai',
+                                recordedBy: currentUser.name
+                              }
+                            ]
+                          };
+                          setSupplies([newSup, ...supplies]);
+                        }
+
+                        setIsSupplyFormOpen(false);
+                        setSupName('');
+                        setSupStock(0);
+                        setSupUnit('Pcs');
+                        setSupMinStock(1);
+                        setSupLocation('');
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs"
+                    >
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nama Barang Persediaan <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Kertas A4 PaperOne, Pembersih Lantai"
+                          value={supName}
+                          onChange={(e) => setSupName(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Kategori Persediaan <span className="text-red-500">*</span></label>
+                        <select
+                          value={supCategory}
+                          onChange={(e: any) => setSupCategory(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        >
+                          <option value="ATK">ATK (Alat Tulis Kantor)</option>
+                          <option value="Bahan Bakar/Oli">Bahan Bakar & Pelumas Oli</option>
+                          <option value="Alat Bersih">Alat Pembersih Kantor</option>
+                          <option value="Suku Cadang">Suku Cadang / Servis Sipil</option>
+                          <option value="Lainnya">Barang Lain-lain</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Jumlah Stok Fisik <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={supStock}
+                          onChange={(e) => setSupStock(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          disabled={!!editingSupply} // Only modify through stock adjuster for exists
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Satuan <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Rim, Botol, Pcs, Liter, Galon"
+                          value={supUnit}
+                          onChange={(e) => setSupUnit(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Limit Stok Minimal (Alarm Menipis) </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={supMinStock}
+                          onChange={(e) => setSupMinStock(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block font-bold text-slate-700 mb-1">Detail Tempat Penyimpanan <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Lemari Kayu Ruang TU, Gudang APD Sektor Selatan"
+                          value={supLocation}
+                          onChange={(e) => setSupLocation(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSupplyFormOpen(false);
+                            setEditingSupply(null);
+                            setSupName('');
+                            setSupStock(0);
+                            setSupUnit('Pcs');
+                            setSupMinStock(1);
+                            setSupLocation('');
+                          }}
+                          className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl"
+                        >
+                          {editingSupply ? 'Simpan' : 'Daftarkan Barang'}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Stock adjustment popover modal overlay */}
+              {adjustingSupply && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setAdjustingSupply(null)}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-md text-xs select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-150">
+                      <h4 className="font-extrabold text-slate-800 uppercase flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-purple-600" />
+                        Logistik Keluar Masuk Persediaan
+                      </h4>
+                      <button onClick={() => setAdjustingSupply(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Nama Barang</span>
+                      <span className="font-extrabold text-slate-800 text-sm">{adjustingSupply.itemName}</span>
+                      <div className="mt-1 flex gap-2 font-bold text-[10px]">
+                        <span className="text-slate-500">Stok Saat Ini: {adjustingSupply.stock} {adjustingSupply.unit}</span>
+                        <span className="text-purple-600">Min Stok: {adjustingSupply.minStock} {adjustingSupply.unit}</span>
+                      </div>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (adjustmentQty <= 0) return;
+                        const change = adjustmentType === 'Masuk' ? adjustmentQty : -adjustmentQty;
+                        const newStock = adjustingSupply.stock + change;
+
+                        if (newStock < 0) {
+                          alert('Kesalahan: Sisa stok tidak boleh kurang dari 0.');
+                          return;
+                        }
+
+                        const updated = supplies.map(s => {
+                          if (s.id === adjustingSupply.id) {
+                            const currentHistory = s.history || [];
+                            const newHistItem = {
+                              id: 'sh-' + Math.random().toString(36).substring(2, 9),
+                              date: new Date().toISOString().split('T')[0],
+                              type: adjustmentType,
+                              quantity: adjustmentQty,
+                              notes: adjustmentNotes || (adjustmentType === 'Masuk' ? 'Stok Masuk Rutin' : 'Pengambilan Barang Kantor'),
+                              recordedBy: currentUser.name
+                            };
+                            return {
+                              ...s,
+                              stock: newStock,
+                              lastUpdated: new Date().toISOString().split('T')[0],
+                              history: [newHistItem, ...currentHistory]
+                            };
+                          }
+                          return s;
+                        });
+
+                        setSupplies(updated);
+                        setAdjustingSupply(null);
+                        setAdjustmentQty(1);
+                        setAdjustmentNotes('');
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Aksi Penyesuaian STOK</label>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setAdjustmentType('Masuk')}
+                            className={`p-2 rounded-xl text-center font-bold border transition-all ${
+                              adjustmentType === 'Masuk'
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-xs'
+                                : 'bg-slate-50 border-slate-200 text-slate-500'
+                            }`}
+                          >
+                            📥 Sisa Stok Bertambah (Masuk)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdjustmentType('Keluar')}
+                            className={`p-2 rounded-xl text-center font-bold border transition-all ${
+                              adjustmentType === 'Keluar'
+                                ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs'
+                                : 'bg-slate-50 border-slate-200 text-slate-500'
+                            }`}
+                          >
+                            📤 Stok Diambil / Dipakai (Keluar)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Jumlah Unit ({adjustingSupply.unit}) <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={adjustmentQty}
+                          onChange={(e) => setAdjustmentQty(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Keterangan Khusus / Berita Pemakaian</label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Belanja sisa DIPA / Diambil untuk Seksi Pembangunan"
+                          value={adjustmentNotes}
+                          onChange={(e) => setAdjustmentNotes(e.target.value)}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setAdjustingSupply(null)}
+                          className="flex-1 p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-center rounded-xl font-extrabold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="flex-1 p-2.5 bg-purple-600 hover:bg-purple-700 text-white text-center rounded-xl font-extrabold cursor-pointer shadow-sm"
+                        >
+                          Simpan Distribusi Stock
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Table of Consumables */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs select-none">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-150">
+                        <th className="p-4 w-12 text-center">No</th>
+                        <th className="p-4">Kategori</th>
+                        <th className="p-4">Nama Barang Persediaan</th>
+                        <th className="p-4">Lokasi Penyimpanan Lemari</th>
+                        <th className="p-4 text-center">Jumlah Stok Tersedia</th>
+                        <th className="p-4">Batas Limit Minimal</th>
+                        <th className="p-4">Status Ketersediaan</th>
+                        <th className="p-4 text-center">Pengkinian Akhir</th>
+                        {currentUser.role === 'admin' && <th className="p-4 text-center w-40">Tindakan Logistik</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                      {supplies.filter(s => activeSupplyFilter === 'ALL' || s.category === activeSupplyFilter).length > 0 ? (
+                        supplies.filter(s => activeSupplyFilter === 'ALL' || s.category === activeSupplyFilter).map((s, index) => {
+                          const isLow = s.stock <= s.minStock;
+                          return (
+                            <tr key={s.id} className="hover:bg-slate-50/20 transition-all">
+                              <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
+                              <td className="p-4">
+                                <span className="bg-purple-50 text-purple-700 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase border border-purple-100">
+                                  {s.category}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <span className="font-extrabold text-slate-800 text-sm block">{s.itemName}</span>
+                              </td>
+                              <td className="p-4 text-slate-600 font-medium">{s.location}</td>
+                              <td className="p-4 text-center">
+                                <span className={`font-black text-xs px-2.5 py-1 rounded-lg border ${
+                                  isLow ? 'bg-rose-50 border-rose-200 text-rose-800 font-mono' : 'bg-slate-50 border-slate-200 text-slate-800 font-mono'
+                                }`}>
+                                  {s.stock} {s.unit}
+                                </span>
+                              </td>
+                              <td className="p-4 text-slate-500 font-mono font-medium">{s.minStock} {s.unit}</td>
+                              <td className="p-4">
+                                {isLow ? (
+                                  <span className="bg-red-50 text-red-700 border border-red-200 font-extrabold px-2.5 py-0.5 rounded-full text-[9px] uppercase animate-pulse">
+                                    ⚠️ Stok Menipis
+                                  </span>
+                                ) : (
+                                  <span className="bg-emerald-50 text-emerald-800 border border-emerald-150 font-extrabold px-2.5 py-0.5 rounded-full text-[9px] uppercase">
+                                    ✔️ Stok Aman
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-4 text-center text-slate-400 font-mono">{s.lastUpdated}</td>
+                              {currentUser.role === 'admin' && (
+                                <td className="p-4 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      onClick={() => setAdjustingSupply(s)}
+                                      className="py-1 px-2.5 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer"
+                                      title="Sesuaikan/Keluar Masuk Stok"
+                                    >
+                                      Stok Ledger
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingSupply(s);
+                                        setSupName(s.itemName);
+                                        setSupCategory(s.category);
+                                        setSupStock(s.stock);
+                                        setSupUnit(s.unit);
+                                        setSupMinStock(s.minStock);
+                                        setSupLocation(s.location);
+                                        setIsSupplyFormOpen(true);
+                                      }}
+                                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors inline-block cursor-pointer"
+                                      title="Ubah Rincian Barang"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Apakah Anda yakin ingin menghapus persediaan: ${s.itemName}?`)) {
+                                          setSupplies(supplies.filter(item => item.id !== s.id));
+                                        }
+                                      }}
+                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors inline-block cursor-pointer"
+                                      title="Hapus"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={currentUser.role === 'admin' ? 9 : 8} className="p-12 text-center text-slate-400 font-bold italic">
+                            Belum ada registers persediaan barang dalam kategori {activeSupplyFilter}.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Logger history for supplies */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-3 shadow-inner">
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  Log Jurnal Arus Masuk & Keluar Persediaan (UPTD Habis Pakai)
+                </h4>
+                <div className="bg-white border border-slate-150 rounded-xl max-h-48 overflow-y-auto divide-y divide-slate-100 text-[11px]">
+                  {supplies.map(s => (s.history || []).map(h => ({ ...h, itemName: s.itemName, unit: s.unit }))).flat()
+                    .sort((x, y) => x.date < y.date ? 1 : -1)
+                    .map((log) => (
+                      <div key={log.id} className="p-3 hover:bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center font-medium gap-1 text-slate-600 transition-colors">
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
+                            log.type === 'Masuk'
+                              ? 'bg-emerald-50 border border-emerald-150 text-emerald-700'
+                              : 'bg-rose-50 border border-rose-150 text-rose-700'
+                          }`}>
+                            {log.type === 'Masuk' ? '📥 Masuk' : '📤 Penyesuaian / Dipakai'}
+                          </span>
+                          <span className="font-extrabold text-slate-800 text-xs">{log.itemName}</span>
+                          <span className="text-slate-400 font-mono">({log.quantity} {log.unit})</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold font-mono">
+                          <span className="text-slate-500">"{log.notes}"</span>
+                          <span>Oleh: {log.recordedBy || 'Staf TU'}</span>
+                          <span className="text-blue-600">{log.date}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {supplies.map(s => (s.history || [])).flat().length === 0 && (
+                      <div className="p-6 text-center text-slate-350 italic font-bold">
+                        Belum ada aktivitas mutasi barang persediaan yang dicetak oleh pimpinan.
+                      </div>
+                    )}
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* SUBTAB 4: KEUANGAN */}
+      {activeSubTab === 'keuangan' && (
+        <div className="space-y-4" id="finances-panel">
+          {/* Budget balance summaries */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <ArrowUpRight className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Total Akumulasi Pemasukan</div>
+                <div className="text-sm font-bold text-slate-800">
+                  {formatRupiah(finances.filter(f => f.type === 'pemasukan').reduce((acc, curr) => acc + curr.amount, 0))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-650 flex items-center justify-center font-bold">
+                <ArrowDownLeft className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Total Akumulasi Pengeluaran</div>
+                <div className="text-sm font-bold text-slate-800">
+                  {formatRupiah(finances.filter(f => f.type === 'pengeluaran').reduce((acc, curr) => acc + curr.amount, 0))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Wallet className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Sisa Saldo Kas Aktif</div>
+                <div className="text-sm font-bold text-blue-600">
+                  {formatRupiah(
+                    finances.filter(f => f.type === 'pemasukan').reduce((acc, curr) => acc + curr.amount, 0) -
+                    finances.filter(f => f.type === 'pengeluaran').reduce((acc, curr) => acc + curr.amount, 0)
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Header bar */}
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div className="text-xs text-slate-500 font-medium">
+              Buku Anggaran Operasional Dinas, Pembelian ATK, Perjalanan Dinas, & Kas Rutin
+            </div>
+            {canWrite ? (
+              <button
+                onClick={() => setIsFinanceFormOpen(!isFinanceFormOpen)}
+                id="btn-add-finance"
+                className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Input Transaksi Baru</span>
+              </button>
+            ) : (
+              <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                *Hanya staf TU / Admin yang dapat mengedit
+              </div>
+            )}
+          </div>
+
+          {/* Form to insert cash transaction */}
+          {isFinanceFormOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-6 rounded-xl border border-slate-200 shadow-md space-y-4"
+              id="finance-form-container"
+            >
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center">
+                  <Wallet className="w-4 h-4 text-blue-600 mr-1.5" />
+                  {editingFinance ? 'Ubah Rincian Transaksi Kas' : 'Form Transaksi Kas Keuangan'}
+                </h3>
+              </div>
+              
+              <form onSubmit={handleFinanceSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tanggal Transaksi</label>
+                  <input 
+                    type="date" 
+                    value={financeDate}
+                    onChange={(e) => setFinanceDate(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tipe Transaksi</label>
+                  <select 
+                    value={financeType} 
+                    onChange={(e: any) => setFinanceType(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
+                  >
+                    <option value="pemasukan">📈 Pemasukan (Penerimaan)</option>
+                    <option value="pengeluaran">📉 Pengeluaran (Belanja/Alokasi)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Kategori Transaksi</label>
+                  <select 
+                    value={financeCategory} 
+                    onChange={(e: any) => setFinanceCategory(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
+                  >
+                    <option value="Anggaran Rutin">Anggaran Negara / Rutin</option>
+                    <option value="Perjalanan Dinas">Perjalanan Dinas Jabatan</option>
+                    <option value="ATK & Cetak">Belanja Bahan & ATK</option>
+                    <option value="Pemeliharaan">Biaya Pemeliharaan / Reparasi</option>
+                    <option value="Konsumsi Rapat">Konsumsi Makan & Rapat</option>
+                    <option value="Lainnya">Lainnya / Eksternal</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Deskripsi Tambahan / Keperluan Detail</label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Pembelian tinta printer Epson 5 unit untuk seksi administrasi"
+                    value={financeDescription}
+                    onChange={(e) => setFinanceDescription(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nominal Rupiah (Keuangan)</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2.5 font-bold text-slate-400">Rp</span>
+                    <input 
+                      type="number" 
+                      placeholder="Contoh: 1500000"
+                      value={financeAmount || ''}
+                      onChange={(e) => setFinanceAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-3 flex justify-end gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsFinanceFormOpen(false);
+                      setEditingFinance(null);
+                      setFinanceDate('');
+                      setFinanceDescription('');
+                      setFinanceAmount(0);
+                      setFinanceType('pemasukan');
+                      setFinanceCategory('Anggaran Rutin');
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                  >
+                    {editingFinance ? 'Simpan Perubahan Kas' : 'Simpan Slip Transaksi'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {/* Ledger table list */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse" id="finances-table">
+                <thead>
+                  <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100">
+                    <th className="p-4 w-12">No.</th>
+                    <th className="p-4">Tanggal</th>
+                    <th className="p-4">Jenis Aliran</th>
+                    <th className="p-4">Kategori Akun</th>
+                    <th className="p-4">Deskripsi / Peruntukan</th>
+                    <th className="p-4">Nominal</th>
+                    <th className="p-4">Dokumentor</th>
+                    {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                  {filteredFinances.length > 0 ? (
+                    filteredFinances.map((trans, idx) => (
+                      <tr key={trans.id} className="hover:bg-slate-50/20 transition-all">
+                        <td className="p-4 font-mono text-slate-400">{idx + 1}</td>
+                        <td className="p-4 text-slate-500 font-mono font-medium whitespace-nowrap">{trans.date}</td>
+                        <td className="p-4">
+                          {trans.type === 'pemasukan' ? (
+                            <span className="bg-indigo-50 border border-indigo-150 text-indigo-700 rounded-full font-bold text-[9px] uppercase tracking-wider py-0.5 px-2 inline-flex items-center">
+                              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> Pemasukan
+                            </span>
+                          ) : (
+                            <span className="bg-rose-50 border border-rose-150 text-rose-700 rounded-full font-bold text-[9px] uppercase tracking-wider py-0.5 px-2 inline-flex items-center">
+                              <ArrowDownLeft className="w-3.5 h-3.5 mr-0.5" /> Pengeluaran
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className="bg-slate-100 text-slate-700 border border-slate-200 rounded py-0.5 px-1.5 font-bold text-[10px]">
+                            {trans.category}
+                          </span>
+                        </td>
+                        <td className="p-4 font-semibold text-slate-800 max-w-xs truncate" title={trans.description}>
+                          {trans.description}
+                        </td>
+                        <td className={`p-4 font-bold ${trans.type === 'pemasukan' ? 'text-indigo-600' : 'text-rose-600'}`}>
+                          {trans.type === 'pemasukan' ? '+' : '-'} {formatRupiah(trans.amount)}
+                        </td>
+                        <td className="p-4 text-slate-500 font-medium">{trans.registeredBy}</td>
+                        {currentUser.role === 'admin' && (
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleStartEditFinance(trans)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer animate-none"
+                                title="Ubah Transaksi Kas"
+                                id={`edit-finance-${trans.id}`}
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteFinance(trans.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-block cursor-pointer animate-none"
+                                title="Hapus Transaksi"
+                                id={`delete-finance-${trans.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={currentUser.role === 'admin' ? 8 : 7} className="p-8 text-center text-slate-400">
+                        Tidak ada transaksi keuangan terdaftar.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
