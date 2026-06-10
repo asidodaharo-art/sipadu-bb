@@ -540,67 +540,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Koordinat Geospasial Bendung</label>
-                    <input
-                      type="text"
-                      value={diCoordinates}
-                      onChange={(e) => setDiCoordinates(e.target.value)}
-                      placeholder="Contoh: 2.9644, 99.0621"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium outline-none focus:bg-white focus:border-blue-500"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Aset Saluran Primer/Sekunder (Km)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={countSaluran}
-                      onChange={(e) => setCountSaluran(Number(e.target.value))}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 outline-none focus:bg-white focus:border-blue-500"
-                      min="0"
-                    />
-                  </div>
-                </div>
-
-                {/* Auxiliary structure details collapse or standard section */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-3">
-                  <span className="block font-black text-[10px] text-slate-450 uppercase tracking-wider">Akurasi Rekapitulas Bangunan Pembantu</span>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Bendung (Unit)</label>
-                      <input
-                        type="number"
-                        value={countBendung}
-                        onChange={(e) => setCountBendung(Number(e.target.value))}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Pintu Intake (Unit)</label>
-                      <input
-                        type="number"
-                        value={countIntake}
-                        onChange={(e) => setCountIntake(Number(e.target.value))}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Pintu Air (Unit)</label>
-                      <input
-                        type="number"
-                        value={countPintu}
-                        onChange={(e) => setCountPintu(Number(e.target.value))}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Catatan Hambatan / Rekomendasi Pemeliharaan</label>
@@ -668,12 +608,12 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-450 uppercase font-bold tracking-widest text-[9px]">
                   <th className="p-4">Nama Daerah Irigasi</th>
-                  <th className="p-4">Wilayah Admin</th>
+                  <th className="p-4">Lokasi</th>
+                  <th className="p-4 text-center">Luas Baku (Fungsional)</th>
                   <th className="p-4 text-center">Luas Potensial</th>
-                  <th className="p-4 text-center">Luas Fungsional</th>
-                  <th className="p-4">Sumber Air Aliran</th>
-                  <th className="p-4">Infrastruktur Penunjang</th>
-                  <th className="p-4 text-center">Tingkat Kondisi</th>
+                  <th className="p-4 text-center">Kondisi Aliran</th>
+                  <th className="p-4">Sumber Air</th>
+                  <th className="p-4">Catatan / Hambatan</th>
                   {canWrite && <th className="p-4 text-center w-24">Aksi</th>}
                 </tr>
               </thead>
@@ -682,7 +622,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                   const getConditionBadge = (st: DaerahIrigasi['condition']) => {
                     switch (st) {
                       case 'Mengalir': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                      case 'Kering': return 'bg-red-50 text-red-700 border-red-200';
+                      case 'Kering': return 'bg-red-50 text-red-705 border-red-200';
                       default: return 'bg-slate-50 text-slate-750 border-slate-200';
                     }
                   };
@@ -697,19 +637,6 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                             <Layers className="w-4 h-4 text-blue-500 shrink-0" />
                             {di.name}
                           </span>
-                          
-                          {di.coordinates && (
-                            <a
-                              href={`https://www.google.com/maps?q=${di.coordinates}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1 hover:underline"
-                            >
-                              <MapPin className="w-3 h-3 text-red-400" />
-                              <span>Koordinat: {di.coordinates}</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          )}
                         </div>
                       </td>
 
@@ -719,19 +646,20 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                         </span>
                       </td>
 
+                      <td className="p-4 text-center whitespace-nowrap">
+                        <span className="font-extrabold text-emerald-700 text-[12px] block">
+                          {(di.fungsionalArea || 0).toLocaleString()} Ha
+                        </span>
+                      </td>
+
                       <td className="p-4 text-center font-bold text-slate-800 text-[12px] whitespace-nowrap">
                         {(di.potensialArea || 0).toLocaleString()} Ha
                       </td>
 
                       <td className="p-4 text-center whitespace-nowrap">
-                        <div className="inline-block space-y-0.5">
-                          <span className="font-extrabold text-indigo-700 text-[12px] block">
-                            {(di.fungsionalArea || 0).toLocaleString()} Ha
-                          </span>
-                          <span className="text-[9px] text-slate-400 font-medium font-mono text-center block">
-                            Rasio: {efficiency}%
-                          </span>
-                        </div>
+                        <span className={`px-2 py-0.8 rounded-md text-[10px] font-black uppercase tracking-wider border ${getConditionBadge(di.condition)}`}>
+                          {di.condition}
+                        </span>
                       </td>
 
                       <td className="p-4">
@@ -741,19 +669,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                         </span>
                       </td>
 
-                      <td className="p-4 max-w-xs">
-                        <span className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-slate-500 font-medium">
-                          <span>Bendung: <strong>{di.structuresCount?.bendung ?? 0}</strong> Unit</span>
-                          <span>Intake: <strong>{di.structuresCount?.intake ?? 0}</strong> Unit</span>
-                          <span>Pintu Air: <strong>{di.structuresCount?.pintuAir ?? 0}</strong> Unit</span>
-                          <span>Saluran: <strong>{di.structuresCount?.saluranKm ?? 0}</strong> Km</span>
-                        </span>
-                      </td>
-
-                      <td className="p-4 text-center whitespace-nowrap">
-                        <span className={`px-2 py-0.8 rounded-md text-[10px] font-black uppercase tracking-wider border ${getConditionBadge(di.condition)}`}>
-                          {di.condition}
-                        </span>
+                      <td className="p-4 max-w-xs text-slate-500 font-medium">
+                        {di.notes || <span className="text-slate-350 italic">-</span>}
                       </td>
 
                       {canWrite && (

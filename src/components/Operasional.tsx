@@ -247,10 +247,10 @@ export default function Operasional({
             </span>
           </div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Pemantauan Aliran Sungai &amp; Infrastruktur Irigasi
+            Pemantauan Infrastruktur Irigasi
           </h1>
           <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
-            Sistem informasi operasional harian UPTD PSDA Bah Bolon. Pantau tinggi muka air (TMA), 
+            Sistem pemantauan infrastruktur irigasi harian UPTD PSDA Bah Bolon. Pantau tinggi muka air (TMA), 
             kelola pos penakar hidrometri, dan tindak lanjuti kerusakan pintu serta tanggul secara real-time.
           </p>
         </div>
