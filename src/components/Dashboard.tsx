@@ -232,7 +232,7 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
                 NILAI ASET PEROLEHAN UPTD PSDA BAH BOLON
               </div>
               <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-amber-300 via-white to-blue-100 bg-clip-text text-transparent leading-none">
-                Rp {totalAssetValue.toLocaleString('id-ID')}
+                Rp {(totalAssetValue || 0).toLocaleString('id-ID')}
               </div>
             </div>
           </div>

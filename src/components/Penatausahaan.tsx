@@ -826,10 +826,10 @@ export default function Penatausahaan({
 
   // Filters
   const filteredMails = mails.filter(m => {
-    const matchesSearch = m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          m.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          m.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          m.recipient.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (m.subject || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                          (m.referenceNumber || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                          (m.sender || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                          (m.recipient || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     const matchesType = m.type === mailSubTab;
     const matchesMonth = selectedMonth === 'all' || (m.date && m.date.split('-')[1] === selectedMonth);
     const matchesYear = !selectedYear || (m.date && m.date.split('-')[0] === selectedYear);
@@ -891,20 +891,20 @@ export default function Penatausahaan({
   };
 
   const filteredStaff = staff.filter(s => {
-    return s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           s.nip.includes(searchQuery) ||
-           s.position.toLowerCase().includes(searchQuery.toLowerCase());
+    return (s.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (s.nip || '').includes(searchQuery) ||
+           (s.position || '').toLowerCase().includes((searchQuery || '').toLowerCase());
   });
 
   const filteredAssets = assets.filter(a => {
-    return a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           a.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           a.location.toLowerCase().includes(searchQuery.toLowerCase());
+    return (a.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.code || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.location || '').toLowerCase().includes((searchQuery || '').toLowerCase());
   });
 
   const filteredFinances = finances.filter(f => {
-    return f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           f.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return (f.description || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (f.category || '').toLowerCase().includes((searchQuery || '').toLowerCase());
   });
 
   // Rupiah Formatter
@@ -2432,7 +2432,7 @@ export default function Penatausahaan({
                                     <tr key={r.id}>
                                       <td className="p-3 text-center text-slate-400">{i + 1}</td>
                                       <td className="p-3 text-blue-600 font-mono font-bold">{r.tmtGaji}</td>
-                                      <td className="p-3 font-bold text-emerald-600">Rp {r.gajiPokok.toLocaleString('id-ID')}</td>
+                                      <td className="p-3 font-bold text-emerald-600">Rp {(r.gajiPokok || 0).toLocaleString('id-ID')}</td>
                                       <td className="p-3">
                                         <div className="font-semibold text-slate-800">SK: {r.noSk}</div>
                                         <div className="text-[10px] text-slate-400">Penandatangan: {r.pejabatPenandatangan || '-'} {r.tglSk && `| tgl SK ${r.tglSk}`}</div>

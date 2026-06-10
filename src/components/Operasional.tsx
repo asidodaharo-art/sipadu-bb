@@ -209,17 +209,17 @@ export default function Operasional({
 
   // Filters logic
   const filteredLogs = waterLogs.filter(log => {
-    const matchesSearch = log.location.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          log.recordedBy.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (log.location || '').toLowerCase().includes((searchQuery || '').toLowerCase()) || 
+                          (log.recordedBy || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     const matchesLocation = locationFilter === 'all' || log.location === locationFilter;
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
     return matchesSearch && matchesLocation && matchesStatus;
   });
 
   const filteredReports = damageReports.filter(rep => {
-    const matchesSearch = rep.location.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          rep.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          rep.reporterName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (rep.location || '').toLowerCase().includes((searchQuery || '').toLowerCase()) || 
+                          (rep.description || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                          (rep.reporterName || '').toLowerCase().includes((searchQuery || '').toLowerCase());
     const matchesStatus = statusFilter === 'all' || rep.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

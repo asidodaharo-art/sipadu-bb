@@ -17,6 +17,7 @@ import Penatausahaan from './components/Penatausahaan';
 import Pembangunan from './components/Pembangunan';
 import Settings from './components/Settings';
 import Operasional from './components/Operasional';
+import InventarisasiDI from './components/InventarisasiDI';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -333,7 +334,10 @@ export default function App() {
     navItems.push({ id: 'settings', label: 'Pengaturan Sistem', icon: SettingsIcon });
   }
 
-  const activeLabel = navItems.find((item) => item.id === activeTab)?.label || 'Portal';
+  const activeLabel = 
+    activeTab === 'inventarisasi_di' 
+      ? 'Inventarisasi DI' 
+      : (navItems.find((item) => item.id === activeTab)?.label || 'Portal');
 
   return (
     <div className="min-h-screen flex bg-slate-50 relative" id="portal-app">
@@ -382,7 +386,7 @@ export default function App() {
           <span className="block text-[9px] font-extrabold text-slate-500 uppercase tracking-widest pl-3 mb-2">Seksi Navigasi</span>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive = activeTab === item.id || (item.id === 'operasional' && activeTab === 'inventarisasi_di');
             return (
               <div key={item.id} className="space-y-1">
                 <button
@@ -420,6 +424,35 @@ export default function App() {
                           onClick={() => {
                             setActiveTab('penatausahaan');
                             setPenatausahaanSubTab(sub.id as any);
+                            setIsMobileSidebarOpen(false);
+                          }}
+                          className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                            isSubActive
+                              ? 'bg-slate-800/80 text-blue-400 font-extrabold pl-2.5 border-l-2 border-blue-500'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                          }`}
+                          id={`sub-sidebar-${sub.id}`}
+                        >
+                          <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-blue-400' : 'text-slate-550'}`} />
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {item.id === 'operasional' && (
+                  <div className="pl-4 space-y-1 mt-1 transition-all border-l border-slate-800/80 ml-4">
+                    {[
+                      { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
+                    ].map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setActiveTab('inventarisasi_di');
                             setIsMobileSidebarOpen(false);
                           }}
                           className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
@@ -518,7 +551,7 @@ export default function App() {
               <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto" id="sidebar-mobile-nav">
                 {navItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = activeTab === item.id;
+                  const isActive = activeTab === item.id || (item.id === 'operasional' && activeTab === 'inventarisasi_di');
                   return (
                     <div key={item.id} className="space-y-1">
                       <button
@@ -555,6 +588,34 @@ export default function App() {
                                 onClick={() => {
                                   setActiveTab('penatausahaan');
                                   setPenatausahaanSubTab(sub.id as any);
+                                  setIsMobileSidebarOpen(false);
+                                }}
+                                className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                                  isSubActive
+                                    ? 'bg-slate-800/80 text-blue-400 font-extrabold pl-2.5 border-l-2 border-blue-500'
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                                }`}
+                              >
+                                <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-blue-400' : 'text-slate-550'}`} />
+                                <span className="truncate">{sub.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {item.id === 'operasional' && (
+                        <div className="pl-4 space-y-1 mt-1 border-l border-slate-800/80 ml-4">
+                          {[
+                            { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
+                          ].map((sub) => {
+                            const SubIcon = sub.icon;
+                            const isSubActive = activeTab === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                onClick={() => {
+                                  setActiveTab('inventarisasi_di');
                                   setIsMobileSidebarOpen(false);
                                 }}
                                 className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
@@ -700,6 +761,12 @@ export default function App() {
                 onUpdateDamageStatus={handleUpdateDamageStatus}
                 onDeleteDamageReport={handleDeleteDamageReport}
                 onClearOperasionalData={handleClearOperasionalData}
+              />
+            )}
+
+            {activeTab === 'inventarisasi_di' && (
+              <InventarisasiDI
+                currentUser={currentUser}
               />
             )}
 
