@@ -40,6 +40,47 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
+  // One-time data purge to satisfy the user's request: empty all databases and lists, keeping only the Admin user credentials.
+  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v3_data_purged_2026_v7')) {
+    const defaultAdmin = [
+      {
+        id: '1',
+        username: 'admin',
+        name: 'Administrator UPTD',
+        role: 'admin' as const,
+        password: 'admin123',
+        section: 'all'
+      }
+    ];
+    localStorage.setItem('uptd_users', JSON.stringify(defaultAdmin));
+    localStorage.setItem('uptd_v3_mails', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_staff', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_projects', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_assets', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_finances', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_daerah_irigasi', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_river_stations', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_consumables', JSON.stringify([]));
+    
+    // Log out if non-admin is active
+    const curUserRaw = localStorage.getItem('uptd_current_user');
+    if (curUserRaw) {
+      try {
+        const curUser = JSON.parse(curUserRaw);
+        if (curUser.role !== 'admin') {
+          localStorage.removeItem('uptd_current_user');
+        }
+      } catch (e) {
+        localStorage.removeItem('uptd_current_user');
+      }
+    }
+    localStorage.setItem('uptd_v3_data_purged_2026_v7', 'true');
+  }
+
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('uptd_current_user');
@@ -66,6 +107,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
   });
 
+  const [projectsOperasional, setProjectsOperasional] = useState<Project[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_projects_operasional');
+    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
+  });
+
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>(() => {
     const saved = localStorage.getItem('uptd_v3_water_logs');
     return saved ? JSON.parse(saved) : INITIAL_WATER_LOGS;
@@ -87,6 +133,8 @@ export default function App() {
   });
 
   const [penatausahaanSubTab, setPenatausahaanSubTab] = useState<'landing' | 'adm_umum' | 'personalia' | 'aset_inventaris' | 'keuangan'>('landing');
+  const [pembangunanSubTab, setPembangunanSubTab] = useState<'landing' | 'paket_pekerjaan'>('landing');
+  const [operasionalSubTab, setOperasionalSubTab] = useState<'landing' | 'paket_pekerjaan'>('landing');
 
   const [profile, setProfile] = useState<InstansiProfile>(() => {
     const saved = localStorage.getItem('uptd_profile');
@@ -101,6 +149,18 @@ export default function App() {
   // Navigation state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Helper to find staff photo by matching username with NIP
+  const getCurrentUserPhoto = () => {
+    if (!currentUser) return null;
+    const cleanUsername = currentUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matched = staff.find((s) => {
+      if (!s.nip) return false;
+      const cleanNip = s.nip.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanNip === cleanUsername && cleanUsername.length > 0;
+    });
+    return matched?.photo || null;
+  };
 
   // 2. Action Handlers (modifying state + syncing to localStorage)
   const handleLogin = (user: User) => {
@@ -201,6 +261,35 @@ export default function App() {
     localStorage.setItem('uptd_v3_projects', JSON.stringify(updated));
   };
 
+  const handleAddProjectOperasional = (newProject: Project) => {
+    const updated = [newProject, ...projectsOperasional];
+    setProjectsOperasional(updated);
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify(updated));
+  };
+
+  const handleUpdateProjectOperasional = (updatedProj: Project) => {
+    const updated = projectsOperasional.map((p) => (p.id === updatedProj.id ? updatedProj : p));
+    setProjectsOperasional(updated);
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify(updated));
+  };
+
+  const handleUpdateProjectProgressOperasional = (id: string, progress: number, status: Project['status']) => {
+    const updated = projectsOperasional.map((proj) => {
+      if (proj.id === id) {
+        return { ...proj, progress, status };
+      }
+      return proj;
+    });
+    setProjectsOperasional(updated);
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify(updated));
+  };
+
+  const handleDeleteProjectOperasional = (id: string) => {
+    const updated = projectsOperasional.filter((p) => p.id !== id);
+    setProjectsOperasional(updated);
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify(updated));
+  };
+
   const handleAddWaterLog = (newLog: WaterLog) => {
     const updated = [newLog, ...waterLogs];
     setWaterLogs(updated);
@@ -251,8 +340,10 @@ export default function App() {
   const handleClearOperasionalData = () => {
     setWaterLogs([]);
     setDamageReports([]);
+    setProjectsOperasional([]);
     localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
     localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify([]));
   };
 
   const handleAddAsset = (newAsset: Asset) => {
@@ -295,6 +386,7 @@ export default function App() {
     setMails([]);
     setStaff([]);
     setProjects([]);
+    setProjectsOperasional([]);
     setWaterLogs([]);
     setDamageReports([]);
     setAssets([]);
@@ -302,6 +394,7 @@ export default function App() {
     localStorage.setItem('uptd_v3_mails', JSON.stringify([]));
     localStorage.setItem('uptd_v3_staff', JSON.stringify([]));
     localStorage.setItem('uptd_v3_projects', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify([]));
     localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
     localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
     localStorage.setItem('uptd_v3_assets', JSON.stringify([]));
@@ -321,6 +414,49 @@ export default function App() {
     );
   }
 
+  // Helper to split profile name nicely for sidebar
+  const getSidebarBrandParts = () => {
+    const fullName = profile.name || 'UPTD Pengelolaan Sumber Daya Air Bah Bolon';
+    
+    // Check if it's the default or has "UPTD Pengelolaan Sumber Daya Air"
+    if (fullName.includes('UPTD Pengelolaan Sumber Daya Air')) {
+      const rest = fullName.replace('UPTD Pengelolaan Sumber Daya Air', '').trim();
+      return {
+        top: 'UPTD PSDA',
+        main: rest || 'BAH BOLON',
+        sub: 'Sumatera Utara'
+      };
+    }
+    
+    // Generic splits based on word lengths or if it starts with "UPTD"
+    if (fullName.startsWith('UPTD')) {
+      const words = fullName.split(' ');
+      const mainPart = words.slice(1).join(' ');
+      return {
+        top: words[0],
+        main: mainPart || 'INSTANSI',
+        sub: 'Profil Instansi'
+      };
+    }
+    
+    // If it's a completely custom name, split by some length or just put as top-main-sub
+    if (fullName.length > 20) {
+      return {
+        top: 'SI - TERPADU',
+        main: fullName,
+        sub: 'Profil Instansi'
+      };
+    }
+    
+    return {
+      top: 'INSTANSI',
+      main: fullName,
+      sub: 'Profil Instansi'
+    };
+  };
+
+  const brandParts = getSidebarBrandParts();
+
   // Navigation Items
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
@@ -337,7 +473,11 @@ export default function App() {
   const activeLabel = 
     activeTab === 'inventarisasi_di' 
       ? 'Inventarisasi DI' 
-      : (navItems.find((item) => item.id === activeTab)?.label || 'Portal');
+      : activeTab === 'pembangunan' && pembangunanSubTab === 'paket_pekerjaan'
+        ? 'Data Paket Pekerjaan'
+        : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan'
+          ? 'Data Paket Pekerjaan'
+          : (navItems.find((item) => item.id === activeTab)?.label || 'Portal');
 
   return (
     <div className="min-h-screen flex bg-slate-50 relative" id="portal-app">
@@ -359,19 +499,32 @@ export default function App() {
               <Droplets className="w-6 h-6 text-amber-300 z-10" />
             </div>
           )}
-          <div className="min-w-0">
-            <span className="block text-[9px] font-black tracking-widest text-blue-400 uppercase">UPTD PSDA</span>
-            <h2 className="text-xs font-black text-white uppercase tracking-tight truncate leading-tight" title="BAH BOLON">
-              BAH BOLON
+          <div className="min-w-0 flex-1">
+            <span className="block text-[9px] font-black tracking-widest text-blue-400 uppercase truncate" title={brandParts.top}>
+              {brandParts.top}
+            </span>
+            <h2 className="text-xs font-black text-white uppercase tracking-tight truncate leading-tight" title={profile.name}>
+              {brandParts.main}
             </h2>
-            <span className="text-[9px] text-slate-400 font-medium block">Sumatera Utara</span>
+            <span className="text-[9px] text-slate-400 font-medium block truncate" title={profile.address}>
+              {brandParts.sub}
+            </span>
           </div>
         </div>
 
         {/* Logged User Info Badge */}
         <div className="p-4 mx-4 my-4 bg-slate-850/50 border border-slate-800 rounded-2xl flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-slate-800 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <UserIcon className="w-5 h-5" />
+          <div className="h-10 w-10 rounded-full bg-slate-800 border border-blue-500/20 flex items-center justify-center text-blue-400 overflow-hidden shrink-0">
+            {getCurrentUserPhoto() ? (
+              <img 
+                src={getCurrentUserPhoto()!}
+                alt={currentUser.name}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <UserIcon className="w-5 h-5" />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
@@ -395,6 +548,12 @@ export default function App() {
                     if (item.id === 'penatausahaan') {
                       setPenatausahaanSubTab('landing');
                     }
+                    if (item.id === 'pembangunan') {
+                      setPembangunanSubTab('landing');
+                    }
+                    if (item.id === 'operasional') {
+                      setOperasionalSubTab('landing');
+                    }
                     setIsMobileSidebarOpen(false);
                   }}
                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-3 transition-all cursor-pointer pointer-cursor ${
@@ -407,6 +566,36 @@ export default function App() {
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </button>
+
+                {item.id === 'pembangunan' && (
+                  <div className="pl-4 space-y-1 mt-1 transition-all border-l border-slate-800/80 ml-4">
+                    {[
+                      { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                    ].map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeTab === 'pembangunan' && pembangunanSubTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setActiveTab('pembangunan');
+                            setPembangunanSubTab(sub.id as any);
+                            setIsMobileSidebarOpen(false);
+                          }}
+                          className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                            isSubActive
+                              ? 'bg-slate-800/80 text-blue-400 font-extrabold pl-2.5 border-l-2 border-blue-500'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                          }`}
+                          id={`sub-sidebar-${sub.id}`}
+                        >
+                          <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-blue-400' : 'text-slate-550'}`} />
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {item.id === 'penatausahaan' && (
                   <div className="pl-4 space-y-1 mt-1 transition-all border-l border-slate-800/80 ml-4">
@@ -445,14 +634,22 @@ export default function App() {
                   <div className="pl-4 space-y-1 mt-1 transition-all border-l border-slate-800/80 ml-4">
                     {[
                       { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
+                      { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
                     ].map((sub) => {
                       const SubIcon = sub.icon;
-                      const isSubActive = activeTab === sub.id;
+                      const isSubActive = sub.id === 'inventarisasi_di' 
+                        ? activeTab === 'inventarisasi_di' 
+                        : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan';
                       return (
                         <button
                           key={sub.id}
                           onClick={() => {
-                            setActiveTab('inventarisasi_di');
+                            if (sub.id === 'inventarisasi_di') {
+                              setActiveTab('inventarisasi_di');
+                            } else {
+                              setActiveTab('operasional');
+                              setOperasionalSubTab('paket_pekerjaan');
+                            }
                             setIsMobileSidebarOpen(false);
                           }}
                           className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
@@ -486,9 +683,11 @@ export default function App() {
           </button>
 
           {/* Simple footer in sidebar */}
-          <div className="text-[9px] text-slate-500 text-center leading-normal">
-            <div>Sistem Informasi Terpadu</div>
-            <div className="font-semibold text-slate-400 mt-0.5">V1.0.2 • Bah Bolon</div>
+          <div className="text-[9px] text-slate-500 text-center space-y-0.5 leading-normal">
+            <div className="truncate px-1" title={footer.footerText}>{footer.footerText}</div>
+            <div className="font-semibold text-slate-400 mt-0.5 text-[8px] truncate px-1" title={footer.copyrightText}>
+              {footer.copyrightText}
+            </div>
           </div>
         </div>
       </aside>
@@ -516,14 +715,27 @@ export default function App() {
               id="sidebar-mobile-drawer"
             >
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center text-white border border-amber-400 relative overflow-hidden shrink-0">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-blue-700 to-cyan-500 opacity-80"></div>
-                    <Droplets className="w-5.5 h-5.5 text-amber-300 z-10" />
-                  </div>
-                  <div>
-                    <span className="block text-[9px] font-black tracking-widest text-blue-400 uppercase">UPTD PSDA</span>
-                    <h2 className="text-xs font-black text-white uppercase tracking-tight">BAH BOLON</h2>
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  {profile.logo ? (
+                    <img 
+                      src={profile.logo} 
+                      alt="Logo Instansi" 
+                      className="h-10 w-10 object-contain bg-white p-1 rounded-lg border border-slate-750 shrink-0" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center text-white border border-amber-400 shrink-0 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-blue-700 to-cyan-500 opacity-80"></div>
+                      <Droplets className="w-5.5 h-5.5 text-amber-300 z-10" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[9px] font-black tracking-widest text-blue-400 uppercase truncate" title={brandParts.top}>
+                      {brandParts.top}
+                    </span>
+                    <h2 className="text-xs font-black text-white uppercase tracking-tight truncate" title={profile.name}>
+                      {brandParts.main}
+                    </h2>
                   </div>
                 </div>
                 <button 
@@ -536,8 +748,17 @@ export default function App() {
 
               {/* User badge */}
               <div className="p-4 mx-4 my-4 bg-slate-850/50 border border-slate-800 rounded-xl flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-blue-400">
-                  <UserIcon className="w-4.5 h-4.5" />
+                <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-blue-400 overflow-hidden shrink-0">
+                  {getCurrentUserPhoto() ? (
+                    <img 
+                      src={getCurrentUserPhoto()!}
+                      alt={currentUser.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <UserIcon className="w-4.5 h-4.5" />
+                  )}
                 </div>
                 <div>
                   <div className="text-xs font-bold text-white leading-tight">{currentUser.name}</div>
@@ -560,6 +781,12 @@ export default function App() {
                           if (item.id === 'penatausahaan') {
                             setPenatausahaanSubTab('landing');
                           }
+                          if (item.id === 'pembangunan') {
+                            setPembangunanSubTab('landing');
+                          }
+                          if (item.id === 'operasional') {
+                            setOperasionalSubTab('landing');
+                          }
                           setIsMobileSidebarOpen(false);
                         }}
                         className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-3 cursor-pointer pointer-cursor ${
@@ -571,6 +798,35 @@ export default function App() {
                         <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                         <span>{item.label}</span>
                       </button>
+
+                      {item.id === 'pembangunan' && (
+                        <div className="pl-4 space-y-1 mt-1 border-l border-slate-800/80 ml-4">
+                          {[
+                            { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                          ].map((sub) => {
+                            const SubIcon = sub.icon;
+                            const isSubActive = activeTab === 'pembangunan' && pembangunanSubTab === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                onClick={() => {
+                                  setActiveTab('pembangunan');
+                                  setPembangunanSubTab(sub.id as any);
+                                  setIsMobileSidebarOpen(false);
+                                }}
+                                className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                                  isSubActive
+                                    ? 'bg-slate-800/80 text-blue-400 font-extrabold pl-2.5 border-l-2 border-blue-500'
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                                }`}
+                              >
+                                <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-blue-400' : 'text-slate-550'}`} />
+                                <span className="truncate">{sub.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {item.id === 'penatausahaan' && (
                         <div className="pl-4 space-y-1 mt-1 border-l border-slate-800/80 ml-4">
@@ -608,14 +864,22 @@ export default function App() {
                         <div className="pl-4 space-y-1 mt-1 border-l border-slate-800/80 ml-4">
                           {[
                             { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
+                            { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
                           ].map((sub) => {
                             const SubIcon = sub.icon;
-                            const isSubActive = activeTab === sub.id;
+                            const isSubActive = sub.id === 'inventarisasi_di' 
+                              ? activeTab === 'inventarisasi_di' 
+                              : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan';
                             return (
                               <button
                                 key={sub.id}
                                 onClick={() => {
-                                  setActiveTab('inventarisasi_di');
+                                  if (sub.id === 'inventarisasi_di') {
+                                    setActiveTab('inventarisasi_di');
+                                  } else {
+                                    setActiveTab('operasional');
+                                    setOperasionalSubTab('paket_pekerjaan');
+                                  }
                                   setIsMobileSidebarOpen(false);
                                 }}
                                 className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-left flex items-center space-x-2 transition-all cursor-pointer ${
@@ -637,7 +901,7 @@ export default function App() {
               </nav>
 
               {/* Action Log out */}
-              <div className="p-4 border-t border-slate-850 bg-slate-950/20">
+              <div className="p-4 border-t border-slate-850 bg-slate-950/20 space-y-4">
                 <button
                   onClick={handleLogout}
                   id="btn-mobile-logout"
@@ -646,6 +910,14 @@ export default function App() {
                   <LogOut className="w-4 h-4" />
                   <span>Keluarkan Sesi</span>
                 </button>
+
+                {/* Simple footer in sidebar */}
+                <div className="text-[9px] text-slate-500 text-center space-y-0.5 leading-normal">
+                  <div className="truncate px-1" title={footer.footerText}>{footer.footerText}</div>
+                  <div className="font-semibold text-slate-400 text-[8px] truncate px-1" title={footer.copyrightText}>
+                    {footer.copyrightText}
+                  </div>
+                </div>
               </div>
             </motion.aside>
           </>
@@ -706,6 +978,7 @@ export default function App() {
                 mails={mails}
                 staff={staff}
                 projects={projects}
+                projectsOperasional={projectsOperasional}
                 waterLogs={waterLogs}
                 damageReports={damageReports}
                 instansiName={profile.name}
@@ -745,6 +1018,8 @@ export default function App() {
                 onUpdateProject={handleUpdateProject}
                 onUpdateProjectProgress={handleUpdateProjectProgress}
                 onDeleteProject={handleDeleteProject}
+                activeSubTab={pembangunanSubTab}
+                onSubTabChange={setPembangunanSubTab}
               />
             )}
 
@@ -753,6 +1028,11 @@ export default function App() {
                 currentUser={currentUser}
                 waterLogs={waterLogs}
                 damageReports={damageReports}
+                projects={projectsOperasional}
+                onAddProject={handleAddProjectOperasional}
+                onUpdateProject={handleUpdateProjectOperasional}
+                onUpdateProjectProgress={handleUpdateProjectProgressOperasional}
+                onDeleteProject={handleDeleteProjectOperasional}
                 onAddWaterLog={handleAddWaterLog}
                 onUpdateWaterLog={handleUpdateWaterLog}
                 onDeleteWaterLog={handleDeleteWaterLog}
@@ -761,6 +1041,8 @@ export default function App() {
                 onUpdateDamageStatus={handleUpdateDamageStatus}
                 onDeleteDamageReport={handleDeleteDamageReport}
                 onClearOperasionalData={handleClearOperasionalData}
+                activeSubTab={operasionalSubTab}
+                onSubTabChange={setOperasionalSubTab}
               />
             )}
 

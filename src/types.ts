@@ -11,7 +11,7 @@ export interface User {
   name: string;
   role: UserRole;
   password?: string;
-  section: 'all' | 'penatausahaan' | 'pembangunan' | 'operasional';
+  section: string;
 }
 
 export interface Mail {
@@ -45,6 +45,7 @@ export interface Staff {
   telepon?: string;
   email?: string;
   alamat?: string;
+  photo?: string;
 
   // Riwayat Kepangkatan
   riwayatKepangkatan?: {

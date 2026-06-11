@@ -60,8 +60,7 @@ export default function Settings({
   const [newUsername, setNewUsername] = useState('');
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'staff'>('staff');
-  const [newSection, setNewSection] = useState<User['section']>('penatausahaan');
+  const [selectedAccess, setSelectedAccess] = useState<string[]>(['pimpinan']);
 
   // Footer Config Form state
   const [footerText, setFooterText] = useState(footer.footerText);
@@ -165,9 +164,9 @@ export default function Settings({
       id: 'u-' + Math.random().toString(36).substring(2, 9),
       username: newUsername.trim(),
       name: newName,
-      role: newRole,
+      role: selectedAccess.includes('all') ? 'admin' : 'staff',
       password: newPassword,
-      section: newRole === 'admin' ? 'all' : newSection
+      section: selectedAccess.join(',')
     };
 
     onAddUser(newUser);
@@ -176,8 +175,7 @@ export default function Settings({
     setNewUsername('');
     setNewName('');
     setNewPassword('');
-    setNewRole('staff');
-    setNewSection('penatausahaan');
+    setSelectedAccess(['pimpinan']);
     triggerNotification(`Pengguna @${newUser.username} berhasil didaftarkan!`);
   };
 
@@ -479,31 +477,42 @@ export default function Settings({
                     </div>
 
                     <div>
-                      <label className="block font-bold text-slate-600 mb-1">Hak Akses Sistem</label>
-                      <select 
-                        value={newRole}
-                        onChange={(e: any) => setNewRole(e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-semibold"
-                      >
-                        <option value="staff">Staf UPTD (Akses Terarah)</option>
-                        <option value="admin">Administrator (Akses Sistem Penuh)</option>
-                      </select>
-                    </div>
-
-                    {newRole === 'staff' && (
-                      <div>
-                        <label className="block font-bold text-slate-600 mb-1">Divisi Bagian Seksi</label>
-                        <select 
-                          value={newSection}
-                          onChange={(e: any) => setNewSection(e.target.value)}
-                          className="w-full p-2 bg-white border border-slate-200 rounded-lg font-medium text-slate-700"
-                        >
-                          <option value="penatausahaan">Umum & Penatausahaan</option>
-                          <option value="pembangunan">Seksi Pembangunan</option>
-                          <option value="operasional">Seksi Operasional (OP)</option>
-                        </select>
+                      <label className="block font-bold text-slate-600 mb-1.5">Hak Akses Sistem (Bisa pilih beberapa sekaligus)</label>
+                      <div className="space-y-1.5 max-h-56 overflow-y-auto border border-slate-200 bg-white p-3 rounded-lg divide-y divide-slate-100">
+                        {[
+                          { value: 'pimpinan', label: 'Pimpinan (hanya melihat)' },
+                          { value: 'adm_umum', label: 'Adm umum (adm umum)' },
+                          { value: 'personalia', label: 'Personalia (hanya tambah data personalia tapi tidak dapat meng edit data)' },
+                          { value: 'aset', label: 'Aset (aset)' },
+                          { value: 'keuangan', label: 'Keuangan (keuangan)' },
+                          { value: 'operasional', label: 'Operasional (seksi operasional)' },
+                          { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
+                          { value: 'staff', label: 'Staff (hanya pegawai yang menggunakan NIP sebagai username yang dapat mengedit data personalia)' },
+                          { value: 'all', label: 'Semua hak akses' },
+                        ].map((opt) => {
+                          const isChecked = selectedAccess.includes(opt.value);
+                          return (
+                            <label key={opt.value} className="flex items-start space-x-2.5 py-1.5 first:pt-0 last:pb-0 cursor-pointer select-none">
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  if (isChecked) {
+                                    setSelectedAccess(selectedAccess.filter(v => v !== opt.value));
+                                  } else {
+                                    setSelectedAccess([...selectedAccess, opt.value]);
+                                  }
+                                }}
+                                className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                              />
+                              <div className="text-[11px] text-slate-700 font-semibold leading-tight">
+                                {opt.label}
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
-                    )}
+                    </div>
 
                     <button 
                       type="submit" 
@@ -520,36 +529,70 @@ export default function Settings({
                   <h3 className="font-bold text-slate-800 text-xs">Akun Terdaftar ({users.length})</h3>
                   
                   <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
-                    {users.map((u) => (
-                      <div key={u.id} className="p-4 bg-white hover:bg-slate-50/50 flex items-center justify-between gap-2 text-xs">
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <strong className="text-slate-800 font-bold">{u.name}</strong>
-                            <span className={`px-2 py-0.2 rounded text-[9px] font-black uppercase ${
-                              u.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {u.role}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            Username: <span className="font-semibold text-blue-600">@{u.username}</span> | Divisi: <span className="uppercase text-slate-700 font-medium">{u.section}</span>
-                          </div>
-                        </div>
+                    {users.map((u) => {
+                      const getAccessLabel = (section: string) => {
+                        if (!section) return '-';
+                        const parts = section.split(',');
+                        const labels = parts.map((part) => {
+                          switch (part) {
+                            case 'pimpinan':
+                              return 'Pimpinan';
+                            case 'adm_umum':
+                              return 'Adm umum';
+                            case 'personalia':
+                              return 'Personalia';
+                            case 'aset':
+                              return 'Aset';
+                            case 'keuangan':
+                              return 'Keuangan';
+                            case 'operasional':
+                              return 'Operasional';
+                            case 'pembangunan':
+                              return 'Pembangunan';
+                            case 'staff':
+                              return 'Staff (NIP)';
+                            case 'all':
+                              return 'Semua Hak Akses (Administrator)';
+                            case 'penatausahaan':
+                              return 'Umum & Penatausahaan';
+                            default:
+                              return part;
+                          }
+                        });
+                        return labels.join(', ');
+                      };
 
-                        {u.username !== 'admin' ? (
-                          <button
-                            onClick={() => onDeleteUser(u.id)}
-                            className="text-red-500 hover:bg-red-50 p-2 border border-transparent hover:border-red-100 rounded-lg transition-all cursor-pointer"
-                            title="Hapus Pengguna"
-                            id={`delete-user-${u.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider pr-3">Default</span>
-                        )}
-                      </div>
-                    ))}
+                      return (
+                        <div key={u.id} className="p-4 bg-white hover:bg-slate-50/50 flex items-center justify-between gap-2 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <strong className="text-slate-800 font-bold">{u.name}</strong>
+                              <span className={`px-2 py-0.2 rounded text-[9px] font-black uppercase ${
+                                u.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                              }`}>
+                                {u.role}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              Username: <span className="font-semibold text-blue-600 font-mono">@{u.username}</span> | Hak Akses: <strong className="text-slate-700">{getAccessLabel(u.section)}</strong>
+                            </div>
+                          </div>
+
+                          {u.username !== 'admin' ? (
+                            <button
+                              onClick={() => onDeleteUser(u.id)}
+                              className="text-red-500 hover:bg-red-50 p-2 border border-transparent hover:border-red-100 rounded-lg transition-all cursor-pointer"
+                              title="Hapus Pengguna"
+                              id={`delete-user-${u.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider pr-3">Default</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

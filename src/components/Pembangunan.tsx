@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { ArrowRight, BookOpen, Layers, Briefcase } from 'lucide-react';
+
 interface PembangunanProps {
   currentUser: User;
   projects: Project[];
@@ -25,6 +27,8 @@ interface PembangunanProps {
   onUpdateProject: (updatedProj: Project) => void;
   onUpdateProjectProgress: (id: string, progress: number, status: Project['status']) => void;
   onDeleteProject: (id: string) => void;
+  activeSubTab?: 'landing' | 'paket_pekerjaan';
+  onSubTabChange?: (tab: 'landing' | 'paket_pekerjaan') => void;
 }
 
 export default function Pembangunan({ 
@@ -33,7 +37,9 @@ export default function Pembangunan({
   onAddProject, 
   onUpdateProject,
   onUpdateProjectProgress, 
-  onDeleteProject 
+  onDeleteProject,
+  activeSubTab = 'landing',
+  onSubTabChange
 }: PembangunanProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -52,7 +58,8 @@ export default function Pembangunan({
   const [newProgress, setNewProgress] = useState(0);
   const [newStatus, setNewStatus] = useState<Project['status']>('Perencanaan');
 
-  const canWrite = currentUser.role === 'admin' || currentUser.section === 'pembangunan';
+  const userSections = currentUser.section ? currentUser.section.split(',') : [];
+  const canWrite = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('pembangunan');
 
   // Format currency helpers e.g. Rp 4.250.000.000
   const formatRupiah = (value: number) => {
@@ -142,6 +149,124 @@ export default function Pembangunan({
   const avgProgress = projects.length > 0 
     ? Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length) 
     : 0;
+
+  if (activeSubTab === 'landing') {
+    return (
+      <div className="space-y-6 animate-fadeIn" id="pembangunan-landing-content">
+        {/* Banner Card */}
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-lg border border-indigo-950">
+          <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
+            <Wrench className="w-64 h-64 rotate-12" />
+          </div>
+          <div className="max-w-2xl space-y-4 relative z-10">
+            <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              Seksi Pembangunan & Konstruksi
+            </span>
+            <h1 className="text-3xl font-extrabold tracking-tight">UPTD AM/Seksi Pembangunan</h1>
+            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+              Seksi Pembangunan dan Konstruksi UPTD PSDA Bah Bolon bertanggung jawab dalam perencanaan teknis, pengawasan berkala, serta pelaksanaan rekonstruksi/rehabilitasi fisik infrastruktur jaringan irigasi, bendung, dan tanggul pengaman di daerah irigasi kewenangan Pemerintah Provinsi.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => onSubTabChange?.('paket_pekerjaan')}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white text-blue-800 hover:bg-slate-50 font-black rounded-xl text-xs transition-all shadow cursor-pointer border-none"
+              >
+                <span>Kelola Data Paket Pekerjaan</span>
+                <ArrowRight className="w-4 h-4 text-blue-700" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Summary Panels */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Anggaran Alokasi APBD</span>
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                <Coins className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{formatRupiah(totalBudget)}</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Total pagu anggaran paket pekerjaan</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Persentase Rata-rata Progres</span>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{avgProgress}%</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Kinerja fisik konstruksi lapangan</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Paket Terdaftar</span>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                <Briefcase className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{projects.length} Paket Kerja</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Seksi Pembangunan UPTD Bah Bolon</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Informational Cards on Responsibilities */}
+        <div className="bg-white p-8 rounded-3xl border border-slate-150 shadow-xs space-y-6">
+          <div>
+            <span className="text-[9px] bg-slate-100 text-slate-700 font-extrabold px-2.5 py-1 rounded border border-slate-200">
+              URAIAN TUGAS POKOK & FUNGSI
+            </span>
+            <h2 className="text-lg font-bold text-slate-800 mt-2">Pilar Utama Seksi Pembangunan</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Seksi pembangunan mengawal pengelolaan infrastruktur pengairan melalui tahapan berintegritas tinggi:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-blue-700 bg-blue-50">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">1. Perancangan & Usulan</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Menyusun rencana anggaran biaya (RAB), spesifikasi teknis, serta daftar paket pembangunan pengairan sesuai kondisi riil dan aspirasi petani pemakai air.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-700 bg-indigo-50">
+                <Wrench className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">2. Pelaksanaan Lapangan</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Mengawasi jalannya konstruksi beton jaringan sekunder, rehabilitasi bendung utama, pintu air, dan tanggul sungai agar tahan lama dan presisi hulu ke hilir.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-emerald-700 bg-emerald-50">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">3. Evaluasi & PHO/FHO</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Melakukan kualifikasi mutu, audit ketaatan rencana, berita acuan kemajuan fisik lapangan hingga serah terima Provisional Hand Over.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="pembangunan-tab-content">

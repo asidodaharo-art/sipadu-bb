@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
-import { User, WaterLog, DamageReport } from '../types';
+import { User, WaterLog, DamageReport, Project } from '../types';
+import Pembangunan from './Pembangunan';
 import { 
   Activity, 
   Plus, 
@@ -30,6 +31,11 @@ interface OperasionalProps {
   currentUser: User;
   waterLogs: WaterLog[];
   damageReports: DamageReport[];
+  projects?: Project[];
+  onAddProject?: (newProject: Project) => void;
+  onUpdateProject?: (updatedProj: Project) => void;
+  onUpdateProjectProgress?: (id: string, progress: number, status: Project['status']) => void;
+  onDeleteProject?: (id: string) => void;
   onAddWaterLog: (log: WaterLog) => void;
   onUpdateWaterLog: (log: WaterLog) => void;
   onDeleteWaterLog: (id: string) => void;
@@ -38,12 +44,19 @@ interface OperasionalProps {
   onUpdateDamageStatus: (id: string, status: DamageReport['status']) => void;
   onDeleteDamageReport: (id: string) => void;
   onClearOperasionalData: () => void;
+  activeSubTab?: 'landing' | 'paket_pekerjaan';
+  onSubTabChange?: (tab: 'landing' | 'paket_pekerjaan') => void;
 }
 
 export default function Operasional({
   currentUser,
   waterLogs = [],
   damageReports = [],
+  projects = [],
+  onAddProject,
+  onUpdateProject,
+  onUpdateProjectProgress,
+  onDeleteProject,
   onAddWaterLog,
   onUpdateWaterLog,
   onDeleteWaterLog,
@@ -51,9 +64,11 @@ export default function Operasional({
   onUpdateDamageReport,
   onUpdateDamageStatus,
   onDeleteDamageReport,
-  onClearOperasionalData
+  onClearOperasionalData,
+  activeSubTab = 'landing',
+  onSubTabChange
 }: OperasionalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'hidrologi' | 'kerusakan' | 'pengaturan'>('hidrologi');
+  const [activeOpsTab, setActiveOpsTab] = useState<'hidrologi' | 'kerusakan' | 'pengaturan'>('hidrologi');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +106,8 @@ export default function Operasional({
   const [repDate, setRepDate] = useState(() => new Date().toISOString().substring(0, 10));
 
   // Access rights check
-  const canWrite = currentUser.role === 'admin' || currentUser.section === 'operasional' || currentUser.section === 'all';
+  const userSections = currentUser.section ? currentUser.section.split(',') : [];
+  const canWrite = currentUser.role === 'admin' || userSections.includes('operasional') || userSections.includes('all');
 
   // Handling River Station addition
   const handleAddStation = (e: FormEvent) => {
@@ -234,6 +250,140 @@ export default function Operasional({
     : 0;
   const criticalLogsCount = waterLogs.filter(l => l.status === 'Siaga' || l.status === 'Awas').length;
 
+  if (activeSubTab === 'paket_pekerjaan') {
+    return (
+      <Pembangunan
+        currentUser={currentUser}
+        projects={projects}
+        onAddProject={onAddProject || (() => {})}
+        onUpdateProject={onUpdateProject || (() => {})}
+        onUpdateProjectProgress={onUpdateProjectProgress || (() => {})}
+        onDeleteProject={onDeleteProject || (() => {})}
+        activeSubTab="paket_pekerjaan"
+      />
+    );
+  }
+
+  if (activeSubTab === 'landing') {
+    return (
+      <div className="space-y-6 animate-fadeIn" id="operasional-landing-content">
+        {/* Banner Card */}
+        <div className="bg-gradient-to-r from-teal-700 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-lg border border-indigo-950">
+          <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
+            <Activity className="w-64 h-64 rotate-12" />
+          </div>
+          <div className="max-w-2xl space-y-4 relative z-10">
+            <span className="text-[10px] bg-sky-300 text-slate-950 font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              Seksi Operasional &amp; Pemeliharaan (OP)
+            </span>
+            <h1 className="text-3xl font-extrabold tracking-tight">UPTD AM/Seksi Operasional</h1>
+            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+              Seksi Operasional dan Pemeliharaan UPTD PSDA Bah Bolon bertugas memonitoring alokasi air irigasi, mencatat tinggi muka air (TMA) hidrologi secara harian, melakukan pengawasan berkala dan repon cepat terhadap aduan kerusakan pintu air serta tanggul guna menjamin kestabilan pasokan air sawah rakyat.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => onSubTabChange?.('paket_pekerjaan')}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white text-indigo-900 hover:bg-slate-50 font-black rounded-xl text-xs transition-all shadow cursor-pointer border-none"
+              >
+                <span>Kelola Data Paket Pekerjaan</span>
+                <ArrowRight className="w-4 h-4 text-indigo-700" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Summary Panels */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Titik Pos Pantau</span>
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                <MapPin className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{activeStationsCount} Stasiun</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Stasiun hidrologi aktif terpantau</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Tinggi Muka Air Rerata</span>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Waves className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{averageTmaOfLogs} cm</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Rerata log pengukuran TMA terbaru</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Laporan Kerusakan Aktif</span>
+              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">
+                {damageReports.filter(d => d.status !== 'Selesai').length} Pengaduan
+              </h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Laporan yang membutuhkan tindak lanjut</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Informational Cards on Responsibilities */}
+        <div className="bg-white p-8 rounded-3xl border border-slate-150 shadow-xs space-y-6">
+          <div>
+            <span className="text-[9px] bg-slate-100 text-slate-700 font-extrabold px-2.5 py-1 rounded border border-slate-200">
+              URAIAN TUGAS POKOK &amp; FUNGSI
+            </span>
+            <h2 className="text-lg font-bold text-slate-800 mt-2">Pilar Utama Seksi Operasional &amp; Pemeliharaan</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Seksi OP mengemban amanah penting dalam menjaga dan mendistribusikan berkah air melalui langkah strategis:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-blue-700 bg-blue-50">
+                <Waves className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">1. Pemantauan Hidrologi</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Mencatat tinggi muka air (TMA) dan estimasi debit duga harian untuk mengantisipasi limpasan banjir banjir kiriman maupun krisis kekeringan.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-teal-700 bg-teal-50">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">2. Pengaturan Operasi Pintu</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Mengatur debit bukaan pintu air masuk (intake) bendung agar pasokan air mengalir merata dan efisien ke petak tersier sawah petani.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-rose-700 bg-rose-50">
+                <Hammer className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-800 text-sm">3. Respon Pengaduan Darurat</h4>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Menampung aduan kebocoran tanggul, penyumbatan sedimen, atau rusaknya pintu sekunder untuk segera dikoordinasikan peninjauannya di lapangan.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6" id="operasional-section-main">
       
@@ -272,13 +422,13 @@ export default function Operasional({
         <div className="flex flex-wrap gap-1">
           <button
             onClick={() => {
-              setActiveSubTab('hidrologi');
+              setActiveOpsTab('hidrologi');
               setSearchQuery('');
               setLocationFilter('all');
               setStatusFilter('all');
             }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
-              activeSubTab === 'hidrologi'
+              activeOpsTab === 'hidrologi'
                 ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
@@ -289,12 +439,12 @@ export default function Operasional({
 
           <button
             onClick={() => {
-              setActiveSubTab('kerusakan');
+              setActiveOpsTab('kerusakan');
               setSearchQuery('');
               setStatusFilter('all');
             }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
-              activeSubTab === 'kerusakan'
+              activeOpsTab === 'kerusakan'
                 ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
@@ -305,11 +455,11 @@ export default function Operasional({
 
           <button
             onClick={() => {
-              setActiveSubTab('pengaturan');
+              setActiveOpsTab('pengaturan');
               setSearchQuery('');
             }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer ${
-              activeSubTab === 'pengaturan'
+              activeOpsTab === 'pengaturan'
                 ? 'bg-white text-slate-900 shadow-xs border border-slate-200/10'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
@@ -320,12 +470,12 @@ export default function Operasional({
         </div>
 
         <div className="text-[10px] text-slate-550 font-bold font-mono px-3 py-1.5 bg-slate-200/50 rounded-lg text-center whitespace-nowrap">
-          Role: <span className="text-indigo-700 capitalize">{currentUser.role}</span> ({currentUser.section === 'all' ? 'Lengkap' : 'Seksi OP'})
+          Role: <span className="text-indigo-700 capitalize">{currentUser.role}</span> ({currentUser.section && currentUser.section.split(',').includes('all') ? 'Lengkap' : 'Seksi OP'})
         </div>
       </div>
 
       {/* 3. SUBTAB CONTENT - HIDROLOGI */}
-      {activeSubTab === 'hidrologi' && (
+      {activeOpsTab === 'hidrologi' && (
         <div className="space-y-6" id="panel-operasional-hidrologi">
           
           {/* Quick Metrics */}
@@ -669,7 +819,7 @@ export default function Operasional({
       )}
 
       {/* 4. SUBTAB CONTENT - KERUSAKAN */}
-      {activeSubTab === 'kerusakan' && (
+      {activeOpsTab === 'kerusakan' && (
         <div className="space-y-6" id="panel-operasional-kerusakan">
           
           {/* Stats Bar */}
@@ -971,7 +1121,7 @@ export default function Operasional({
       )}
 
       {/* 5. SUBTAB CONTENT - PENGATURAN POS */}
-      {activeSubTab === 'pengaturan' && (
+      {activeOpsTab === 'pengaturan' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="panel-operasional-pengaturan">
           
           <div className="lg:col-span-2 space-y-6">

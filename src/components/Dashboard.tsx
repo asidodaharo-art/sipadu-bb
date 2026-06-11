@@ -27,13 +27,23 @@ interface DashboardProps {
   mails: Mail[];
   staff: Staff[];
   projects: Project[];
+  projectsOperasional?: Project[];
   waterLogs: WaterLog[];
   damageReports: DamageReport[];
   instansiName: string;
   assets: Asset[];
 }
 
-export default function Dashboard({ mails, staff, projects, waterLogs, damageReports, instansiName, assets = [] }: DashboardProps) {
+export default function Dashboard({ 
+  mails, 
+  staff, 
+  projects, 
+  projectsOperasional = [], 
+  waterLogs, 
+  damageReports, 
+  instansiName, 
+  assets = [] 
+}: DashboardProps) {
   // Key Stats
   const activeProjectsCount = projects.filter(p => p.status === 'Konstruksi').length;
   const completedProjectsCount = projects.filter(p => p.status === 'Selesai').length;
@@ -694,37 +704,80 @@ export default function Dashboard({ mails, staff, projects, waterLogs, damageRep
           
 
 
-          {/* Section Pembangunan Progress Summary */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-base font-bold text-slate-800 mb-3">Kemajuan Fisik Instansi Seksi Pembangunan</h2>
-            <div className="space-y-4">
-              {projects.slice(0, 3).map((project) => (
-                <div key={project.id} className="space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-slate-700 truncate max-w-sm">{project.name}</span>
-                    <span className="font-mono bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
-                      {project.progress}%
-                    </span>
+          {/* Section Progress Overview Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full" id="dashboard-progress-container">
+            {/* Section Pembangunan Progress Summary */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100" id="dashboard-progress-pembangunan">
+              <h2 className="text-base font-bold text-slate-800 mb-3">Kemajuan Fisik Seksi Pembangunan</h2>
+              <div className="space-y-4">
+                {projects.slice(0, 3).map((project) => (
+                  <div key={project.id} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-slate-700 truncate max-w-sm">{project.name}</span>
+                      <span className="font-mono bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                        {project.progress}%
+                      </span>
+                    </div>
+                    {/* Custom Progress bar */}
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          project.progress === 100 
+                            ? 'bg-emerald-500' 
+                            : project.progress > 50 
+                              ? 'bg-blue-600' 
+                              : 'bg-amber-500'
+                        }`} 
+                        style={{ width: `${project.progress}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400">
+                      <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
+                      <span>Selesai: {project.endDate}</span>
+                    </div>
                   </div>
-                  {/* Custom Progress bar */}
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        project.progress === 100 
-                          ? 'bg-emerald-500' 
-                          : project.progress > 50 
-                            ? 'bg-blue-600' 
-                            : 'bg-amber-500'
-                      }`} 
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-400">
-                    <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
-                    <span>Selesai: {project.endDate}</span>
-                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section Operasional Progress Summary */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 animate-fadeIn" id="dashboard-progress-operasional">
+              <h2 className="text-base font-bold text-slate-800 mb-3">Kemajuan Fisik Seksi Operasional</h2>
+              {projectsOperasional && projectsOperasional.length > 0 ? (
+                <div className="space-y-4">
+                  {projectsOperasional.slice(0, 3).map((project) => (
+                    <div key={project.id} className="space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-700 truncate max-w-sm">{project.name}</span>
+                        <span className="font-mono bg-teal-50 text-teal-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                          {project.progress}%
+                        </span>
+                      </div>
+                      {/* Custom Progress bar */}
+                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            project.progress === 100 
+                              ? 'bg-emerald-500' 
+                              : project.progress > 50 
+                                ? 'bg-teal-600' 
+                                : 'bg-amber-500'
+                          }`} 
+                          style={{ width: `${project.progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-400">
+                        <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
+                        <span>Selesai: {project.endDate}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-xs text-slate-400">Belum ada data paket pekerjaan seksi operasional.</p>
+                </div>
+              )}
             </div>
           </div>
 

@@ -41,7 +41,9 @@ import {
   Share2,
   TrendingUp,
   Sliders,
-  Sparkles
+  Sparkles,
+  Camera,
+  User as UserIcon
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -560,6 +562,7 @@ export default function Penatausahaan({
     setEditingStaff(person);
     setEditStaffDraft({
       ...person,
+      photo: person.photo || '',
       tempatLahir: person.tempatLahir || '',
       tanggalLahir: person.tanggalLahir || '',
       jenisKelamin: person.jenisKelamin || 'Laki-laki',
@@ -608,7 +611,36 @@ export default function Penatausahaan({
     setIsFinanceFormOpen(true);
   };
 
-  const canWrite = currentUser.role === 'admin' || currentUser.section === 'penatausahaan';
+  const userSections = currentUser.section ? currentUser.section.split(',') : [];
+
+  const canWrite = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('penatausahaan');
+
+  // Customized Hak Akses
+  const canWriteAdmUmum = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('adm_umum') || userSections.includes('penatausahaan');
+  
+  const canCreateStaff = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('personalia');
+  
+  const canEditThisStaff = (personNip?: string) => {
+    if (currentUser.role === 'admin' || userSections.includes('all')) {
+      return true;
+    }
+    if (userSections.includes('staff') && personNip) {
+      const cleanUsername = currentUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanNip = personNip.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanUsername === cleanNip && cleanUsername.length > 0;
+    }
+    return false;
+  };
+
+  const canDeleteThisStaff = () => {
+    return currentUser.role === 'admin' || userSections.includes('all');
+  };
+
+  const showStaffActionsColumn = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('staff');
+
+  const canWriteAset = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('aset');
+  
+  const canWriteKeuangan = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('keuangan');
 
   const handleMailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -681,6 +713,10 @@ export default function Penatausahaan({
     }
 
     if (editingStaff) {
+      if (!canEditThisStaff(editingStaff.nip)) {
+        alert('Maaf, Anda tidak memiliki hak akses untuk mengubah data pegawai ini.');
+        return;
+      }
       const updated: Staff = {
         ...editingStaff,
         ...(editStaffDraft || {}),
@@ -694,6 +730,10 @@ export default function Penatausahaan({
       setEditingStaff(null);
       setEditStaffDraft(null);
     } else {
+      if (!canCreateStaff) {
+        alert('Maaf, Anda tidak memiliki hak akses untuk menambah data pegawai.');
+        return;
+      }
       const newStaff: Staff = {
         id: 's-' + Math.random().toString(36).substring(2, 9),
         name: staffName,
@@ -1021,7 +1061,7 @@ export default function Penatausahaan({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
               {/* KOLOM A: RENCANA MASA PENSIUN */}
               <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
                 <div>
@@ -1360,7 +1400,7 @@ export default function Penatausahaan({
             </div>
 
             {/* Input Action Trigger */}
-            {canWrite ? (
+            {canWriteAdmUmum ? (
               <button
                 onClick={() => setIsMailFormOpen(!isMailFormOpen)}
                 id="btn-add-mail"
@@ -1848,7 +1888,7 @@ export default function Penatausahaan({
               Menampilkan <span className="font-bold text-slate-800">{filteredStaff.length}</span> Pegawai UPTD PSDA Bah Bolon Sumut
             </div>
             
-            {currentUser.role === 'admin' ? (
+            {canCreateStaff ? (
               <button
                 onClick={() => setIsStaffFormOpen(!isStaffFormOpen)}
                 id="btn-add-staff"
@@ -1859,7 +1899,7 @@ export default function Penatausahaan({
               </button>
             ) : (
               <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                *Hanya Administrator pusat yang dapat menginput Pegawai baru
+                *Hanya Kepegawaian & Admin yang dapat menginput Pegawai baru
               </div>
             )}
           </div>
@@ -2011,6 +2051,69 @@ export default function Penatausahaan({
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Upload Foto Profil */}
+                            <div className="sm:col-span-2 bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-4">
+                              <div className="relative group w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-inner flex items-center justify-center shrink-0">
+                                {editStaffDraft?.photo ? (
+                                  <img 
+                                    src={editStaffDraft.photo}
+                                    alt="Foto Profil Pegawai"
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center text-slate-400 text-center">
+                                    <UserIcon className="w-10 h-10 text-slate-350" />
+                                    <span className="text-[9px] mt-1 font-bold text-slate-400">Belum Ada Foto</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-grow text-center sm:text-left space-y-2">
+                                <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1.5 animate-pulse-slow">
+                                  <Camera className="w-4 h-4 text-blue-600" />
+                                  <span>Foto Profil Resmi Pegawai</span>
+                                </h4>
+                                <p className="text-[10px] text-slate-500 leading-relaxed max-w-lg">
+                                  Unggah foto profil pegawai resmi UPTD. Format yang didukung: JPG, JPEG, atau PNG (Maksimal ukuran file 1MB).
+                                </p>
+                                <div className="flex items-center gap-2 justify-center sm:justify-start pt-0.5">
+                                  <label className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[10px] cursor-pointer inline-flex items-center space-x-1.5 transition-all shadow-sm shadow-blue-600/15">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Pilih File Foto</span>
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      className="hidden" 
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.size > 1024 * 1024) {
+                                            alert("Ukuran berkas terlalu besar. Maksimal adalah 1MB.");
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (event) => {
+                                            updateDraftField('photo', event.target?.result as string);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  {editStaffDraft?.photo && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDraftField('photo', '')}
+                                      className="py-1.5 px-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-lg text-[10px] font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      <span>Hapus Foto</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
                             <div>
                               <label className="block font-bold text-slate-700 mb-1">Nama Lengkap & Gelar <span className="text-red-500">*</span></label>
                               <input 
@@ -3049,7 +3152,7 @@ export default function Penatausahaan({
                     <th className="p-4">Nama Lengkap & NIP</th>
                     <th className="p-4">Pangkat & Golongan</th>
                     <th className="p-4">Jabatan / Kedudukan</th>
-                    {currentUser.role === 'admin' && <th className="p-4 text-center w-32">Aksi</th>}
+                    {showStaffActionsColumn && <th className="p-4 text-center w-32">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -3058,10 +3161,26 @@ export default function Penatausahaan({
                       <tr key={person.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="p-4 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
                         <td className="p-4">
-                          <div className="font-bold text-slate-800 text-sm">{person.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center">
-                            <CreditCard className="w-3.5 h-3.5 mr-1" />
-                            <span>NIP: {person.nip}</span>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                              {person.photo ? (
+                                <img 
+                                  src={person.photo} 
+                                  alt={person.name} 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <UserIcon className="w-5 h-5 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-800 text-sm truncate max-w-xs">{person.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center">
+                                <CreditCard className="w-3.5 h-3.5 mr-1 shrink-0" />
+                                <span className="truncate">NIP: {person.nip}</span>
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="p-4">
@@ -3073,25 +3192,31 @@ export default function Penatausahaan({
                           </div>
                         </td>
                         <td className="p-4 text-slate-600 font-medium">{person.position}</td>
-                        {currentUser.role === 'admin' && (
+                        {showStaffActionsColumn && (
                           <td className="p-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => handleStartEditStaff(person)}
-                                className="inline-flex text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-blue-150"
-                                id={`edit-staff-${person.id}`}
-                                title="Ubah Data Pegawai"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => onDeleteStaff(person.id)}
-                                className="inline-flex text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-red-150"
-                                id={`delete-staff-${person.id}`}
-                                title="Hapus Pegawai"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {canEditThisStaff(person.nip) ? (
+                                <button
+                                  onClick={() => handleStartEditStaff(person)}
+                                  className="inline-flex text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-blue-150"
+                                  id={`edit-staff-${person.id}`}
+                                  title="Ubah Data Pegawai"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400" title="Anda hanya dapat mengubah data personalia sendiri">-</span>
+                              )}
+                              {canDeleteThisStaff() && (
+                                <button
+                                  onClick={() => onDeleteStaff(person.id)}
+                                  className="inline-flex text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg text-[10px] font-bold items-center transition-colors cursor-pointer border border-transparent hover:border-red-150"
+                                  id={`delete-staff-${person.id}`}
+                                  title="Hapus Pegawai"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         )}
@@ -3099,7 +3224,7 @@ export default function Penatausahaan({
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={currentUser.role === 'admin' ? 5 : 4} className="p-8 text-center text-slate-400 font-medium">
+                      <td colSpan={showStaffActionsColumn ? 5 : 4} className="p-8 text-center text-slate-400 font-medium">
                         Tidak ada pegawai terdaftar dengan kata kunci tersebut.
                       </td>
                     </tr>
@@ -3199,7 +3324,7 @@ export default function Penatausahaan({
                   <div className="text-xs text-slate-500 font-medium">
                     Pilih klasifikasi <strong>Kartu Inventaris Barang (KIB)</strong> untuk melihat rincian register aset dinas:
                   </div>
-                  {canWrite ? (
+                  {canWriteAset ? (
                     <button
                       onClick={() => setIsAssetFormOpen(!isAssetFormOpen)}
                       id="btn-add-asset"
@@ -3210,7 +3335,7 @@ export default function Penatausahaan({
                     </button>
                   ) : (
                     <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                      *Hanya staf TU / Admin yang dapat mengedit KIB
+                      *Hanya staf Aset / Admin yang dapat mengedit KIB
                     </div>
                   )}
                 </div>
@@ -3564,7 +3689,7 @@ export default function Penatausahaan({
                 <div className="text-xs text-slate-500 font-bold">
                   Daftar Peminjaman & Distribusi Aset Aktif ({distributions.length} Alokasi Berlangsung)
                 </div>
-                {canWrite ? (
+                {canWriteAset ? (
                   <button
                     onClick={() => setIsDistFormOpen(!isDistFormOpen)}
                     className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-xs flex items-center space-x-1 shadow transition-colors cursor-pointer"
@@ -3574,7 +3699,7 @@ export default function Penatausahaan({
                   </button>
                 ) : (
                   <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                    *Hanya staf TU / Administrator yang dapat mengalokasi
+                    *Hanya staf Aset / Admin yang dapat mengalokasi
                   </div>
                 )}
               </div>
@@ -3958,7 +4083,7 @@ export default function Penatausahaan({
                   <div className="text-xs text-slate-500 font-bold">
                     Inventaris Barang Persediaan Habis Pakai (ATK, Suku Cadang, & Bahan Bakar Operasional UPTD)
                   </div>
-                  {canWrite ? (
+                  {canWriteAset ? (
                     <button
                       onClick={() => {
                         setEditingSupply(null);
@@ -3976,7 +4101,7 @@ export default function Penatausahaan({
                     </button>
                   ) : (
                     <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                      *Hanya staf TU / Admin yang dapat meregistrasi stock
+                      *Hanya staf Aset / Admin yang dapat meregistrasi stock
                     </div>
                   )}
                 </div>
@@ -4540,7 +4665,7 @@ export default function Penatausahaan({
             <div className="text-xs text-slate-500 font-medium">
               Buku Anggaran Operasional Dinas, Pembelian ATK, Perjalanan Dinas, & Kas Rutin
             </div>
-            {canWrite ? (
+            {canWriteKeuangan ? (
               <button
                 onClick={() => setIsFinanceFormOpen(!isFinanceFormOpen)}
                 id="btn-add-finance"
@@ -4551,7 +4676,7 @@ export default function Penatausahaan({
               </button>
             ) : (
               <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                *Hanya staf TU / Admin yang dapat mengedit
+                *Hanya staf Keuangan / Admin yang dapat mengedit
               </div>
             )}
           </div>
