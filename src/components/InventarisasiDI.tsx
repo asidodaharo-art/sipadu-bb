@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useRef } from 'react';
 import { User } from '../types';
 import { 
   Building2, 
@@ -17,9 +17,24 @@ import {
   Filter,
   ArrowRight,
   TrendingUp,
-  Boxes
+  Boxes,
+  Camera,
+  Image as ImageIcon,
+  Navigation,
+  Eye,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+interface BangunanPendukung {
+  id: string;
+  name: string;
+  category: string; // e.g., 'Bendung Utama', 'Pintu Intake', etc.
+  condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
+  photo?: string; // base64 or placeholder URL
+  location?: string; // "Lat, Lng"
+  notes?: string;
+}
 
 interface DaerahIrigasi {
   id: string;
@@ -37,6 +52,7 @@ interface DaerahIrigasi {
     pintuAir: number;
     saluranKm: number;
   };
+  bangunanPendukung?: BangunanPendukung[];
 }
 
 const INITIAL_DI_DATA: DaerahIrigasi[] = [
@@ -50,7 +66,27 @@ const INITIAL_DI_DATA: DaerahIrigasi[] = [
     coordinates: '2.9644, 99.0621',
     condition: 'Mengalir',
     notes: 'Kondisi air stabil sepanjang tahun, penyuplai utama sawah baku di wilayah tengah',
-    structuresCount: { bendung: 1, intake: 2, pintuAir: 24, saluranKm: 42.5 }
+    structuresCount: { bendung: 1, intake: 2, pintuAir: 24, saluranKm: 42.5 },
+    bangunanPendukung: [
+      {
+        id: 'bp-1',
+        name: 'Pintu Sadap Utama Bah Bolon',
+        category: 'Pintu Intake',
+        condition: 'Baik',
+        photo: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&auto=format&fit=crop&q=60',
+        location: '2.9644, 99.0621',
+        notes: 'Pintu air beroperasi dengan lancar, pelumasan rutin dilakukan setiap bulan.'
+      },
+      {
+        id: 'bp-2',
+        name: 'Tanggul Banjir HM-4',
+        category: 'Tanggul Pengaman',
+        condition: 'Rusak Ringan',
+        photo: 'https://images.unsplash.com/photo-1544982503-9f984c14501a?w=400&auto=format&fit=crop&q=60',
+        location: '2.9658, 99.0635',
+        notes: 'Terlihat gerusan air kecil di tepi fondasi pasca limpasan banjir pekan lalu.'
+      }
+    ]
   },
   {
     id: 'di-2',
@@ -62,7 +98,18 @@ const INITIAL_DI_DATA: DaerahIrigasi[] = [
     coordinates: '3.1233, 99.1822',
     condition: 'Mengalir',
     notes: 'Butuh perbaikan tanggul di saluran primer HM 12+400',
-    structuresCount: { bendung: 1, intake: 1, pintuAir: 12, saluranKm: 18.2 }
+    structuresCount: { bendung: 1, intake: 1, pintuAir: 12, saluranKm: 18.2 },
+    bangunanPendukung: [
+      {
+        id: 'bp-3',
+        name: 'Pintu Pembagi Saluran Sekunder',
+        category: 'Pintu Air Bagi',
+        condition: 'Rusak Berat',
+        photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&auto=format&fit=crop&q=60',
+        location: '3.1235, 99.1825',
+        notes: 'Drat pemutar berkarat kronis dan macet total, aliran dialihkan darurat.'
+      }
+    ]
   },
   {
     id: 'di-3',
@@ -74,7 +121,8 @@ const INITIAL_DI_DATA: DaerahIrigasi[] = [
     coordinates: '3.0455, 99.2789',
     condition: 'Mengalir',
     notes: 'Sistem pintu air digitalisasi terintegrasi pos pantau hidrometri Kerasaan',
-    structuresCount: { bendung: 1, intake: 2, pintuAir: 18, saluranKm: 28.0 }
+    structuresCount: { bendung: 1, intake: 2, pintuAir: 18, saluranKm: 28.0 },
+    bangunanPendukung: []
   },
   {
     id: 'di-4',
@@ -86,7 +134,8 @@ const INITIAL_DI_DATA: DaerahIrigasi[] = [
     coordinates: '2.8812, 99.1121',
     condition: 'Kering',
     notes: 'Sedimentasi tinggi di sekitar bendung utama, perlu pengerukan rutin',
-    structuresCount: { bendung: 1, intake: 1, pintuAir: 9, saluranKm: 14.8 }
+    structuresCount: { bendung: 1, intake: 1, pintuAir: 9, saluranKm: 14.8 },
+    bangunanPendukung: []
   },
   {
     id: 'di-5',
@@ -98,7 +147,8 @@ const INITIAL_DI_DATA: DaerahIrigasi[] = [
     coordinates: '3.3241, 99.1633',
     condition: 'Kering',
     notes: 'Pintu intake sisi kanan macet akibat korosi, dalam pengusulan rehab seksi pembangunan',
-    structuresCount: { bendung: 1, intake: 1, pintuAir: 6, saluranKm: 9.5 }
+    structuresCount: { bendung: 1, intake: 1, pintuAir: 6, saluranKm: 9.5 },
+    bangunanPendukung: []
   }
 ];
 
@@ -117,7 +167,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
         return parsed.map((item: any) => ({
           ...item,
           condition: (item.condition === 'Baik' || item.condition === 'Rusak Ringan' || item.condition === 'Mengalir') ? 'Mengalir' : 'Kering',
-          structuresCount: item.structuresCount || { bendung: 1, intake: 1, pintuAir: 10, saluranKm: 10 }
+          structuresCount: item.structuresCount || { bendung: 1, intake: 1, pintuAir: 10, saluranKm: 10 },
+          bangunanPendukung: item.bangunanPendukung || []
         }));
       } catch (e) {
         return INITIAL_DI_DATA;
@@ -132,10 +183,11 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
   const [conditionFilter, setConditionFilter] = useState('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedDiId, setExpandedDiId] = useState<string | null>(null);
 
   // Form states
   const [diName, setDiName] = useState('');
-  const [diRegency, setDiRegency] = useState('Simalungun');
+  const [diRegency, setDiRegency] = useState('');
   const [diPotensial, setDiPotensial] = useState<number>(1000);
   const [diFungsional, setDiFungsional] = useState<number>(800);
   const [diWaterSource, setDiWaterSource] = useState('');
@@ -147,6 +199,100 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
   const [countIntake, setCountIntake] = useState(1);
   const [countPintu, setCountPintu] = useState(10);
   const [countSaluran, setCountSaluran] = useState(10);
+
+  // Supporting Structures state
+  const [bangunanPendukungList, setBangunanPendukungList] = useState<BangunanPendukung[]>([]);
+
+  // Sub-form state for dynamic dynamic add form
+  const [isAddingBp, setIsAddingBp] = useState(false);
+  const [bpName, setBpName] = useState('');
+  const [bpCategory, setBpCategory] = useState('Bendung Utama');
+  const [bpCondition, setBpCondition] = useState<'Baik' | 'Rusak Ringan' | 'Rusak Berat'>('Baik');
+  const [bpPhoto, setBpPhoto] = useState<string>(''); // base64 payload
+  const [bpLocation, setBpLocation] = useState('');
+  const [bpNotes, setBpNotes] = useState('');
+
+  // Device Integration hooks
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    setIsCameraActive(true);
+    try {
+      // Direct stream initiation
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err: any) {
+      console.error('Camera interaction error:', err);
+      setCameraError('Akses kamera tidak diizinkan atau tidak didukung pada browser ini. Silakan gunakan opsi Unggah File.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setBpPhoto(dataUrl);
+      }
+      stopCamera();
+    }
+  };
+
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBpPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGetGPS = () => {
+    if (!navigator.geolocation) {
+      alert('Fitur Pendeteksi GPS tidak didukung di peranti ini.');
+      return;
+    }
+    setIsGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        setBpLocation(`${lat}, ${lng}`);
+        setIsGpsLoading(false);
+      },
+      (error) => {
+        console.error('GPS error:', error);
+        alert('Gagal melacak lokasi: ' + error.message);
+        setIsGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Access rights check
   const canWrite = currentUser.role === 'admin' || currentUser.section === 'operasional' || currentUser.section === 'all';
@@ -194,7 +340,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
             coordinates: diCoordinates || '0.0000, 0.0000',
             condition: diCondition,
             notes: diNotes,
-            structuresCount: structureObj
+            structuresCount: structureObj,
+            bangunanPendukung: bangunanPendukungList
           };
         }
         return item;
@@ -213,7 +360,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
         coordinates: diCoordinates || '2.9000, 99.1000',
         condition: diCondition,
         notes: diNotes,
-        structuresCount: structureObj
+        structuresCount: structureObj,
+        bangunanPendukung: bangunanPendukungList
       };
       syncAndSetData([newItem, ...diList]);
     }
@@ -224,9 +372,10 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
   };
 
   const resetForm = () => {
+    stopCamera();
     setEditingId(null);
     setDiName('');
-    setDiRegency('Simalungun');
+    setDiRegency('');
     setDiPotensial(1000);
     setDiFungsional(800);
     setDiWaterSource('');
@@ -237,6 +386,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
     setCountIntake(1);
     setCountPintu(10);
     setCountSaluran(10);
+    setBangunanPendukungList([]);
+    setIsAddingBp(false);
   };
 
   const handleEditClick = (di: DaerahIrigasi) => {
@@ -253,6 +404,8 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
     setCountIntake(di.structuresCount?.intake ?? 0);
     setCountPintu(di.structuresCount?.pintuAir ?? 0);
     setCountSaluran(di.structuresCount?.saluranKm ?? 0);
+    setBangunanPendukungList(di.bangunanPendukung || []);
+    setIsAddingBp(false);
     setIsFormOpen(true);
   };
 
@@ -262,6 +415,15 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
       syncAndSetData(filtered);
     }
   };
+
+  // Get unique regencies dynamically from the table data
+  const uniqueRegencies = Array.from(
+    new Set(
+      diList
+        .map((di) => di.regency?.trim())
+        .filter((regency): regency is string => !!regency)
+    )
+  ).sort();
 
   // Filter Logic
   const filteredDI = diList.filter(di => {
@@ -274,13 +436,13 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
   });
 
   // Analytics Calculations
-  const totalPotensial = diList.reduce((acc, current) => acc + current.potensialArea, 0);
-  const totalFungsional = diList.reduce((acc, current) => acc + current.fungsionalArea, 0);
+  const totalPotensial = filteredDI.reduce((acc, current) => acc + current.potensialArea, 0);
+  const totalFungsional = filteredDI.reduce((acc, current) => acc + current.fungsionalArea, 0);
   const avgEfficiency = totalPotensial > 0 ? Math.round((totalFungsional / totalPotensial) * 100) : 0;
   
   const countByCondition = {
-    Mengalir: diList.filter(item => item.condition === 'Mengalir').length,
-    Kering: diList.filter(item => item.condition === 'Kering').length
+    Mengalir: filteredDI.filter(item => item.condition === 'Mengalir').length,
+    Kering: filteredDI.filter(item => item.condition === 'Kering').length
   };
 
   return (
@@ -321,7 +483,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
         <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 uppercase font-black block">Total Daerah Irigasi</span>
-            <span className="text-xl font-extrabold text-slate-800">{diList.length} DI</span>
+            <span className="text-xl font-extrabold text-slate-800">{filteredDI.length} DI</span>
             <span className="text-[9px] text-slate-550 block">Tercatat di UPTD Bah Bolon</span>
           </div>
           <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
@@ -385,9 +547,11 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
             className="py-1.5 px-3 border border-slate-200 rounded-lg text-xs outline-none bg-white text-slate-700 font-medium"
           >
             <option value="all">Semua Kabupaten/Kota</option>
-            <option value="Simalungun">Simalungun</option>
-            <option value="Serdang Bedagai">Serdang Bedagai</option>
-            <option value="Tebing Tinggi">Tebing Tinggi</option>
+            {uniqueRegencies.map((regency) => (
+              <option key={regency} value={regency}>
+                {regency}
+              </option>
+            ))}
           </select>
 
           <select
@@ -476,15 +640,14 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
 
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Lokasi Kabupaten / Daerah <span className="text-red-500">*</span></label>
-                    <select
+                    <input
+                      type="text"
                       value={diRegency}
                       onChange={(e) => setDiRegency(e.target.value)}
+                      placeholder="Contoh: Simalungun, Serdang Bedagai, Tebing Tinggi, dll."
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white focus:border-blue-500"
-                    >
-                      <option value="Simalungun">Kab. Simalungun</option>
-                      <option value="Serdang Bedagai">Kab. Serdang Bedagai</option>
-                      <option value="Tebing Tinggi">Kota Tebing Tinggi</option>
-                    </select>
+                      required
+                    />
                   </div>
                 </div>
 
@@ -553,6 +716,342 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                   ></textarea>
                 </div>
 
+                {/* Sub-Form Bangunan Pendukung */}
+                <div className="border-t border-slate-150 pt-5 space-y-4">
+                  <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider text-xs">
+                        <Building2 className="w-4 h-4 text-slate-500" />
+                        <span>🏗️ Data Bangunan Pendukung ({bangunanPendukungList.length})</span>
+                      </h4>
+                      <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">Infrastruktur pembagi, pengatur, pengaman DI</p>
+                    </div>
+                    {!isAddingBp && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingBp(true);
+                          setBpName('');
+                          setBpCategory('Bendung Utama');
+                          setBpCondition('Baik');
+                          setBpPhoto('');
+                          setBpLocation('');
+                          setBpNotes('');
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 font-extrabold rounded-lg text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Tambah Bangunan
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dynamic list */}
+                  {bangunanPendukungList.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="di-bp-list">
+                      {bangunanPendukungList.map((bp) => (
+                        <div key={bp.id} className="p-3 border border-slate-150 rounded-xl bg-slate-50 flex gap-2.5 items-start relative hover:border-slate-300 transition-all">
+                          {bp.photo ? (
+                            <img 
+                              src={bp.photo} 
+                              alt={bp.name} 
+                              className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-slate-100 rounded-lg flex flex-col items-center justify-center border border-slate-200 border-dashed text-slate-400 shrink-0">
+                              <ImageIcon className="w-4 h-4 opacity-60" />
+                              <span className="text-[7px] font-black uppercase text-slate-450 leading-none mt-1">No Photo</span>
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-1 min-w-0 pr-5">
+                            <h5 className="font-extrabold text-slate-800 text-[11px] leading-tight truncate">{bp.name}</h5>
+                            <div className="flex flex-wrap gap-1 items-center">
+                              <span className="px-1.5 py-0.5 bg-slate-200/80 text-slate-600 font-bold rounded text-[8px] uppercase tracking-wider">{bp.category}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${
+                                bp.condition === 'Baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                bp.condition === 'Rusak Ringan' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                'bg-red-50 text-red-700 border-red-100'
+                              }`}>{bp.condition}</span>
+                            </div>
+                            {bp.location && (
+                              <a 
+                                href={`https://www.google.com/maps?q=${bp.location}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-[9px] text-indigo-600 hover:underline font-bold flex items-center gap-0.5 inline-flex"
+                              >
+                                <MapPin className="w-2.5 h-2.5 text-red-500" />
+                                <span>GPS: {bp.location}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {bp.notes && <p className="text-[9px] text-slate-500 font-medium leading-relaxed italic line-clamp-1">"{bp.notes}"</p>}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBangunanPendukungList(bangunanPendukungList.filter((item) => item.id !== bp.id));
+                            }}
+                            className="p-1 hover:bg-red-50 hover:text-red-650 text-slate-400 rounded-md transition-colors absolute right-2 top-2"
+                            title="Hapus bangunan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !isAddingBp && (
+                      <div className="py-4 text-center border-2 border-dashed border-slate-150 rounded-xl text-slate-400">
+                        <p className="text-[11px]">Belum ada bangunan pendukung terdaftar.</p>
+                      </div>
+                    )
+                  )}
+
+                  {/* Adding form wrapper inside modal */}
+                  {isAddingBp && (
+                    <div className="p-4 border-2 border-blue-150 bg-blue-50/15 rounded-xl space-y-4 shadow-inner" id="di-bp-add-inner-form">
+                      <div className="flex justify-between items-center pb-2 border-b border-blue-50">
+                        <span className="font-extrabold text-[10px] text-blue-800 uppercase tracking-widest flex items-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5" />
+                          Form Tambah Bangunan Pendukung
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            stopCamera();
+                            setIsAddingBp(false);
+                          }}
+                          className="text-slate-400 hover:text-slate-600 font-black text-xs cursor-pointer p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Nama Bangunan Pendukung <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={bpName}
+                            onChange={(e) => setBpName(e.target.value)}
+                            placeholder="Contoh: Pintu Sekunder HM-2"
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:border-blue-500 text-[11px]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Kategori <span className="text-red-500">*</span></label>
+                          <select
+                            value={bpCategory}
+                            onChange={(e) => setBpCategory(e.target.value)}
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:border-blue-500 text-[11px]"
+                          >
+                            <option value="Bendung Utama">Bendung Utama</option>
+                            <option value="Pintu Intake">Pintu Intake</option>
+                            <option value="Pintu Air Bagi">Pintu Air Bagi</option>
+                            <option value="Tanggul Pengaman">Tanggul Pengaman</option>
+                            <option value="Saluran Sadap">Saluran Sadap</option>
+                            <option value="Alat Ukur Debit">Alat Ukur Debit</option>
+                            <option value="Siphon / Gorong-gorong">Siphon / Gorong-gorong</option>
+                            <option value="Lainnya">Lainnya</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Kondisi Fisik Bangunan <span className="text-red-500">*</span></label>
+                          <select
+                            value={bpCondition}
+                            onChange={(e) => setBpCondition(e.target.value as any)}
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:border-blue-500 text-[11px]"
+                          >
+                            <option value="Baik">🟢 Baik (Mantap)</option>
+                            <option value="Rusak Ringan">🟡 Rusak Ringan</option>
+                            <option value="Rusak Berat">🔴 Rusak Berat</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1 flex justify-between items-center">
+                            <span>Koordinat Lokasi GPS</span>
+                            <div className="flex gap-1.5">
+                              {diCoordinates && (
+                                <button
+                                  type="button"
+                                  onClick={() => setBpLocation(diCoordinates)}
+                                  className="text-[9px] text-indigo-700 hover:text-indigo-900 font-black inline-flex items-center gap-0.5 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded border border-indigo-200"
+                                  title="Gunakan koordinat dari lokasi Daerah Irigasi induk"
+                                >
+                                  📍 Lokasi DI Induk
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={handleGetGPS}
+                                className="text-[9px] text-blue-700 hover:text-blue-900 font-black inline-flex items-center gap-0.5 cursor-pointer bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200"
+                                disabled={isGpsLoading}
+                                title="Deteksi lokasi koordinat menggunakan GPS perangkat"
+                              >
+                                <Navigation className={`w-2.5 h-2.5 ${isGpsLoading ? 'animate-spin' : ''}`} />
+                                {isGpsLoading ? 'Mendeteksi...' : 'GPS Perangkat'}
+                              </button>
+                            </div>
+                          </label>
+                          <input
+                            type="text"
+                            value={bpLocation}
+                            onChange={(e) => setBpLocation(e.target.value)}
+                            placeholder="Contoh: 2.9644, 99.0621 (atau isi manual)"
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium outline-none focus:border-blue-500 text-[11px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Foto Bukti Fisik Bangunan</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                          <div className="sm:col-span-2 space-y-2">
+                            {!isCameraActive ? (
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={startCamera}
+                                  className="flex-1 py-1.5 px-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-blue-500" />
+                                  <span>Kamera Kamera Live</span>
+                                </button>
+                                <label className="flex-1 py-1.5 px-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors text-center">
+                                  <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Unggah File</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handlePhotoFileChange}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="relative aspect-video rounded-lg overflow-hidden border border-slate-350 bg-black max-h-[140px] flex items-center justify-center">
+                                  <video 
+                                    ref={videoRef} 
+                                    className="w-full h-full object-cover" 
+                                    playsInline 
+                                    muted
+                                  />
+                                  {cameraError && (
+                                    <div className="absolute inset-0 bg-slate-900/90 text-red-400 p-3 text-[9px] flex items-center justify-center text-center leading-relaxed">
+                                      {cameraError}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={capturePhoto}
+                                    className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Ambil Gambar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={stopCamera}
+                                    className="py-1 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-[10px] cursor-pointer"
+                                  >
+                                    Batal
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex justify-center shrink-0">
+                            {bpPhoto ? (
+                              <div className="relative group">
+                                <img 
+                                  src={bpPhoto} 
+                                  alt="Captured Preview" 
+                                  className="w-20 h-20 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setBpPhoto('')}
+                                  className="absolute -top-1.5 -right-1.5 bg-red-500 text-white p-0.5 rounded-full hover:bg-red-650 transition-colors text-[8px]"
+                                  title="Hapus foto"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-20 h-20 bg-slate-100 border border-slate-200 border-dashed rounded-lg flex flex-col items-center justify-center text-slate-400">
+                                <ImageIcon className="w-5 h-5 opacity-40" />
+                                <span className="text-[7px] uppercase font-black tracking-wider text-slate-400 mt-1">Belum Ada</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Catatan Tambahan Bangunan</label>
+                        <textarea
+                          value={bpNotes}
+                          onChange={(e) => setBpNotes(e.target.value)}
+                          placeholder="Jelaskan hambatan atau kondisi tertentu..."
+                          rows={1.5}
+                          className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium outline-none focus:border-blue-500 text-[11px]"
+                        ></textarea>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            stopCamera();
+                            setIsAddingBp(false);
+                          }}
+                          className="px-3 py-1.5 border border-slate-250 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-[10px] cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!bpName.trim()) {
+                              alert('Nama bangunan pendukung wajib diisi.');
+                              return;
+                            }
+                            const newBp: BangunanPendukung = {
+                              id: `bp-${Date.now()}`,
+                              name: bpName,
+                              category: bpCategory,
+                              condition: bpCondition,
+                              photo: bpPhoto || undefined,
+                              location: bpLocation || undefined,
+                              notes: bpNotes || undefined
+                            };
+                            setBangunanPendukungList([...bangunanPendukungList, newBp]);
+                            stopCamera();
+                            setIsAddingBp(false);
+                          }}
+                          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg text-[10px] cursor-pointer"
+                        >
+                          Simpan Ke List
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Footer Actions inside Modal */}
                 <div className="flex justify-end gap-2 border-t border-slate-150 pt-4 shrink-0">
                   <button
@@ -618,7 +1117,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDI.map((di) => {
+                {filteredDI.flatMap((di) => {
                   const getConditionBadge = (st: DaerahIrigasi['condition']) => {
                     switch (st) {
                       case 'Mengalir': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -628,15 +1127,29 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                   };
 
                   const efficiency = di.potensialArea > 0 ? Math.round((di.fungsionalArea / di.potensialArea) * 100) : 0;
+                  const hasBp = di.bangunanPendukung && di.bangunanPendukung.length > 0;
+                  const isExpanded = expandedDiId === di.id;
 
-                  return (
-                    <tr key={di.id} className="hover:bg-slate-50/30 transition-colors">
+                  const mainRow = (
+                    <tr key={di.id} className={`hover:bg-slate-50/30 transition-colors ${isExpanded ? 'bg-slate-50/30' : ''}`}>
                       <td className="p-4">
                         <div className="space-y-1">
                           <span className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
                             <Layers className="w-4 h-4 text-blue-500 shrink-0" />
                             {di.name}
                           </span>
+                          {hasBp ? (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedDiId(isExpanded ? null : di.id)}
+                              className="text-[10px] text-blue-700 hover:text-blue-900 font-extrabold flex items-center gap-1 mt-0.5 hover:underline cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-100"
+                            >
+                              <span>🏗️ {di.bangunanPendukung!.length} Bangunan Pendukung</span>
+                              <span>{isExpanded ? '▲' : '▼'}</span>
+                            </button>
+                          ) : (
+                            <span className="text-[9px] text-slate-400 italic block">Belum ada bangunan pendukung</span>
+                          )}
                         </div>
                       </td>
 
@@ -669,7 +1182,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                         </span>
                       </td>
 
-                      <td className="p-4 max-w-xs text-slate-500 font-medium">
+                      <td className="p-4 max-w-xs text-slate-500 font-medium font-sans">
                         {di.notes || <span className="text-slate-350 italic">-</span>}
                       </td>
 
@@ -678,14 +1191,14 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleEditClick(di)}
-                              className="p-1 px-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-md transition-colors"
+                              className="p-1 px-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-md transition-colors cursor-pointer"
                               title="Sunting data irigasi"
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteClick(di.id, di.name)}
-                              className="p-1 px-2 bg-red-50/10 hover:bg-red-50 border border-red-100 hover:border-red-200 text-red-650 rounded-md transition-colors"
+                              className="p-1 px-2 bg-red-50/10 hover:bg-red-50 border border-red-100 hover:border-red-200 text-red-650 rounded-md transition-colors cursor-pointer"
                               title="Hapus data irigasi"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -695,6 +1208,71 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
                       )}
                     </tr>
                   );
+
+                  if (isExpanded && hasBp) {
+                    const expandedRow = (
+                      <tr key={`${di.id}-expanded`} className="bg-slate-50/10 border-b border-slate-100">
+                        <td colSpan={canWrite ? 8 : 7} className="p-4 border-t border-slate-100 bg-slate-50/30">
+                          <div className="space-y-3 pl-4 border-l-2 border-blue-500">
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">INVENTARISASI BANGUNAN PENDUKUNG DAERAH IRIGASI</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {di.bangunanPendukung!.map((bp) => (
+                                <div key={bp.id} className="p-3 border border-slate-200 bg-white rounded-xl shadow-xs flex gap-3 items-start hover:shadow-sm transition-all">
+                                  {bp.photo ? (
+                                    <img 
+                                      src={bp.photo} 
+                                      alt={bp.name} 
+                                      className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0 shadow-xs" 
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-16 bg-slate-50 border border-slate-150 border-dashed rounded-lg flex flex-col items-center justify-center text-slate-350 shrink-0">
+                                      <ImageIcon className="w-4 h-4 opacity-50" />
+                                      <span className="text-[7px] font-black uppercase mt-0.5 leading-none">No Photo</span>
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1 space-y-1 text-[11px]">
+                                    <h5 className="font-extrabold text-slate-800 leading-snug break-words">{bp.name}</h5>
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      <span className="px-1.5 py-0.5 bg-slate-100 font-extrabold border border-slate-150 rounded text-[8px] uppercase tracking-wider text-slate-550">{bp.category}</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${
+                                        bp.condition === 'Baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                        bp.condition === 'Rusak Ringan' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                        'bg-red-50 text-red-700 border-red-100'
+                                      }`}>{bp.condition}</span>
+                                    </div>
+                                    {bp.location && (
+                                      <a 
+                                        href={`https://www.google.com/maps?q=${bp.location}`} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="text-[9px] text-indigo-600 hover:underline font-bold flex items-center gap-0.5 mt-0.5 inline-flex"
+                                      >
+                                        <MapPin className="w-3 h-3 text-red-500 shrink-0" />
+                                        <span>GPS: {bp.location}</span>
+                                        <ExternalLink className="w-2.5 h-2.5" />
+                                      </a>
+                                    )}
+                                    {bp.notes && (
+                                      <p className="text-[10px] text-slate-500 font-medium italic mt-1 leading-relaxed bg-slate-50/75 p-1.5 rounded border border-slate-100">
+                                        "{bp.notes}"
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                    return [mainRow, expandedRow];
+                  }
+
+                  return [mainRow];
                 })}
               </tbody>
             </table>
