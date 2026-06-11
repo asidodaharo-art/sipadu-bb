@@ -87,6 +87,7 @@ export default function Operasional({
   // Form toggles
   const [isLogFormOpen, setIsLogFormOpen] = useState(false);
   const [isReportFormOpen, setIsReportFormOpen] = useState(false);
+  const [isAddStationModalOpen, setIsAddStationModalOpen] = useState(false);
 
   // Editing state
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
@@ -107,11 +108,15 @@ export default function Operasional({
 
   // Access rights check
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
-  const canWrite = currentUser.role === 'admin' || userSections.includes('operasional') || userSections.includes('all');
+  const canWrite = userSections.includes('operasional') || userSections.includes('all');
 
   // Handling River Station addition
   const handleAddStation = (e: FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi operasional untuk koordinasi pos!');
+      return;
+    }
     if (!newStationName.trim()) return;
     if (riverStations.includes(newStationName.trim())) {
       alert('Nama stasiun ini sudah terdaftar.');
@@ -124,6 +129,10 @@ export default function Operasional({
   };
 
   const handleDeleteStation = (station: string) => {
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi operasional untuk menghapus pos!');
+      return;
+    }
     if (confirm(`Hapus stasiun "${station}" dari opsi pemantauan?`)) {
       const updated = riverStations.filter(s => s !== station);
       setRiverStations(updated);
@@ -142,6 +151,10 @@ export default function Operasional({
   // Water Log submission
   const handleLogSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi operasional untuk menginput data!');
+      return;
+    }
     
     if (!logLocation) {
       alert('Tentukan lokasi pemantauan.');
@@ -192,6 +205,10 @@ export default function Operasional({
   // Damage Report submission
   const handleReportSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi operasional untuk menginput laporan kerusakan!');
+      return;
+    }
 
     if (!repName.trim() || !repLocation.trim() || !repDescription.trim()) {
       alert('Harap lengkapi semua kolom wajib.');
@@ -218,6 +235,10 @@ export default function Operasional({
 
   // Safe wipe callback
   const handleWipeData = () => {
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi operasional untuk menghapus data!');
+      return;
+    }
     if (confirm('Apakah Anda yakin ingin menghapus seluruh rekap data hasil pemantauan dan keluhan di seksi operasional?')) {
       onClearOperasionalData();
     }
@@ -587,124 +608,131 @@ export default function Operasional({
 
           <AnimatePresence>
             {isLogFormOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs"
-              >
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
-                    <FileSpreadsheet className="w-4.5 h-4.5 text-indigo-500" />
-                    <span>{editingLogId ? 'Ubah Hasil Ukur Sungai' : 'Input Hasil Pengukuran Hidrometri'}</span>
-                  </h3>
-                  <button 
-                    onClick={() => {
-                      setIsLogFormOpen(false);
-                      setEditingLogId(null);
-                    }}
-                    className="text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    Tutup
-                  </button>
-                </div>
-
-                <form onSubmit={handleLogSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-5 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Lokasi Pos Ukur</label>
-                    <select
-                      value={logLocation}
-                      onChange={(e) => setLogLocation(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
-                      required
-                    >
-                      {riverStations.length === 0 ? (
-                        <option value="">(Tambahkan stasiun di tab Pengaturan)</option>
-                      ) : (
-                        riverStations.map(st => (
-                          <option key={st} value={st}>{st}</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Tinggi Muka Air (TMA)</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={logTma}
-                        onChange={(e) => setLogTma(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-10"
-                        min="0"
-                        max="2000"
-                        required
-                      />
-                      <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">cm</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Debit Air (Q)</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={logDebit}
-                        onChange={(e) => setLogDebit(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-12"
-                        min="0"
-                        max="1000"
-                        required
-                      />
-                      <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">m³/s</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Tanggal &amp; Waktu Ambil</label>
-                    <input
-                      type="date"
-                      value={logDate}
-                      onChange={(e) => setLogDate(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Petugas Juru Ukur</label>
-                    <input
-                      type="text"
-                      value={logRecordedBy}
-                      onChange={(e) => setLogRecordedBy(e.target.value)}
-                      placeholder="Nama pencatat"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white mb-2"
-                      required
-                    />
-                  </div>
-
-                  <div className="md:col-span-5 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
-                    <button
+              <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => {
+                setIsLogFormOpen(false);
+                setEditingLogId(null);
+              }}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                  className="bg-white p-6 rounded-2xl border border-slate-200/85 shadow-2xl w-full max-w-4xl overflow-y-auto max-h-[90vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                    <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                      <FileSpreadsheet className="w-4.5 h-4.5 text-indigo-500" />
+                      <span>{editingLogId ? 'Ubah Hasil Ukur Sungai' : 'Input Hasil Pengukuran Hidrometri'}</span>
+                    </h3>
+                    <button 
                       type="button"
                       onClick={() => {
                         setIsLogFormOpen(false);
                         setEditingLogId(null);
                       }}
-                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg"
+                      className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                     >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={riverStations.length === 0}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {editingLogId ? 'Simpan Perubahan' : 'Sematkan Laporan Pengukuran'}
+                      Tutup
                     </button>
                   </div>
-                </form>
-              </motion.div>
+
+                  <form onSubmit={handleLogSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-5 text-xs">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Lokasi Pos Ukur</label>
+                      <select
+                        value={logLocation}
+                        onChange={(e) => setLogLocation(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                        required
+                      >
+                        {riverStations.length === 0 ? (
+                          <option value="">(Tambahkan stasiun di tab Pengaturan)</option>
+                        ) : (
+                          riverStations.map(st => (
+                            <option key={st} value={st}>{st}</option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tinggi Muka Air (TMA)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={logTma}
+                          onChange={(e) => setLogTma(Number(e.target.value))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-10"
+                          min="0"
+                          max="2000"
+                          required
+                        />
+                        <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">cm</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Debit Air (Q)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={logDebit}
+                          onChange={(e) => setLogDebit(Number(e.target.value))}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white pr-12"
+                          min="0"
+                          max="1000"
+                          required
+                        />
+                        <span className="absolute right-3 top-3 text-slate-400 font-bold text-[10px]">m³/s</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal &amp; Waktu Ambil</label>
+                      <input
+                        type="date"
+                        value={logDate}
+                        onChange={(e) => setLogDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Petugas Juru Ukur</label>
+                      <input
+                        type="text"
+                        value={logRecordedBy}
+                        onChange={(e) => setLogRecordedBy(e.target.value)}
+                        placeholder="Nama pencatat"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white mb-2"
+                        required
+                      />
+                    </div>
+
+                    <div className="md:col-span-5 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLogFormOpen(false);
+                          setEditingLogId(null);
+                        }}
+                        className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={riverStations.length === 0}
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {editingLogId ? 'Simpan Perubahan' : 'Sematkan Laporan Pengukuran'}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
             )}
           </AnimatePresence>
 
@@ -896,106 +924,110 @@ export default function Operasional({
 
           <AnimatePresence>
             {isReportFormOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs"
-              >
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
-                    <AlertTriangle className="w-4.5 h-4.5 text-red-500" />
-                    <span>Catat Aduan Laporan Kerusakan Irigasi</span>
-                  </h3>
-                  <button 
-                    onClick={() => setIsReportFormOpen(false)}
-                    className="text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    Tutup
-                  </button>
-                </div>
-
-                <form onSubmit={handleReportSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Nama Pelapor / Juru Pengamat</label>
-                    <input
-                      type="text"
-                      value={repName}
-                      onChange={(e) => setRepName(e.target.value)}
-                      placeholder="Masukkan nama pelapor..."
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Nomor Kontak Pelapor</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={repPhone}
-                        onChange={(e) => setRepPhone(e.target.value)}
-                        placeholder="Contoh: 0812XXXXXXXX"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
-                      />
-                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Lokasi Kerusakan</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={repLocation}
-                        onChange={(e) => setRepLocation(e.target.value)}
-                        placeholder="Contoh: Saluran Tersier DI-1"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
-                        required
-                      />
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Tanggal Aduan</label>
-                    <input
-                      type="date"
-                      value={repDate}
-                      onChange={(e) => setRepDate(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
-                    />
-                  </div>
-
-                  <div className="md:col-span-4">
-                    <label className="block font-bold text-slate-700 mb-1">Keterangan / Kerusakan Detail</label>
-                    <textarea
-                      value={repDescription}
-                      onChange={(e) => setRepDescription(e.target.value)}
-                      placeholder="Dekripsikan kerusakan konstruksi, pengaruh terhadap suplai air sawah, luasan dampak hilir..."
-                      rows={3}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
-                      required
-                    ></textarea>
-                  </div>
-
-                  <div className="md:col-span-4 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
-                    <button
+              <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setIsReportFormOpen(false)}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                  className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-y-auto max-h-[90vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                    <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                      <AlertTriangle className="w-4.5 h-4.5 text-red-500" />
+                      <span>Catat Aduan Laporan Kerusakan Irigasi</span>
+                    </h3>
+                    <button 
                       type="button"
                       onClick={() => setIsReportFormOpen(false)}
-                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg"
+                      className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                     >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg"
-                    >
-                      Kirim Laporan Pengaduan
+                      Tutup
                     </button>
                   </div>
-                </form>
-              </motion.div>
+
+                  <form onSubmit={handleReportSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Nama Pelapor / Juru Pengamat</label>
+                      <input
+                        type="text"
+                        value={repName}
+                        onChange={(e) => setRepName(e.target.value)}
+                        placeholder="Masukkan nama pelapor..."
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Nomor Kontak Pelapor</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={repPhone}
+                          onChange={(e) => setRepPhone(e.target.value)}
+                          placeholder="Contoh: 0812XXXXXXXX"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
+                        />
+                        <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-750 mb-1">Lokasi Kerusakan</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={repLocation}
+                          onChange={(e) => setRepLocation(e.target.value)}
+                          placeholder="Contoh: Saluran Tersier DI-1"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white pl-8"
+                          required
+                        />
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3.5" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal Aduan</label>
+                      <input
+                        type="date"
+                        value={repDate}
+                        onChange={(e) => setRepDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="md:col-span-4">
+                      <label className="block font-bold text-slate-700 mb-1">Keterangan / Kerusakan Detail</label>
+                      <textarea
+                        value={repDescription}
+                        onChange={(e) => setRepDescription(e.target.value)}
+                        placeholder="Dekripsikan kerusakan konstruksi, pengaruh terhadap suplai air sawah, luasan dampak hilir..."
+                        rows={3}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                        required
+                      ></textarea>
+                    </div>
+
+                    <div className="md:col-span-4 flex justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsReportFormOpen(false)}
+                        className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg cursor-pointer"
+                      >
+                        Kirim Laporan Pengaduan
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
             )}
           </AnimatePresence>
 
@@ -1183,35 +1215,83 @@ export default function Operasional({
 
           <div className="space-y-6">
             {canWrite ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
-                <span className="text-[10px] text-indigo-650 uppercase font-bold tracking-widest block bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
-                  Registrasi Pos Pengukuran
-                </span>
-                <h4 className="font-extrabold text-slate-800 text-sm">Daftarkan Pos Baru</h4>
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs text-center space-y-4">
+                <Sliders className="w-8 h-8 text-indigo-500 mx-auto" />
+                <h4 className="font-extrabold text-slate-800 text-sm">Registrasi Pos Pengukuran</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+                  Gunakan tombol di bawah untuk mendaftarkan pos hidrometri atau cabang aliran baru dalam sistem.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddStationModalOpen(true)}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-xs cursor-pointer transition-colors shadow-sm"
+                >
+                  + Daftarkan Pos Baru
+                </button>
 
-                <form onSubmit={handleAddStation} className="space-y-3.5 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Nama Pos / Cabang Aliran</label>
-                    <input
-                      type="text"
-                      value={newStationName}
-                      onChange={(e) => setNewStationName(e.target.value)}
-                      placeholder="Contoh: Bendung Pintu Kiri Hilir"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
-                      required
-                    />
-                  </div>
+                <AnimatePresence>
+                  {isAddStationModalOpen && (
+                    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => setIsAddStationModalOpen(false)}>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                        className="bg-white text-left p-6 rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                          <h4 className="font-black text-slate-800 text-xs uppercase tracking-wide flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-indigo-500" />
+                            <span>Daftarkan Pos Baru</span>
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddStationModalOpen(false)}
+                            className="text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                          >
+                            Tutup
+                          </button>
+                        </div>
 
-                  <button
-                    type="submit"
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-xs cursor-pointer transition-colors"
-                  >
-                    Daftarkan Pos Pemantauan
-                  </button>
-                </form>
+                        <form onSubmit={(e) => {
+                          handleAddStation(e);
+                          setIsAddStationModalOpen(false);
+                        }} className="space-y-4 text-xs font-sans">
+                          <div>
+                            <label className="block font-bold text-slate-705 mb-1.5">Nama Pos / Cabang Aliran Sungai</label>
+                            <input
+                              type="text"
+                              value={newStationName}
+                              onChange={(e) => setNewStationName(e.target.value)}
+                              placeholder="Contoh: Bendung Pintu Kiri Hilir"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                              required
+                            />
+                          </div>
+
+                          <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                            <button
+                              type="button"
+                              onClick={() => setIsAddStationModalOpen(false)}
+                              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                            >
+                              Batal
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg cursor-pointer transition-colors"
+                            >
+                              Daftarkan Pos
+                            </button>
+                          </div>
+                        </form>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
-              <div className="bg-amber-50/50 rounded-2xl border border-amber-100 p-5 text-center text-xs text-amber-800 font-medium">
+              <div className="bg-amber-50/50 rounded-2xl border border-amber-100 p-5 text-center text-xs text-amber-800 font-medium font-sans">
                 🔒 Perubahan konfigurasi parameter pos pemantauan hanya diizinkan untuk Admin dan Staf seksi Operasional saja.
               </div>
             )}

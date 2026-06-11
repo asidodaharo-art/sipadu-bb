@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Mail, Staff, Project, WaterLog, DamageReport, InstansiProfile, FooterConfig, Asset, FinanceTransaction } from './types';
 import { 
   INITIAL_USERS, 
@@ -35,7 +35,9 @@ import {
   Inbox,
   Users,
   Box,
-  Wallet
+  Wallet,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -82,6 +84,30 @@ export default function App() {
   }
 
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      return next;
+    });
+  };
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('uptd_current_user');
     return saved ? JSON.parse(saved) : null;
@@ -188,6 +214,16 @@ export default function App() {
     const updated = [newUser, ...users];
     setUsers(updated);
     localStorage.setItem('uptd_users', JSON.stringify(updated));
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    const updated = users.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+    setUsers(updated);
+    localStorage.setItem('uptd_users', JSON.stringify(updated));
+    if (currentUser && currentUser.id === updatedUser.id) {
+      setCurrentUser(updatedUser);
+      localStorage.setItem('uptd_current_user', JSON.stringify(updatedUser));
+    }
   };
 
   const handleDeleteUser = (id: string) => {
@@ -410,6 +446,8 @@ export default function App() {
         instansiName={profile.name}
         instansiLogoBase64={profile.logo}
         copyrightText={footer.copyrightText}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -949,7 +987,22 @@ export default function App() {
 
           {/* Right part: Office/Dinas Header tag */}
           <div className="flex items-center space-x-4">
-            <div className="text-right hidden md:block">
+            {/* Global Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-slate-50 border border-slate-150 text-slate-600 hover:bg-slate-100 hover:text-slate-800 flex items-center justify-center transition-all cursor-pointer shrink-0"
+              title={theme === 'light' ? 'Beralih ke Mode Gelap' : 'Beralih ke Mode Terang'}
+              aria-label="Toggle Theme Mode"
+              id="theme-toggler-header"
+            >
+              {theme === 'light' ? (
+                <Moon className="w-4.5 h-4.5 text-slate-600" />
+              ) : (
+                <Sun className="w-4.5 h-4.5 text-amber-400" />
+              )}
+            </button>
+
+            <div className="text-right hidden md:block animate-fade-in">
               <div className="text-xs font-bold text-slate-850">{profile.name}</div>
               <div className="text-[10px] text-slate-400 font-medium">Dinas Sumber Daya Air Provinsi Sumatera Utara</div>
             </div>
@@ -1061,6 +1114,7 @@ export default function App() {
                 onUpdateProfile={handleUpdateProfile}
                 onUpdateFooter={handleUpdateFooter}
                 onAddUser={handleAddUser}
+                onUpdateUser={handleUpdateUser}
                 onDeleteUser={handleDeleteUser}
                 onClearAllData={handleClearAllData}
               />

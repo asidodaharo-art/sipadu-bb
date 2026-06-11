@@ -45,7 +45,7 @@ import {
   Camera,
   User as UserIcon
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface PenatausahaanProps {
   currentUser: User;
@@ -4682,110 +4682,142 @@ export default function Penatausahaan({
           </div>
 
           {/* Form to insert cash transaction */}
-          {isFinanceFormOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-6 rounded-xl border border-slate-200 shadow-md space-y-4"
-              id="finance-form-container"
-            >
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center">
-                  <Wallet className="w-4 h-4 text-blue-600 mr-1.5" />
-                  {editingFinance ? 'Ubah Rincian Transaksi Kas' : 'Form Transaksi Kas Keuangan'}
-                </h3>
-              </div>
-              
-              <form onSubmit={handleFinanceSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tanggal Transaksi</label>
-                  <input 
-                    type="date" 
-                    value={financeDate}
-                    onChange={(e) => setFinanceDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tipe Transaksi</label>
-                  <select 
-                    value={financeType} 
-                    onChange={(e: any) => setFinanceType(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
-                  >
-                    <option value="pemasukan">📈 Pemasukan (Penerimaan)</option>
-                    <option value="pengeluaran">📉 Pengeluaran (Belanja/Alokasi)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Kategori Transaksi</label>
-                  <select 
-                    value={financeCategory} 
-                    onChange={(e: any) => setFinanceCategory(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
-                  >
-                    <option value="Anggaran Rutin">Anggaran Negara / Rutin</option>
-                    <option value="Perjalanan Dinas">Perjalanan Dinas Jabatan</option>
-                    <option value="ATK & Cetak">Belanja Bahan & ATK</option>
-                    <option value="Pemeliharaan">Biaya Pemeliharaan / Reparasi</option>
-                    <option value="Konsumsi Rapat">Konsumsi Makan & Rapat</option>
-                    <option value="Lainnya">Lainnya / Eksternal</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Deskripsi Tambahan / Keperluan Detail</label>
-                  <input 
-                    type="text" 
-                    placeholder="Contoh: Pembelian tinta printer Epson 5 unit untuk seksi administrasi"
-                    value={financeDescription}
-                    onChange={(e) => setFinanceDescription(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nominal Rupiah (Keuangan)</label>
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-2.5 font-bold text-slate-400">Rp</span>
-                    <input 
-                      type="number" 
-                      placeholder="Contoh: 1500000"
-                      value={financeAmount || ''}
-                      onChange={(e) => setFinanceAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold"
-                    />
+          <AnimatePresence>
+            {isFinanceFormOpen && (
+              <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => {
+                setIsFinanceFormOpen(false);
+                setEditingFinance(null);
+                setFinanceDate('');
+                setFinanceDescription('');
+                setFinanceAmount(0);
+                setFinanceType('pemasukan');
+                setFinanceCategory('Anggaran Rutin');
+              }}>
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                  className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-2xl text-left overflow-y-auto max-h-[90vh]"
+                  id="finance-form-container"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <h3 className="font-extrabold text-sm text-slate-800 flex items-center">
+                      <Wallet className="w-4 h-4 text-blue-600 mr-1.5" />
+                      {editingFinance ? 'Ubah Rincian Transaksi Kas' : 'Form Transaksi Kas Keuangan'}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFinanceFormOpen(false);
+                        setEditingFinance(null);
+                        setFinanceDate('');
+                        setFinanceDescription('');
+                        setFinanceAmount(0);
+                        setFinanceType('pemasukan');
+                        setFinanceCategory('Anggaran Rutin');
+                      }}
+                      className="text-slate-400 hover:text-slate-655 text-xs font-bold cursor-pointer"
+                    >
+                      Tutup
+                    </button>
                   </div>
-                </div>
+                  
+                  <form onSubmit={handleFinanceSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-sans">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal Transaksi</label>
+                      <input 
+                        type="date" 
+                        value={financeDate}
+                        onChange={(e) => setFinanceDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:bg-white"
+                        required
+                      />
+                    </div>
 
-                <div className="md:col-span-3 flex justify-end gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setIsFinanceFormOpen(false);
-                      setEditingFinance(null);
-                      setFinanceDate('');
-                      setFinanceDescription('');
-                      setFinanceAmount(0);
-                      setFinanceType('pemasukan');
-                      setFinanceCategory('Anggaran Rutin');
-                    }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    {editingFinance ? 'Simpan Perubahan Kas' : 'Simpan Slip Transaksi'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          )}
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tipe Transaksi</label>
+                      <select 
+                        value={financeType} 
+                        onChange={(e: any) => setFinanceType(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-semibold outline-none focus:bg-white"
+                      >
+                        <option value="pemasukan">📈 Pemasukan (Penerimaan)</option>
+                        <option value="pengeluaran">📉 Pengeluaran (Belanja/Alokasi)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Kategori Transaksi</label>
+                      <select 
+                        value={financeCategory} 
+                        onChange={(e: any) => setFinanceCategory(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-semibold outline-none focus:bg-white"
+                      >
+                        <option value="Anggaran Rutin">Anggaran Negara / Rutin</option>
+                        <option value="Perjalanan Dinas">Perjalanan Dinas Jabatan</option>
+                        <option value="ATK & Cetak">Belanja Bahan & ATK</option>
+                        <option value="Pemeliharaan">Biaya Pemeliharaan / Reparasi</option>
+                        <option value="Konsumsi Rapat">Konsumsi Makan & Rapat</option>
+                        <option value="Lainnya">Lainnya / Eksternal</option>
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block font-bold text-slate-700 mb-1">Deskripsi Tambahan / Keperluan Detail</label>
+                      <input 
+                        type="text" 
+                        placeholder="Contoh: Pembelian tinta printer Epson 5 unit untuk seksi administrasi"
+                        value={financeDescription}
+                        onChange={(e) => setFinanceDescription(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:bg-white"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Nominal Rupiah (Keuangan)</label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-3 font-bold text-slate-400">Rp</span>
+                        <input 
+                          type="number" 
+                          placeholder="Contoh: 1500000"
+                          value={financeAmount || ''}
+                          onChange={(e) => setFinanceAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full pl-8 pr-2.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-805 font-bold outline-none focus:bg-white"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-3 flex justify-end gap-2 border-t border-slate-100 pt-3 mt-1">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsFinanceFormOpen(false);
+                          setEditingFinance(null);
+                          setFinanceDate('');
+                          setFinanceDescription('');
+                          setFinanceAmount(0);
+                          setFinanceType('pemasukan');
+                          setFinanceCategory('Anggaran Rutin');
+                        }}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                      >
+                        {editingFinance ? 'Simpan Perubahan Kas' : 'Simpan Slip Transaksi'}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Ledger table list */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">

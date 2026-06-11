@@ -14,9 +14,10 @@ import {
   Mail, 
   Phone, 
   UserCheck,
-  Camera
+  Camera,
+  Pencil
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface SettingsProps {
   currentUser: User;
@@ -26,6 +27,7 @@ interface SettingsProps {
   onUpdateProfile: (newProfile: InstansiProfile) => void;
   onUpdateFooter: (newFooter: FooterConfig) => void;
   onAddUser: (newUser: User) => void;
+  onUpdateUser: (updatedUser: User) => void;
   onDeleteUser: (id: string) => void;
   onClearAllData: () => void;
 }
@@ -38,6 +40,7 @@ export default function Settings({
   onUpdateProfile,
   onUpdateFooter,
   onAddUser,
+  onUpdateUser,
   onDeleteUser,
   onClearAllData
 }: SettingsProps) {
@@ -61,6 +64,15 @@ export default function Settings({
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [selectedAccess, setSelectedAccess] = useState<string[]>(['pimpinan']);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+
+  // User Edit Form State
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editAccess, setEditAccess] = useState<string[]>([]);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
 
   // Footer Config Form state
   const [footerText, setFooterText] = useState(footer.footerText);
@@ -176,7 +188,47 @@ export default function Settings({
     setNewName('');
     setNewPassword('');
     setSelectedAccess(['pimpinan']);
+    setIsAddUserModalOpen(false);
     triggerNotification(`Pengguna @${newUser.username} berhasil didaftarkan!`);
+  };
+
+  // Edit User Handlers
+  const handleEditUserClick = (u: User) => {
+    setEditingUser(u);
+    setEditUsername(u.username);
+    setEditName(u.name);
+    setEditPassword(u.password || '');
+    setEditAccess(u.section ? u.section.split(',') : []);
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (!editUsername || !editName || !editPassword) {
+      alert('Isi username, nama lengkap dan password!');
+      return;
+    }
+
+    if (users.some(u => u.id !== editingUser.id && u.username.toLowerCase() === editUsername.toLowerCase())) {
+      alert('Username tersebut sudah digunakan oleh user lain.');
+      return;
+    }
+
+    const updatedUser: User = {
+      ...editingUser,
+      username: editUsername.trim(),
+      name: editName,
+      role: editAccess.includes('all') ? 'admin' : 'staff',
+      password: editPassword,
+      section: editAccess.join(',')
+    };
+
+    onUpdateUser(updatedUser);
+    setIsEditUserModalOpen(false);
+    setEditingUser(null);
+    triggerNotification(`Pengguna @${updatedUser.username} berhasil diperbarui!`);
   };
 
   const triggerNotification = (msg: string) => {
@@ -435,93 +487,278 @@ export default function Settings({
 
               {/* Horizontal Layout of Users List & Create Form */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Left side: Create User Form */}
-                <div className="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4 text-xs h-auto max-h-fit">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <UserPlus className="w-4 h-4 text-blue-700" />
-                    Daftar Akun Baru
-                  </h3>
+               {/* Left side: Create User Form */}
+                <div className="lg:col-span-2 bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col justify-center items-center text-center space-y-4 text-xs h-auto max-h-fit">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center border border-blue-100 shadow-sm">
+                    <UserPlus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 text-sm">
+                      Daftar Akun Pengguna Baru
+                    </h3>
+                    <p className="text-slate-500 text-[11px] leading-relaxed mt-1">
+                      Tambahkan pengguna, staf seksi, atau pimpinan pelapor baru dengan hak akses spesifik ke sistem.
+                    </p>
+                  </div>
                   
-                  <form onSubmit={handleAddUser} className="space-y-3.5">
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Username Masuk</label>
-                      <input 
-                        type="text" 
-                        placeholder="Contoh: stafbaru"
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg"
-                      />
-                    </div>
+                  <button 
+                    type="button"
+                    onClick={() => setIsAddUserModalOpen(true)}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg shadow-sm cursor-pointer transition-colors"
+                  >
+                    + Daftarkan Anggota / Staf
+                  </button>
 
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Nama Lengkap & Kode</label>
-                      <input 
-                        type="text" 
-                        placeholder="Contoh: Indah Pertiwi, S.Ars."
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg"
-                      />
-                    </div>
+                  <AnimatePresence>
+                    {isAddUserModalOpen && (
+                      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => setIsAddUserModalOpen(false)}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                          className="bg-white text-left p-6 rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                              <UserPlus className="w-4.5 h-4.5 text-blue-700" />
+                              <span>Daftar Akun Baru</span>
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => setIsAddUserModalOpen(false)}
+                              className="text-slate-400 hover:text-slate-650 font-bold text-xs cursor-pointer"
+                            >
+                              Tutup
+                            </button>
+                          </div>
 
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1">Kata Sandi (Password)</label>
-                      <input 
-                        type="password" 
-                        placeholder="Masukkan password aman"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-600 mb-1.5">Hak Akses Sistem (Bisa pilih beberapa sekaligus)</label>
-                      <div className="space-y-1.5 max-h-56 overflow-y-auto border border-slate-200 bg-white p-3 rounded-lg divide-y divide-slate-100">
-                        {[
-                          { value: 'pimpinan', label: 'Pimpinan (hanya melihat)' },
-                          { value: 'adm_umum', label: 'Adm umum (adm umum)' },
-                          { value: 'personalia', label: 'Personalia (hanya tambah data personalia tapi tidak dapat meng edit data)' },
-                          { value: 'aset', label: 'Aset (aset)' },
-                          { value: 'keuangan', label: 'Keuangan (keuangan)' },
-                          { value: 'operasional', label: 'Operasional (seksi operasional)' },
-                          { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
-                          { value: 'staff', label: 'Staff (hanya pegawai yang menggunakan NIP sebagai username yang dapat mengedit data personalia)' },
-                          { value: 'all', label: 'Semua hak akses' },
-                        ].map((opt) => {
-                          const isChecked = selectedAccess.includes(opt.value);
-                          return (
-                            <label key={opt.value} className="flex items-start space-x-2.5 py-1.5 first:pt-0 last:pb-0 cursor-pointer select-none">
+                          <form onSubmit={handleAddUser} className="space-y-4 text-xs font-sans">
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Username Masuk</label>
                               <input 
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  if (isChecked) {
-                                    setSelectedAccess(selectedAccess.filter(v => v !== opt.value));
-                                  } else {
-                                    setSelectedAccess([...selectedAccess, opt.value]);
-                                  }
-                                }}
-                                className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                type="text" 
+                                placeholder="Contoh: stafbaru"
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white"
+                                required
                               />
-                              <div className="text-[11px] text-slate-700 font-semibold leading-tight">
-                                {opt.label}
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
+                            </div>
 
-                    <button 
-                      type="submit" 
-                      id="save-new-user-btn"
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
-                    >
-                      Daftarkan Anggota / Staf
-                    </button>
-                  </form>
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Nama Lengkap & Kode</label>
+                              <input 
+                                type="text" 
+                                placeholder="Contoh: Indah Pertiwi, S.Ars."
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Kata Sandi (Password)</label>
+                              <input 
+                                type="password" 
+                                placeholder="Masukkan password aman"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono outline-none focus:bg-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1.5">Hak Akses Sistem (Bisa pilih beberapa sekaligus)</label>
+                              <div className="space-y-1.5 max-h-56 overflow-y-auto border border-slate-100 bg-white p-3 rounded-lg divide-y divide-slate-100">
+                                {[
+                                  { value: 'pimpinan', label: 'Pimpinan (hanya melihat)' },
+                                  { value: 'adm_umum', label: 'Adm umum (adm umum)' },
+                                  { value: 'personalia', label: 'Personalia (hanya tambah data personalia tapi tidak dapat meng edit data)' },
+                                  { value: 'aset', label: 'Aset (aset)' },
+                                  { value: 'keuangan', label: 'Keuangan (keuangan)' },
+                                  { value: 'operasional', label: 'Operasional (seksi operasional)' },
+                                  { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
+                                  { value: 'staff', label: 'Staff (hanya pegawai yang menggunakan NIP sebagai username yang dapat mengedit data personalia)' },
+                                  { value: 'all', label: 'Semua hak akses' },
+                                ].map((opt) => {
+                                  const isChecked = selectedAccess.includes(opt.value);
+                                  return (
+                                    <label key={opt.value} className="flex items-start space-x-2.5 py-1.5 first:pt-0 last:pb-0 cursor-pointer select-none">
+                                      <input 
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setSelectedAccess(selectedAccess.filter(v => v !== opt.value));
+                                          } else {
+                                            setSelectedAccess([...selectedAccess, opt.value]);
+                                          }
+                                        }}
+                                        className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                      />
+                                      <div className="text-[11px] text-slate-700 font-semibold leading-tight">
+                                        {opt.label}
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => setIsAddUserModalOpen(false)}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                              >
+                                Batal
+                              </button>
+                              <button 
+                                type="submit" 
+                                id="save-new-user-btn"
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg cursor-pointer transition-colors"
+                              >
+                                Daftarkan Anggota
+                              </button>
+                            </div>
+                          </form>
+                        </motion.div>
+                      </div>
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {isEditUserModalOpen && (
+                      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => {
+                        setIsEditUserModalOpen(false);
+                        setEditingUser(null);
+                      }}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                          className="bg-white text-left p-6 rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                              <Pencil className="w-4 h-4 text-blue-700" />
+                              <span>Ubah Akun Pengguna</span>
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditUserModalOpen(false);
+                                setEditingUser(null);
+                              }}
+                              className="text-slate-400 hover:text-slate-650 font-bold text-xs cursor-pointer"
+                            >
+                              Tutup
+                            </button>
+                          </div>
+
+                          <form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs font-sans">
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Username Masuk</label>
+                              <input 
+                                type="text" 
+                                placeholder="Contoh: stafbaru"
+                                value={editUsername}
+                                onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white disabled:opacity-50"
+                                disabled={editingUser?.username === 'admin'}
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Nama Lengkap & Kode</label>
+                              <input 
+                                type="text" 
+                                placeholder="Contoh: Indah Pertiwi, S.Ars."
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1">Kata Sandi (Password)</label>
+                              <input 
+                                type="password" 
+                                placeholder="Masukkan password"
+                                value={editPassword}
+                                onChange={(e) => setEditPassword(e.target.value)}
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono outline-none focus:bg-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-600 mb-1.5">Hak Akses Sistem</label>
+                              <div className="space-y-1.5 max-h-56 overflow-y-auto border border-slate-100 bg-white p-3 rounded-lg divide-y divide-slate-100">
+                                {[
+                                  { value: 'pimpinan', label: 'Pimpinan (hanya melihat)' },
+                                  { value: 'adm_umum', label: 'Adm umum (adm umum)' },
+                                  { value: 'personalia', label: 'Personalia (hanya tambah data personalia)' },
+                                  { value: 'aset', label: 'Aset (aset)' },
+                                  { value: 'keuangan', label: 'Keuangan (keuangan)' },
+                                  { value: 'operasional', label: 'Operasional (seksi operasional)' },
+                                  { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
+                                  { value: 'staff', label: 'Staff (hanya NIP sebagai username)' },
+                                  { value: 'all', label: 'Semua hak akses' },
+                                ].map((opt) => {
+                                  const isChecked = editAccess.includes(opt.value);
+                                  return (
+                                    <label key={opt.value} className="flex items-start space-x-2.5 py-1.5 first:pt-0 last:pb-0 cursor-pointer select-none">
+                                      <input 
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setEditAccess(editAccess.filter(v => v !== opt.value));
+                                          } else {
+                                            setEditAccess([...editAccess, opt.value]);
+                                          }
+                                        }}
+                                        className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                      />
+                                      <div className="text-[11px] text-slate-700 font-semibold leading-tight">
+                                        {opt.label}
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditUserModalOpen(false);
+                                  setEditingUser(null);
+                                }}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                              >
+                                Batal
+                              </button>
+                              <button 
+                                type="submit" 
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg cursor-pointer transition-colors"
+                              >
+                                Simpan Perubahan
+                              </button>
+                            </div>
+                          </form>
+                        </motion.div>
+                      </div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Right side: List representation */}
@@ -578,18 +815,29 @@ export default function Settings({
                             </div>
                           </div>
 
-                          {u.username !== 'admin' ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
-                              onClick={() => onDeleteUser(u.id)}
-                              className="text-red-500 hover:bg-red-50 p-2 border border-transparent hover:border-red-100 rounded-lg transition-all cursor-pointer"
-                              title="Hapus Pengguna"
-                              id={`delete-user-${u.id}`}
+                              onClick={() => handleEditUserClick(u)}
+                              className="text-blue-600 hover:bg-blue-50 p-1.5 border border-transparent hover:border-blue-100 rounded-lg transition-all cursor-pointer"
+                              title="Edit Pengguna"
+                              id={`edit-user-${u.id}`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider pr-3">Default</span>
-                          )}
+
+                            {u.username !== 'admin' ? (
+                              <button
+                                onClick={() => onDeleteUser(u.id)}
+                                className="text-red-500 hover:bg-red-50 p-1.5 border border-transparent hover:border-red-100 rounded-lg transition-all cursor-pointer"
+                                title="Hapus Pengguna"
+                                id={`delete-user-${u.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider pr-1 select-none">Default</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

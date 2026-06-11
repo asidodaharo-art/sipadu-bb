@@ -16,7 +16,7 @@ import {
   Gauge,
   Edit3
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 import { ArrowRight, BookOpen, Layers, Briefcase } from 'lucide-react';
 
@@ -59,7 +59,7 @@ export default function Pembangunan({
   const [newStatus, setNewStatus] = useState<Project['status']>('Perencanaan');
 
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
-  const canWrite = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('pembangunan');
+  const canWrite = userSections.includes('pembangunan') || userSections.includes('all');
 
   // Format currency helpers e.g. Rp 4.250.000.000
   const formatRupiah = (value: number) => {
@@ -73,6 +73,10 @@ export default function Pembangunan({
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengusulkan paket!');
+      return;
+    }
     if (!name || !location || !budget || !contractor || !startDate || !endDate) {
       alert('Semua baris input data proyek wajib diisi.');
       return;
@@ -119,6 +123,10 @@ export default function Pembangunan({
   };
 
   const handleStartEditProject = (proj: Project) => {
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengubah proyek ini!');
+      return;
+    }
     setEditingProject(proj);
     setName(proj.name);
     setLocation(proj.location);
@@ -131,6 +139,10 @@ export default function Pembangunan({
   };
 
   const openProgressModal = (project: Project) => {
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengupdate progres!');
+      return;
+    }
     setSelectedProjectToUpdate(project);
     setNewProgress(project.progress);
     setNewStatus(project.status);
@@ -138,6 +150,10 @@ export default function Pembangunan({
 
   const handleSaveProgress = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengupdate progres!');
+      return;
+    }
     if (selectedProjectToUpdate) {
       onUpdateProjectProgress(selectedProjectToUpdate.id, newProgress, newStatus);
       setSelectedProjectToUpdate(null);
@@ -337,113 +353,153 @@ export default function Pembangunan({
       </div>
 
       {/* Creation form modal view */}
-      {isFormOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md space-y-4"
-          id="project-create-form"
-        >
-          <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
-            <h3 className="font-bold text-sm text-slate-800 flex items-center">
-              <Wrench className="w-4.5 h-4.5 text-blue-600 mr-2" />
-              {editingProject ? 'Ubah Rincian Program Pembangunan Fisik' : 'Entri Usulan Program Pembangunan Fisik Baru'}
-            </h3>
-            <button 
-              onClick={() => {
-                setIsFormOpen(false);
-                setEditingProject(null);
-                setName('');
-                setLocation('');
-                setBudget(0);
-                setContractor('');
-                setStartDate('');
-                setEndDate('');
-                setStatus('Perencanaan');
-              }} 
-              className="text-xs font-bold text-slate-400 hover:text-slate-600"
+      <AnimatePresence>
+        {isFormOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => {
+            setIsFormOpen(false);
+            setEditingProject(null);
+            setName('');
+            setLocation('');
+            setBudget(0);
+            setContractor('');
+            setStartDate('');
+            setEndDate('');
+            setStatus('Perencanaan');
+          }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-3xl overflow-y-auto max-h-[90vh]"
+              id="project-create-form"
+              onClick={(e) => e.stopPropagation()}
             >
-              Batal
-            </button>
+              <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center">
+                  <Wrench className="w-4.5 h-4.5 text-blue-600 mr-2" />
+                  {editingProject ? 'Ubah Rincian Program Pembangunan Fisik' : 'Entri Usulan Program Pembangunan Fisik Baru'}
+                </h3>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setIsFormOpen(false);
+                    setEditingProject(null);
+                    setName('');
+                    setLocation('');
+                    setBudget(0);
+                    setContractor('');
+                    setStartDate('');
+                    setEndDate('');
+                    setStatus('Perencanaan');
+                  }} 
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Nama / Judul Program Kementerian & Daerah</label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Rehabilitasi Jaringan Irigasi DI Paya Lombang Kiri"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Lokasi Wilayah Kerja</label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Simalungun KM 12"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Pagu Anggaran Rp (Rupiah)</label>
+                  <input 
+                    type="number" 
+                    placeholder="Contoh: 1500000000"
+                    value={budget || ''}
+                    onChange={(e) => setBudget(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Badan Pelaksana / Kontraktor Pemilih</label>
+                  <input 
+                    type="text" 
+                    placeholder="PT / CV Kontraktor Utama pelaksana"
+                    value={contractor}
+                    onChange={(e) => setContractor(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tanggal Awal Pekerjaan</label>
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tanggal Rencana Serah Terima (Selesai)</label>
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFormOpen(false);
+                      setEditingProject(null);
+                      setName('');
+                      setLocation('');
+                      setBudget(0);
+                      setContractor('');
+                      setStartDate('');
+                      setEndDate('');
+                      setStatus('Perencanaan');
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer font-bold text-slate-750"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    id="submit-project-btn"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    {editingProject ? 'Simpan Perubahan Proyek' : 'Daunkan Proyek Baru Ke Rencana Pembangunan'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-
-          <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="md:col-span-2">
-              <label className="block font-bold text-slate-700 mb-1">Nama / Judul Program Kementerian & Daerah</label>
-              <input 
-                type="text" 
-                placeholder="Contoh: Rehabilitasi Jaringan Irigasi DI Paya Lombang Kiri"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Lokasi Wilayah Kerja</label>
-              <input 
-                type="text" 
-                placeholder="Contoh: Simalungun KM 12"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Pagu Anggaran Rp (Rupiah)</label>
-              <input 
-                type="number" 
-                placeholder="Contoh: 1500000000"
-                value={budget || ''}
-                onChange={(e) => setBudget(Number(e.target.value))}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-semibold"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Badan Pelaksana / Kontraktor Pemilih</label>
-              <input 
-                type="text" 
-                placeholder="PT / CV Kontraktor Utama pelaksana"
-                value={contractor}
-                onChange={(e) => setContractor(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Tanggal Awal Pekerjaan</label>
-              <input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Tanggal Rencana Serah Terima (Selesai)</label>
-              <input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-              />
-            </div>
-
-            <div className="md:col-span-3 flex justify-end">
-              <button 
-                type="submit" 
-                id="submit-project-btn"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                {editingProject ? 'Simpan Perubahan Proyek' : 'Daunkan Proyek Baru Ke Rencana Pembangunan'}
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Progress management inline model overlay (simple dialog representation) */}
       {selectedProjectToUpdate && (

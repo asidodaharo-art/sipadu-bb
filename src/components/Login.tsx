@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight, Activity } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight, Activity, Sun, Moon } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LoginProps {
@@ -9,9 +9,19 @@ interface LoginProps {
   instansiName: string;
   instansiLogoBase64?: string;
   copyrightText: string;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
-export default function Login({ users, onLoginSuccess, instansiName, instansiLogoBase64, copyrightText }: LoginProps) {
+export default function Login({ 
+  users, 
+  onLoginSuccess, 
+  instansiName, 
+  instansiLogoBase64, 
+  copyrightText,
+  theme = 'light',
+  onToggleTheme 
+}: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -47,8 +57,29 @@ export default function Login({ users, onLoginSuccess, instansiName, instansiLog
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between" id="login-container">
-      {/* Upper Empty Area / Header */}
-      <div></div>
+      {/* Upper Empty Area / Header with Theme Switcher */}
+      <div className="w-full flex justify-end p-6">
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            className="p-2.5 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center hover:scale-105 transition-all text-xs font-bold gap-2 cursor-pointer float-right"
+            title="Ganti Tema Mode"
+            type="button"
+          >
+            {theme === 'light' ? (
+              <>
+                <Moon className="w-4 h-4 text-slate-700" />
+                <span className="text-slate-700 font-semibold text-[11px] hidden sm:inline">Mode Gelap</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span className="text-amber-400 font-semibold text-[11px] hidden sm:inline">Mode Terang</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
 
       <div className="w-full max-w-lg mx-auto p-4 flex flex-col items-center">
         {/* Brand Banner */}
