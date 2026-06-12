@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply } from '../types';
+import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply, BankAccount, ActivityAccount } from '../types';
 import { 
   FileText, 
   Users, 
@@ -303,6 +303,7 @@ export default function Penatausahaan({
 
   // Preview Modal State for PDFs
   const [viewingPdfMail, setViewingPdfMail] = useState<Mail | null>(null);
+  const [viewingHistoryPdf, setViewingHistoryPdf] = useState<{ file: string; name: string } | null>(null);
 
   const processFile = (file: File) => {
     if (file.type !== 'application/pdf') {
@@ -380,6 +381,19 @@ export default function Penatausahaan({
   const [newAnakTglLahir, setNewAnakTglLahir] = useState('');
   const [newAnakJkel, setNewAnakJkel] = useState('Laki-laki');
   const [newAnakStatus, setNewAnakStatus] = useState('Anak Kandung');
+
+  // PDF uploads for staff history lists
+  const [newPangkatPdfFile, setNewPangkatPdfFile] = useState('');
+  const [newPangkatPdfName, setNewPangkatPdfName] = useState('');
+
+  const [newGajiPdfFile, setNewGajiPdfFile] = useState('');
+  const [newGajiPdfName, setNewGajiPdfName] = useState('');
+
+  const [newEduPdfFile, setNewEduPdfFile] = useState('');
+  const [newEduPdfName, setNewEduPdfName] = useState('');
+
+  const [newAnakPdfFile, setNewAnakPdfFile] = useState('');
+  const [newAnakPdfName, setNewAnakPdfName] = useState('');
 
   // Sub Sub Tab states inside Aset & Inventaris
   const [assetSubTab, setAssetSubTab] = useState<'inventaris_kib' | 'distribusi' | 'persediaan'>('inventaris_kib');
@@ -518,6 +532,91 @@ export default function Penatausahaan({
     localStorage.setItem('uptd_v3_consumables', JSON.stringify(supplies));
   }, [supplies]);
 
+  // Finance sub-tab state (Transaksi vs Nomor Rekening vs Kode Rekening Kegiatan)
+  const [financeSubTab, setFinanceSubTab] = useState<'transaksi' | 'rekening' | 'rekening_kegiatan'>('rekening_kegiatan');
+
+  // Activity Accounts list state
+  const [activityAccounts, setActivityAccounts] = useState<ActivityAccount[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_activity_accounts');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'act-1',
+        code: '5.1.02.01.01.0024',
+        name: 'Belanja Alat Tulis Kantor (ATK)',
+        programName: 'Program Penunjang Urusan Pemerintahan Daerah Provinsi',
+        activityName: 'Penyediaan Jasa Penunjang Urusan Pemerintahan Daerah',
+        allocation: 35000000,
+        description: 'Untuk pembelian kertas HVS, tinta printer, map, pulpen, stempel, dan perlengkapan administrasi dinas.',
+        status: 'Aktif'
+      },
+      {
+        id: 'act-2',
+        code: '5.1.02.04.01.0001',
+        name: 'Belanja Perjalanan Dinas Rutin',
+        programName: 'Program Penunjang Urusan Pemerintahan Daerah Provinsi',
+        activityName: 'Penyediaan Jasa Penunjang Urusan Pemerintahan Daerah',
+        allocation: 75000000,
+        description: 'Perjalanan dinas dalam daerah dan luar daerah untuk koordinasi kegiatan pengelolaan bendung dan irigasi.',
+        status: 'Aktif'
+      },
+      {
+        id: 'act-3',
+        code: '5.2.02.05.01.0005',
+        name: 'Belanja Pemeliharaan Sarana dan Prasarana Bendung',
+        programName: 'Program Pengelolaan Sumber Daya Air (SDA)',
+        activityName: 'Operasi dan Pemeliharaan Jaringan Irigasi dan Sungai',
+        allocation: 120000000,
+        description: 'Biaya perbaikan pintu air, pembersihan sedimen lumpur, dan pemeliharaan alat ukur TMA.',
+        status: 'Aktif'
+      },
+      {
+        id: 'act-4',
+        code: '5.1.02.02.01.0011',
+        name: 'Belanja Air, Listrik, dan Jasa Internet',
+        programName: 'Program Penunjang Urusan Pemerintahan Daerah Provinsi',
+        activityName: 'Penyediaan Jasa Komunikasi, Sumber Daya Air dan Listrik',
+        allocation: 24000000,
+        description: 'Pembayaran rekening listrik kantor UPTD, tagihan PDAM, dan internet kecepatan tinggi untuk e-government.',
+        status: 'Aktif'
+      }
+    ];
+  });
+
+  // Sync Activity Accounts
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_activity_accounts', JSON.stringify(activityAccounts));
+  }, [activityAccounts]);
+
+  // Activity Account Form States
+  const [isActivityFormOpen, setIsActivityFormOpen] = useState(false);
+  const [activityCode, setActivityCode] = useState('');
+  const [activityName, setActivityName] = useState('');
+  const [activityProgram, setActivityProgram] = useState('');
+  const [activityActName, setActivityActName] = useState('');
+  const [activityAllocation, setActivityAllocation] = useState(0);
+  const [activityDescription, setActivityDescription] = useState('');
+  const [activityStatus, setActivityStatus] = useState<'Aktif' | 'Nonaktif'>('Aktif');
+  const [editingActivityAccount, setEditingActivityAccount] = useState<ActivityAccount | null>(null);
+
+  // Bank Accounts state
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+
+  // Bank Form States
+  const [isBankFormOpen, setIsBankFormOpen] = useState(false);
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [bankAccountType, setBankAccountType] = useState('');
+  const [bankAccountDescription, setBankAccountDescription] = useState('');
+  const [bankAccountStatus, setBankAccountStatus] = useState<'Aktif' | 'Nonaktif'>('Aktif');
+  const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
+
+  // Sync Bank Accounts
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_bank_accounts', JSON.stringify(bankAccounts));
+  }, [bankAccounts]);
+
   // Asset Form States
   const [isAssetFormOpen, setIsAssetFormOpen] = useState(false);
   const [assetName, setAssetName] = useState('');
@@ -611,7 +710,26 @@ export default function Penatausahaan({
     setIsFinanceFormOpen(true);
   };
 
-  const userSections = currentUser.section ? currentUser.section.split(',') : [];
+   const userSections = currentUser.section ? currentUser.section.split(',') : [];
+
+  const isSubTabAllowed = (subTab: string) => {
+    const isAdmin = currentUser.role === 'admin' || userSections.includes('all');
+    const isPimpinan = userSections.includes('pimpinan');
+    if (isAdmin || isPimpinan) return true;
+    if (subTab === 'adm_umum') {
+      return userSections.includes('adm_umum') || userSections.includes('penatausahaan');
+    }
+    if (subTab === 'personalia') {
+      return userSections.includes('personalia') || userSections.includes('staff') || userSections.includes('penatausahaan');
+    }
+    if (subTab === 'aset_inventaris') {
+      return userSections.includes('aset') || userSections.includes('penatausahaan');
+    }
+    if (subTab === 'keuangan') {
+      return userSections.includes('keuangan') || userSections.includes('penatausahaan');
+    }
+    return false;
+  };
 
   const canWrite = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('penatausahaan');
 
@@ -621,7 +739,7 @@ export default function Penatausahaan({
   const canCreateStaff = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('personalia');
   
   const canEditThisStaff = (personNip?: string) => {
-    if (currentUser.role === 'admin' || userSections.includes('all')) {
+    if (currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('personalia')) {
       return true;
     }
     if (userSections.includes('staff') && personNip) {
@@ -633,14 +751,168 @@ export default function Penatausahaan({
   };
 
   const canDeleteThisStaff = () => {
-    return currentUser.role === 'admin' || userSections.includes('all');
+    return currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('personalia');
   };
 
-  const showStaffActionsColumn = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('staff');
+  const showStaffActionsColumn = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('staff') || userSections.includes('personalia');
 
   const canWriteAset = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('aset');
   
   const canWriteKeuangan = currentUser.role === 'admin' || userSections.includes('all') || userSections.includes('keuangan');
+
+  // Bank Account Handlers
+  const handleBankSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk mengelola kode rekening!');
+      return;
+    }
+    if (!bankName || !bankAccountNumber || !bankAccountHolder || !bankAccountType) {
+      alert('Semua baris input wajib diisi.');
+      return;
+    }
+
+    if (editingBankAccount) {
+      // Edit mode
+      const updated = bankAccounts.map(b => b.id === editingBankAccount.id ? {
+        ...b,
+        bankName,
+        accountNumber: bankAccountNumber,
+        accountHolder: bankAccountHolder,
+        type: bankAccountType,
+        description: bankAccountDescription,
+        status: bankAccountStatus
+      } as BankAccount : b);
+      setBankAccounts(updated);
+      setEditingBankAccount(null);
+    } else {
+      // Add mode
+      const newAcc: BankAccount = {
+        id: 'acc-' + Date.now(),
+        bankName,
+        accountNumber: bankAccountNumber,
+        accountHolder: bankAccountHolder,
+        type: bankAccountType,
+        description: bankAccountDescription,
+        status: bankAccountStatus
+      };
+      setBankAccounts([newAcc, ...bankAccounts]);
+    }
+
+    // Reset Form
+    setIsBankFormOpen(false);
+    setBankName('');
+    setBankAccountNumber('');
+    setBankAccountHolder('');
+    setBankAccountType('');
+    setBankAccountDescription('');
+    setBankAccountStatus('Aktif');
+  };
+
+  const handleStartEditBankAccount = (b: BankAccount) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk mengubah kode rekening!');
+      return;
+    }
+    setEditingBankAccount(b);
+    setBankName(b.bankName);
+    setBankAccountNumber(b.accountNumber);
+    setBankAccountHolder(b.accountHolder);
+    setBankAccountType(b.type);
+    setBankAccountDescription(b.description || '');
+    setBankAccountStatus(b.status);
+    setIsBankFormOpen(true);
+  };
+
+  const handleDeleteBankAccount = (id: string) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk menghapus kode rekening!');
+      return;
+    }
+    if (confirm('Apakah Anda yakin ingin menghapus kode rekening ini?')) {
+      const updated = bankAccounts.filter(b => b.id !== id);
+      setBankAccounts(updated);
+    }
+  };
+
+  // Activity Account Handlers
+  const handleActivitySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk mengelola kode rekening kegiatan!');
+      return;
+    }
+    if (!activityCode || !activityName || !activityProgram || !activityActName) {
+      alert('Kolom bertanda bintang (*) wajib diisi.');
+      return;
+    }
+
+    if (editingActivityAccount) {
+      // Edit mode
+      const updated = activityAccounts.map(a => a.id === editingActivityAccount.id ? {
+        ...a,
+        code: activityCode,
+        name: activityName,
+        programName: activityProgram,
+        activityName: activityActName,
+        allocation: activityAllocation,
+        description: activityDescription,
+        status: activityStatus
+      } as ActivityAccount : a);
+      setActivityAccounts(updated);
+      setEditingActivityAccount(null);
+    } else {
+      // Add mode
+      const newAct: ActivityAccount = {
+        id: 'act-' + Date.now(),
+        code: activityCode,
+        name: activityName,
+        programName: activityProgram,
+        activityName: activityActName,
+        allocation: activityAllocation,
+        description: activityDescription,
+        status: activityStatus
+      };
+      setActivityAccounts([newAct, ...activityAccounts]);
+    }
+
+    // Reset Form
+    setIsActivityFormOpen(false);
+    setActivityCode('');
+    setActivityName('');
+    setActivityProgram('');
+    setActivityActName('');
+    setActivityAllocation(0);
+    setActivityDescription('');
+    setActivityStatus('Aktif');
+  };
+
+  const handleStartEditActivityAccount = (a: ActivityAccount) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk mengubah kode rekening kegiatan!');
+      return;
+    }
+    setEditingActivityAccount(a);
+    setActivityCode(a.code);
+    setActivityName(a.name);
+    setActivityProgram(a.programName);
+    setActivityActName(a.activityName);
+    setActivityAllocation(a.allocation);
+    setActivityDescription(a.description || '');
+    setActivityStatus(a.status);
+    setIsActivityFormOpen(true);
+  };
+
+  const handleDeleteActivityAccount = (id: string) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan untuk menghapus kode rekening kegiatan!');
+      return;
+    }
+    if (confirm('Apakah Anda yakin ingin menghapus kode rekening kegiatan ini?')) {
+      const updated = activityAccounts.filter(a => a.id !== id);
+      setActivityAccounts(updated);
+    }
+  };
 
   const handleMailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -947,6 +1219,22 @@ export default function Penatausahaan({
            (f.category || '').toLowerCase().includes((searchQuery || '').toLowerCase());
   });
 
+  const filteredBankAccounts = bankAccounts.filter(b => {
+    return (b.bankName || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (b.accountNumber || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (b.accountHolder || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (b.type || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (b.description || '').toLowerCase().includes((searchQuery || '').toLowerCase());
+  });
+
+  const filteredActivityAccounts = activityAccounts.filter(a => {
+    return (a.code || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.programName || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.activityName || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+           (a.description || '').toLowerCase().includes((searchQuery || '').toLowerCase());
+  });
+
   // Rupiah Formatter
   const formatRupiah = (num: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -961,10 +1249,24 @@ export default function Penatausahaan({
       case 'adm_umum': return 'Cari nomor / subjek surat...';
       case 'personalia': return 'Cari nama / NIP pegawai...';
       case 'aset_inventaris': return 'Cari nama, kode, atau lokasi aset...';
-      case 'keuangan': return 'Cari deskripsi atau kategori keuangan...';
+      case 'keuangan': 
+        return financeSubTab === 'rekening_kegiatan' 
+          ? 'Cari kode kegiatan, nama belanja, program...' 
+          : 'Cari transaksi, deskripsi, atau kategori kas...';
       default: return 'Cari...';
     }
   };
+
+  if (activeSubTab !== 'landing' && !isSubTabAllowed(activeSubTab)) {
+    return (
+      <div className="bg-red-50 border border-red-150 rounded-2xl p-8 text-center text-red-800 space-y-3 animate-fade-in my-8" id="sc-access-denied">
+        <h3 className="font-extrabold text-sm uppercase tracking-wider">Akses Terbatas</h3>
+        <p className="text-xs font-medium text-red-600 max-w-md mx-auto">
+          Anda tidak memiliki wewenang atau hak akses seksi untuk melihat sub-halaman ini. Silakan hubungi Administrator untuk memperbarui hak akses Anda.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="penatausahaan-tab-content">
@@ -997,60 +1299,63 @@ export default function Penatausahaan({
           </div>
 
           {/* SECTION: STATISTIK KEARSIPAN SURAT */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Archive className="w-4 h-4 text-slate-500" />
-              <span>Statistik Administrasi Kearsipan Surat</span>
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Card 1: Surat Masuk */}
-              <div 
-                onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('masuk'); }}
-                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
-              >
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Masuk</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-800 tracking-tight">
-                      {mails.filter(m => m.type === 'masuk').length}
+          {isSubTabAllowed('adm_umum') && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Archive className="w-4 h-4 text-slate-500" />
+                <span>Statistik Administrasi Kearsipan Surat</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Card 1: Surat Masuk */}
+                <div 
+                  onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('masuk'); }}
+                  className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
+                >
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Masuk</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-slate-800 tracking-tight">
+                        {mails.filter(m => m.type === 'masuk').length}
+                      </span>
+                      <span className="text-[11px] text-slate-500">Berkas surat diterima</span>
+                    </div>
+                    <span className="text-[10px] text-blue-600 font-bold group-hover:underline flex items-center gap-1">
+                      Buka Administrasi Surat Masuk <ChevronRight className="w-3 h-3" />
                     </span>
-                    <span className="text-[11px] text-slate-500">Berkas surat diterima</span>
                   </div>
-                  <span className="text-[10px] text-blue-600 font-bold group-hover:underline flex items-center gap-1">
-                    Buka Administrasi Surat Masuk <ChevronRight className="w-3 h-3" />
-                  </span>
+                  <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-105 transition-transform">
+                    <Inbox className="w-6 h-6" />
+                  </div>
                 </div>
-                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-105 transition-transform">
-                  <Inbox className="w-6 h-6" />
-                </div>
-              </div>
 
-              {/* Card 2: Surat Keluar */}
-              <div 
-                onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('keluar'); }}
-                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
-              >
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Keluar</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-800 tracking-tight">
-                      {mails.filter(m => m.type === 'keluar').length}
+                {/* Card 2: Surat Keluar */}
+                <div 
+                  onClick={() => { onSubTabChange('adm_umum'); setMailSubTab('keluar'); }}
+                  className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
+                >
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Surat Keluar</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-slate-800 tracking-tight">
+                        {mails.filter(m => m.type === 'keluar').length}
+                      </span>
+                      <span className="text-[11px] text-slate-500">Berkas surat terkirim</span>
+                    </div>
+                    <span className="text-[10px] text-indigo-600 font-bold group-hover:underline flex items-center gap-1">
+                      Buka Administrasi Surat Keluar <ChevronRight className="w-3 h-3" />
                     </span>
-                    <span className="text-[11px] text-slate-500">Berkas surat terkirim</span>
                   </div>
-                  <span className="text-[10px] text-indigo-600 font-bold group-hover:underline flex items-center gap-1">
-                    Buka Administrasi Surat Keluar <ChevronRight className="w-3 h-3" />
-                  </span>
-                </div>
-                <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-105 transition-transform">
-                  <Send className="w-6 h-6" />
+                  <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-105 transition-transform">
+                    <Send className="w-6 h-6" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* SECTION: MONITORING KEPEGAWAIAN (< 1 TAHUN) */}
-          <div className="space-y-4">
+          {isSubTabAllowed('personalia') && (
+            <div className="space-y-4">
             <div className="border-b border-slate-200 pb-2">
               <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
@@ -1143,7 +1448,13 @@ export default function Penatausahaan({
                     </span>
                   </div>
 
-                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                  {/* Warning Notice */}
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl flex items-start gap-2 text-[10px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                    <span>Peringatan: 3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kepangkatan.</span>
+                  </div>
+
+                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
                     {promotionAlerts.length > 0 ? (
                       promotionAlerts.map(p => (
                         <div 
@@ -1170,6 +1481,12 @@ export default function Penatausahaan({
                             <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
                             <span>Rencana: <strong>{p.nextPromotionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
                           </div>
+                          {p.diffDays <= 90 && (
+                            <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -1208,7 +1525,13 @@ export default function Penatausahaan({
                     </span>
                   </div>
 
-                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                  {/* Warning Notice */}
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl flex items-start gap-2 text-[10px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                    <span>Peringatan: 3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas KGB.</span>
+                  </div>
+
+                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
                     {salaryAlerts.length > 0 ? (
                       salaryAlerts.map(p => (
                         <div 
@@ -1233,6 +1556,12 @@ export default function Penatausahaan({
                             <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
                             <span>Rencana: <strong>{p.nextGajiDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
                           </div>
+                          {p.diffDays <= 90 && (
+                            <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -1254,6 +1583,16 @@ export default function Penatausahaan({
               </div>
             </div>
           </div>
+          )}
+
+          {!isSubTabAllowed('adm_umum') && !isSubTabAllowed('personalia') && (
+            <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center space-y-2" id="empty-landing-info">
+              <h3 className="font-bold text-slate-800 text-sm">Selamat Datang di Bagian Penatausahaan</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Silakan gunakan menu samping (sidebar) untuk mengakses halaman administrasi, aset, atau keuangan sesuai wewenang Anda.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1265,13 +1604,13 @@ export default function Penatausahaan({
               {activeSubTab === 'adm_umum' && <><FileText className="w-4 h-4 text-blue-600" /><span>Administrasi Umum (Kearsipan Surat)</span></>}
               {activeSubTab === 'personalia' && <><Users className="w-4 h-4 text-blue-600" /><span>Ketenagakerjaan & Kepegawaian (Personalia)</span></>}
               {activeSubTab === 'aset_inventaris' && <><Box className="w-4 h-4 text-blue-600" /><span>Aset & Inventaris UPTD</span></>}
-              {activeSubTab === 'keuangan' && <><Wallet className="w-4 h-4 text-blue-600" /><span>Kas & Dokumen Keuangan</span></>}
+              {activeSubTab === 'keuangan' && <><Wallet className="w-4 h-4 text-blue-600" /><span>Keuangan & Kode Rekening</span></>}
             </h2>
             <p className="text-[10px] text-slate-400 font-medium mt-0.5">
               {activeSubTab === 'adm_umum' && 'Kelola pencatatan surat masuk dan surat keluar resmi dinas.'}
               {activeSubTab === 'personalia' && 'Database rekap data kepegawaian, jabatan, dan strukural UPTD.'}
               {activeSubTab === 'aset_inventaris' && 'Daftar inventaris sarana prasarana, kendaraan dinas, dan peralatan ukur.'}
-              {activeSubTab === 'keuangan' && 'Pencatatan aliran alokasi dana, ATK, belanja dinas, dan rincian kas aktif.'}
+              {activeSubTab === 'keuangan' && 'Informasi arus kas transaksi keuangan serta pengelolaan daftar kode rekening kegiatan operasional & bank resmi UPTD.'}
             </p>
           </div>
 
@@ -1712,7 +2051,7 @@ export default function Penatausahaan({
                     <th className="p-4">Perihal/Subjek</th>
                     <th className="p-4">Status</th>
                     <th className="p-4 text-center w-32">Lampiran</th>
-                    {currentUser.role === 'admin' && <th className="p-4 text-center w-24">Aksi</th>}
+                    {canWriteAdmUmum && <th className="p-4 text-center w-24">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -1774,7 +2113,7 @@ export default function Penatausahaan({
                             <span className="text-[10px] text-slate-400 font-medium italic">-</span>
                           )}
                         </td>
-                        {currentUser.role === 'admin' && (
+                        {canWriteAdmUmum && (
                           <td className="p-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
@@ -1800,7 +2139,7 @@ export default function Penatausahaan({
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={currentUser.role === 'admin' ? 9 : 8} className="p-8 text-center text-slate-400 font-medium">
+                      <td colSpan={canWriteAdmUmum ? 9 : 8} className="p-8 text-center text-slate-400 font-medium">
                         Tidak ada arsip dokumen {mailSubTab === 'masuk' ? 'surat masuk' : 'surat keluar'} ditemukan.
                       </td>
                     </tr>
@@ -1871,6 +2210,71 @@ export default function Penatausahaan({
                 <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 text-[10px] text-slate-500 font-bold flex justify-between items-center uppercase tracking-wider">
                   <span>Agenda Rujukan: <strong className="text-slate-700 font-mono">{viewingPdfMail.referenceNumber}</strong></span>
                   <span>Sirkulasi: <strong className="text-slate-700">{viewingPdfMail.type === 'masuk' ? 'Surat Masuk' : 'Surat Keluar'}</strong></span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* HISTORY PDF PREVIEW MODAL */}
+          {viewingHistoryPdf && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-sans select-none"
+              onClick={() => setViewingHistoryPdf(null)}
+            >
+              <div 
+                className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col h-[85vh] animate-in fade-in zoom-in duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-150 flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl">
+                      <FileIcon className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-extrabold text-xs text-slate-800 tracking-tight uppercase">Pratinjau Berkas Lampiran</h3>
+                      <p className="text-[10px] text-slate-500 font-semibold max-w-sm truncate" title={viewingHistoryPdf.name}>
+                        {viewingHistoryPdf.name}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <a 
+                      href={viewingHistoryPdf.file} 
+                      download={viewingHistoryPdf.name || `lampiran-riwayat.pdf`}
+                      className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Berkas</span>
+                    </a>
+                    <button 
+                      onClick={() => setViewingHistoryPdf(null)} 
+                      className="p-2 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-all cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 flex-1 bg-slate-100 overflow-hidden flex justify-center items-center">
+                  {viewingHistoryPdf.file ? (
+                    <iframe 
+                      src={viewingHistoryPdf.file} 
+                      className="w-full h-full rounded-xl border border-slate-200 shadow-inner bg-white"
+                      title="PDF History Document Viewer"
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400 font-medium">
+                      Gagal menampilkan pratinjau dokumen. Silakan unduh berkas secara manual.
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 text-[10px] text-slate-500 font-bold flex justify-between items-center uppercase tracking-wider">
+                  <span>Nama Berkas: <strong className="text-slate-750 font-mono truncate max-w-xs">{viewingHistoryPdf.name}</strong></span>
+                  <span>Format: <strong className="text-emerald-600 font-extrabold">PDF Dokumen</strong></span>
                 </div>
               </div>
             </div>
@@ -2265,8 +2669,12 @@ export default function Penatausahaan({
                       {/* Subtab 2: RIWAYAT KEPANGKATAN */}
                       {editModalTab === 'pangkat' && (
                         <div className="space-y-4">
-                          <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100/50 text-[11px] text-amber-700 font-medium">
-                            Masukkan riwayat golongan & pangkat dinas pegawai resmi dari yang pertama/terdahulu hingga yang mutakhir.
+                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
+                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kepangkatan.
+                            </div>
                           </div>
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
@@ -2330,6 +2738,60 @@ export default function Penatausahaan({
                                     className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                   />
                                 </div>
+                                <div className="sm:col-span-3">
+                                  <label className="block text-[10px] font-bold text-slate-650 mb-1 flex items-center gap-1">
+                                    <span>Unggah Dokumen SK (PDF)</span>
+                                    <span className="text-slate-400 font-normal">(Maks. 8MB)</span>
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-150 hover:bg-slate-200 border border-slate-300 rounded-lg text-[10px] font-black cursor-pointer text-slate-750 select-none shadow-3xs transition-all">
+                                      <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>Pilih PDF</span>
+                                      <input
+                                        type="file"
+                                        accept=".pdf,application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) {
+                                            if (file.type !== 'application/pdf') {
+                                              alert('Hanya diperbolehkan format PDF (*.pdf)');
+                                              return;
+                                            }
+                                            if (file.size > 8 * 1024 * 1024) {
+                                              alert('Batas ukuran file PDF adalah 8MB');
+                                              return;
+                                            }
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => {
+                                              setNewPangkatPdfFile(ev.target?.result as string);
+                                              setNewPangkatPdfName(file.name);
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </label>
+                                    {newPangkatPdfName ? (
+                                      <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-150 px-2.5 py-1 rounded-lg text-[10px] text-emerald-800 font-extrabold max-w-full">
+                                        <FileIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                        <span className="truncate max-w-[150px]">{newPangkatPdfName}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setNewPangkatPdfFile('');
+                                            setNewPangkatPdfName('');
+                                          }}
+                                          className="text-emerald-500 hover:text-emerald-700 cursor-pointer font-bold p-0.5 ml-1 shrink-0 bg-transparent border-none outline-none"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400 italic font-medium">Belum ada file SK diunggah</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <div className="flex justify-end pt-1">
                                 <button
@@ -2346,7 +2808,9 @@ export default function Penatausahaan({
                                       golongan: newPangkatGolongan,
                                       tmt: newPangkatTmt,
                                       noSk: newPangkatNoSk,
-                                      tglSk: newPangkatTglSk
+                                      tglSk: newPangkatTglSk,
+                                      pdfFile: newPangkatPdfFile || undefined,
+                                      pdfName: newPangkatPdfName || undefined
                                     };
                                     setEditStaffDraft({
                                       ...editStaffDraft!,
@@ -2358,6 +2822,8 @@ export default function Penatausahaan({
                                     setNewPangkatTmt('');
                                     setNewPangkatNoSk('');
                                     setNewPangkatTglSk('');
+                                    setNewPangkatPdfFile('');
+                                    setNewPangkatPdfName('');
                                   }}
                                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                                 >
@@ -2392,6 +2858,16 @@ export default function Penatausahaan({
                                         <td className="p-3 text-xs">
                                           <div>SK No: <span className="font-mono text-slate-800 font-bold">{r.noSk}</span></div>
                                           {r.tglSk && <div className="text-[10px] text-slate-400">Tanggal SK: {r.tglSk}</div>}
+                                          {r.pdfFile && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setViewingHistoryPdf({ file: r.pdfFile!, name: r.pdfName || 'sk_kepangkatan.pdf' })}
+                                              className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 border border-rose-100/80 rounded hover:bg-rose-100 text-[9px] text-rose-650 font-black transition-all cursor-pointer shadow-3xs"
+                                            >
+                                              <FileText className="w-2.5 h-2.5 text-rose-500" />
+                                              <span>Lihat SK PDF</span>
+                                            </button>
+                                          )}
                                         </td>
                                         <td className="p-3 text-center">
                                           <button
@@ -2419,8 +2895,12 @@ export default function Penatausahaan({
                       {/* Subtab 3: RIWAYAT GAJI BERKALA */}
                       {editModalTab === 'gaji' && (
                         <div className="space-y-4">
-                          <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50 text-[11px] text-emerald-700 font-medium">
-                            Daftarkan seluruh riwayat Kenaikan Gaji Berkala (KGB) yang pernah dikeluarkan secara resmi untuk dinas pegawai.
+                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
+                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kenaikan gaji berkala (KGB).
+                            </div>
                           </div>
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
@@ -2477,6 +2957,60 @@ export default function Penatausahaan({
                                   className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                               </div>
+                              <div className="sm:col-span-3">
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1 flex items-center gap-1">
+                                  <span>Unggah SK KGB (PDF)</span>
+                                  <span className="text-slate-400 font-normal">(Maks. 8MB)</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-150 hover:bg-slate-200 border border-slate-300 rounded-lg text-[10px] font-black cursor-pointer text-slate-750 select-none shadow-3xs transition-all">
+                                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Pilih PDF</span>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.type !== 'application/pdf') {
+                                            alert('Hanya diperbolehkan format PDF (*.pdf)');
+                                            return;
+                                          }
+                                          if (file.size > 8 * 1024 * 1024) {
+                                            alert('Batas ukuran file PDF adalah 8MB');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            setNewGajiPdfFile(ev.target?.result as string);
+                                            setNewGajiPdfName(file.name);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  {newGajiPdfName ? (
+                                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-150 px-2.5 py-1 rounded-lg text-[10px] text-emerald-800 font-extrabold max-w-full">
+                                      <FileIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                      <span className="truncate max-w-[150px]">{newGajiPdfName}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewGajiPdfFile('');
+                                          setNewGajiPdfName('');
+                                        }}
+                                        className="text-emerald-500 hover:text-emerald-700 cursor-pointer font-bold p-0.5 ml-1 shrink-0 bg-transparent border-none outline-none"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic font-medium">Belum ada file SK KGB diunggah</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex justify-end pt-1">
                               <button
@@ -2493,7 +3027,9 @@ export default function Penatausahaan({
                                     gajiPokok: newGajiNominal,
                                     noSk: newGajiNoSk,
                                     tglSk: newGajiTglSk,
-                                    pejabatPenandatangan: newGajiPejabat
+                                    pejabatPenandatangan: newGajiPejabat,
+                                    pdfFile: newGajiPdfFile || undefined,
+                                    pdfName: newGajiPdfName || undefined
                                   };
                                   setEditStaffDraft({
                                     ...editStaffDraft!,
@@ -2505,6 +3041,8 @@ export default function Penatausahaan({
                                   setNewGajiNoSk('');
                                   setNewGajiTglSk('');
                                   setNewGajiPejabat('');
+                                  setNewGajiPdfFile('');
+                                  setNewGajiPdfName('');
                                 }}
                                 className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                               >
@@ -2537,8 +3075,18 @@ export default function Penatausahaan({
                                       <td className="p-3 text-blue-600 font-mono font-bold">{r.tmtGaji}</td>
                                       <td className="p-3 font-bold text-emerald-600">Rp {(r.gajiPokok || 0).toLocaleString('id-ID')}</td>
                                       <td className="p-3">
-                                        <div className="font-semibold text-slate-800">SK: {r.noSk}</div>
+                                        <div className="font-semibold text-slate-800 animate-none">SK: {r.noSk}</div>
                                         <div className="text-[10px] text-slate-400">Penandatangan: {r.pejabatPenandatangan || '-'} {r.tglSk && `| tgl SK ${r.tglSk}`}</div>
+                                        {r.pdfFile && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setViewingHistoryPdf({ file: r.pdfFile!, name: r.pdfName || 'sk_gaji_berkala.pdf' })}
+                                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 border border-rose-100/80 rounded hover:bg-rose-100 text-[9px] text-rose-650 font-black transition-all cursor-pointer shadow-3xs animate-none"
+                                          >
+                                            <FileText className="w-2.5 h-2.5 text-rose-500 animate-none" />
+                                            <span>Lihat SK PDF</span>
+                                          </button>
+                                        )}
                                       </td>
                                       <td className="p-3 text-center">
                                         <button
@@ -2566,8 +3114,12 @@ export default function Penatausahaan({
                       {/* Subtab 4: RIWAYAT PENDIDIKAN */}
                       {editModalTab === 'pendidikan' && (
                         <div className="space-y-4">
-                          <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100/50 text-[11px] text-sky-700 font-medium">
-                            Kompilasikan riwayat pendidikan formal yang berhasil diselesaikan oleh pegawai sipil dinas bersangkutan.
+                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
+                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas pendidikan / ijazah.
+                            </div>
                           </div>
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
@@ -2633,6 +3185,60 @@ export default function Penatausahaan({
                                   className="w-full p-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                               </div>
+                              <div className="sm:col-span-3">
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1 flex items-center gap-1">
+                                  <span>Unggah Ijazah / Dokumen Akademik (PDF)</span>
+                                  <span className="text-slate-400 font-normal">(Maks. 8MB)</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-150 hover:bg-slate-200 border border-slate-300 rounded-lg text-[10px] font-black cursor-pointer text-slate-755 select-none shadow-3xs transition-all">
+                                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Pilih PDF</span>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.type !== 'application/pdf') {
+                                            alert('Hanya diperbolehkan format PDF (*.pdf)');
+                                            return;
+                                          }
+                                          if (file.size > 8 * 1024 * 1024) {
+                                            alert('Batas ukuran file PDF adalah 8MB');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            setNewEduPdfFile(ev.target?.result as string);
+                                            setNewEduPdfName(file.name);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  {newEduPdfName ? (
+                                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-150 px-2.5 py-1 rounded-lg text-[10px] text-emerald-800 font-extrabold max-w-full">
+                                      <FileIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                      <span className="truncate max-w-[150px]">{newEduPdfName}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewEduPdfFile('');
+                                          setNewEduPdfName('');
+                                        }}
+                                        className="text-emerald-500 hover:text-emerald-700 cursor-pointer font-bold p-0.5 ml-1 shrink-0 bg-transparent border-none outline-none"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic font-medium">Belum ada file ijazah diunggah</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex justify-end pt-1">
                               <button
@@ -2649,7 +3255,9 @@ export default function Penatausahaan({
                                     institusi: newEduInstitusi,
                                     jurusan: newEduJurusan || '-',
                                     tahunLulus: newEduTahun,
-                                    noIjazah: newEduNoIjazah || ''
+                                    noIjazah: newEduNoIjazah || '',
+                                    pdfFile: newEduPdfFile || undefined,
+                                    pdfName: newEduPdfName || undefined
                                   };
                                   setEditStaffDraft({
                                     ...editStaffDraft!,
@@ -2661,6 +3269,8 @@ export default function Penatausahaan({
                                   setNewEduJurusan('');
                                   setNewEduTahun('');
                                   setNewEduNoIjazah('');
+                                  setNewEduPdfFile('');
+                                  setNewEduPdfName('');
                                 }}
                                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                               >
@@ -2698,6 +3308,16 @@ export default function Penatausahaan({
                                       <td className="p-3 text-slate-800">
                                         <div className="font-bold">{r.institusi}</div>
                                         <div className="text-[10px] text-slate-500">Program Studi: {r.jurusan} {r.noIjazah && `| Ijazah: ${r.noIjazah}`}</div>
+                                        {r.pdfFile && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setViewingHistoryPdf({ file: r.pdfFile!, name: r.pdfName || 'ijazah.pdf' })}
+                                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 border border-rose-100/80 rounded hover:bg-rose-100 text-[9px] text-rose-650 font-black transition-all cursor-pointer shadow-3xs"
+                                          >
+                                            <FileText className="w-2.5 h-2.5 text-rose-500" />
+                                            <span>Lihat Ijazah PDF</span>
+                                          </button>
+                                        )}
                                       </td>
                                       <td className="p-3 text-center font-bold text-slate-600 font-mono">{r.tahunLulus}</td>
                                       <td className="p-3 text-center">
@@ -2793,8 +3413,12 @@ export default function Penatausahaan({
                       {/* Subtab 6: RIWAYAT PASANGAN */}
                       {editModalTab === 'pasangan' && (
                         <div className="space-y-4">
-                          <div className="bg-pink-50/50 p-3 rounded-xl border border-pink-100/50 text-[11px] text-pink-700 font-medium">
-                            Kelola data pasangan hidup resmi (Suami atau Istri) bersangkutan dari PNS / Juru OP Terkait.
+                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
+                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas pasangan (buku nikah / akta cerai/kematian).
+                            </div>
                           </div>
 
                           <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50/30 space-y-4 max-w-xl mx-auto shadow-sm">
@@ -2857,6 +3481,68 @@ export default function Penatausahaan({
                                   className="w-full p-2 bg-white border border-slate-250 rounded-xl text-slate-700 font-medium focus:outline-none"
                                 />
                               </div>
+
+                              <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1 flex items-center gap-1">
+                                  <span>Unggah Buku Nikah / Dokumen Pasangan (PDF)</span>
+                                  <span className="text-slate-400 font-normal">(Maks. 8MB)</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-150 hover:bg-slate-200 border border-slate-300 rounded-lg text-[10px] font-black cursor-pointer text-slate-750 select-none shadow-3xs transition-all pointer-events-auto">
+                                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Pilih PDF</span>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.type !== 'application/pdf') {
+                                            alert('Hanya diperbolehkan format PDF (*.pdf)');
+                                            return;
+                                          }
+                                          if (file.size > 8 * 1024 * 1024) {
+                                            alert('Batas ukuran file PDF adalah 8MB');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            updateDraftNested('riwayatPasangan', 'pdfFile', ev.target?.result as string);
+                                            updateDraftNested('riwayatPasangan', 'pdfName', file.name);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  {editStaffDraft?.riwayatPasangan?.pdfFile ? (
+                                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-150 px-2.5 py-1 rounded-lg text-[10px] text-emerald-850 font-extrabold max-w-full">
+                                      <FileIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                      <span className="truncate max-w-[130px]">{editStaffDraft.riwayatPasangan.pdfName || 'dokumen_pasangan.pdf'}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateDraftNested('riwayatPasangan', 'pdfFile', '');
+                                          updateDraftNested('riwayatPasangan', 'pdfName', '');
+                                        }}
+                                        className="text-emerald-500 hover:text-emerald-700 cursor-pointer font-bold p-0.5 ml-1 shrink-0 bg-transparent border-none outline-none"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingHistoryPdf({ file: editStaffDraft.riwayatPasangan!.pdfFile!, name: editStaffDraft.riwayatPasangan!.pdfName || 'buku_nikah.pdf' })}
+                                        className="ml-1 px-1.5 py-0.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 rounded text-[9px] font-black cursor-pointer shadow-3xs"
+                                      >
+                                        Lihat PDF
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic font-medium">Belum ada file dokumen pasangan diunggah</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2917,6 +3603,60 @@ export default function Penatausahaan({
                                   <option value="Anak Tiri">Anak Tiri</option>
                                 </select>
                               </div>
+                              <div className="sm:col-span-4">
+                                <label className="block text-[10px] font-bold text-slate-650 mb-1 flex items-center gap-1">
+                                  <span>Unggah Akta Kelahiran / KIA (PDF)</span>
+                                  <span className="text-slate-400 font-normal">(Maks. 8MB)</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-150 hover:bg-slate-200 border border-slate-300 rounded-lg text-[10px] font-black cursor-pointer text-slate-750 select-none shadow-3xs transition-all">
+                                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Pilih PDF</span>
+                                    <input
+                                      type="file"
+                                      accept=".pdf,application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.type !== 'application/pdf') {
+                                            alert('Hanya diperbolehkan format PDF (*.pdf)');
+                                            return;
+                                          }
+                                          if (file.size > 8 * 1024 * 1024) {
+                                            alert('Batas ukuran file PDF adalah 8MB');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (ev) => {
+                                            setNewAnakPdfFile(ev.target?.result as string);
+                                            setNewAnakPdfName(file.name);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  {newAnakPdfName ? (
+                                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-150 px-2.5 py-1 rounded-lg text-[10px] text-emerald-800 font-extrabold max-w-full">
+                                      <FileIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                      <span className="truncate max-w-[150px]">{newAnakPdfName}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewAnakPdfFile('');
+                                          setNewAnakPdfName('');
+                                        }}
+                                        className="text-emerald-500 hover:text-emerald-700 cursor-pointer font-bold p-0.5 ml-1 shrink-0 bg-transparent border-none outline-none"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic font-medium">Belum ada file dokumen anak diunggah</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex justify-end pt-1">
                               <button
@@ -2932,7 +3672,9 @@ export default function Penatausahaan({
                                     namaAnak: newAnakNama,
                                     tanggalLahir: newAnakTglLahir,
                                     jenisKelamin: newAnakJkel,
-                                    statusAnak: newAnakStatus
+                                    statusAnak: newAnakStatus,
+                                    pdfFile: newAnakPdfFile || undefined,
+                                    pdfName: newAnakPdfName || undefined
                                   };
                                   setEditStaffDraft({
                                     ...editStaffDraft!,
@@ -2943,6 +3685,8 @@ export default function Penatausahaan({
                                   setNewAnakTglLahir('');
                                   setNewAnakJkel('Laki-laki');
                                   setNewAnakStatus('Anak Kandung');
+                                  setNewAnakPdfFile('');
+                                  setNewAnakPdfName('');
                                 }}
                                 className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                               >
@@ -2973,7 +3717,19 @@ export default function Penatausahaan({
                                   editStaffDraft.riwayatAnak.map((r, i) => (
                                     <tr key={r.id}>
                                       <td className="p-2.5 text-center text-slate-400">{i + 1}</td>
-                                      <td className="p-2.5 font-bold text-slate-800">{r.namaAnak}</td>
+                                      <td className="p-2.5 font-bold text-slate-800">
+                                        <div>{r.namaAnak}</div>
+                                        {r.pdfFile && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setViewingHistoryPdf({ file: r.pdfFile!, name: r.pdfName || 'akta_kelahiran.pdf' })}
+                                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 border border-rose-100/80 rounded hover:bg-rose-100 text-[9px] text-rose-650 font-black transition-all cursor-pointer shadow-3xs"
+                                          >
+                                            <FileText className="w-2.5 h-2.5 text-rose-500" />
+                                            <span>Lihat Akta PDF</span>
+                                          </button>
+                                        )}
+                                      </td>
                                       <td className="p-2.5 text-slate-600">{r.jenisKelamin}</td>
                                       <td className="p-2.5 text-center font-mono font-bold text-slate-600">{r.tanggalLahir}</td>
                                       <td className="p-2.5">
@@ -4618,8 +5374,36 @@ export default function Penatausahaan({
       {/* SUBTAB 4: KEUANGAN */}
       {activeSubTab === 'keuangan' && (
         <div className="space-y-4" id="finances-panel">
-          {/* Budget balance summaries */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Inner Subtabs for Keuangan */}
+          <div className="flex border-b border-slate-150 gap-4 mb-2">
+            <button
+              onClick={() => setFinanceSubTab('rekening_kegiatan')}
+              className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                financeSubTab === 'rekening_kegiatan'
+                  ? 'border-blue-700 text-blue-700 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-655'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Kode Rekening</span>
+            </button>
+            <button
+              onClick={() => setFinanceSubTab('transaksi')}
+              className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                financeSubTab === 'transaksi'
+                  ? 'border-blue-700 text-blue-700 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-650'
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Transaksi Keuangan (Buku Kas)</span>
+            </button>
+          </div>
+
+          {financeSubTab === 'transaksi' && (
+            <>
+              {/* Budget balance summaries */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
               <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                 <ArrowUpRight className="w-5 h-5 text-indigo-600" />
@@ -4899,6 +5683,336 @@ export default function Penatausahaan({
               </table>
             </div>
           </div>
+          </>
+          )}
+
+          {financeSubTab === 'rekening_kegiatan' && (
+            <div className="space-y-4 font-sans text-left" id="activity-accounts-panel">
+              {/* Sub-summary cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Tag className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total Kode Rekening Kegiatan</div>
+                    <div className="text-sm font-bold text-slate-800">{activityAccounts.length} Rekening</div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <CheckCircle className="w-5 h-5 text-emerald-650" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total Pagu Terdaftar</div>
+                    <div className="text-sm font-bold text-slate-800 font-sans">
+                      {formatRupiah(activityAccounts.reduce((acc, curr) => acc + (curr.status === 'Aktif' ? curr.allocation : 0), 0))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Program Aktif</div>
+                    <div className="text-sm font-bold text-slate-800 font-sans">
+                      {new Set(activityAccounts.filter(a => a.status === 'Aktif').map(a => a.programName)).size} Program
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Header bar for Activity Accounts */}
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="text-xs text-slate-500 font-medium">
+                  Informasi Daftar Kode Rekening Kegiatan & Alokasi Anggaran Belanja UPTD Resmi
+                </div>
+                {canWriteKeuangan ? (
+                  <button
+                    onClick={() => {
+                      setEditingActivityAccount(null);
+                      setActivityCode('');
+                      setActivityName('');
+                      setActivityProgram('');
+                      setActivityActName('');
+                      setActivityAllocation(0);
+                      setActivityDescription('');
+                      setActivityStatus('Aktif');
+                      setIsActivityFormOpen(true);
+                    }}
+                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Daftar Kode Rekening Kegiatan Baru</span>
+                  </button>
+                ) : (
+                  <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                    *Hanya staf Keuangan / Admin yang dapat menambah/mengedit kode rekening kegiatan
+                  </div>
+                )}
+              </div>
+
+              {/* Activity Account Table */}
+              <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden" id="activity-accounts-table-wrapper">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
+                        <th className="p-4 text-center w-12">No</th>
+                        <th className="p-4 w-44">Kode Rekening</th>
+                        <th className="p-4 min-w-[240px]">Uraian Kegiatan / Program</th>
+                        <th className="p-4 min-w-[200px]">Deskripsi / Keterangan</th>
+                        <th className="p-4 w-44 text-right">Alokasi Pagu (Rp)</th>
+                        <th className="p-4 w-28 text-center">Status</th>
+                        {canWriteKeuangan && <th className="p-4 w-24 text-center">Aksi</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {filteredActivityAccounts.length > 0 ? (
+                        filteredActivityAccounts.map((act, index) => (
+                          <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-4 text-center text-slate-400 font-medium">{index + 1}</td>
+                            <td className="p-4">
+                              <div 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(act.code);
+                                  alert('Kode rekening kegiatan berhasil disalin!');
+                                }}
+                                className="inline-flex items-center gap-1 font-mono font-bold text-blue-700 bg-blue-50/50 hover:bg-blue-100 border border-blue-100 px-2 py-1 rounded-lg cursor-pointer transition-colors max-w-full truncate"
+                                title="Klik untuk menyalin"
+                              >
+                                <span>{act.code}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 space-y-1">
+                              <div className="font-extrabold text-slate-800 text-xs">{act.name}</div>
+                              <div className="text-[10px] text-slate-500 space-y-0.5">
+                                <span className="block"><strong className="text-slate-400">Prog:</strong> {act.programName}</span>
+                                <span className="block"><strong className="text-slate-400">Sub-Keg:</strong> {act.activityName}</span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <p className="text-[11px] text-slate-600 leading-relaxed max-w-xs whitespace-pre-line truncate-3-lines" title={act.description}>
+                                {act.description || <em className="text-slate-400">Tidak ada keterangan</em>}
+                              </p>
+                            </td>
+                            <td className="p-4 text-right font-bold text-slate-800">
+                              {formatRupiah(act.allocation)}
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
+                                act.status === 'Aktif' 
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-150' 
+                                  : 'bg-slate-100 text-slate-550 border border-slate-200'
+                              }`}>
+                                {act.status}
+                              </span>
+                            </td>
+                            {canWriteKeuangan && (
+                              <td className="p-4">
+                                <div className="flex items-center justify-center space-x-1.5">
+                                  <button
+                                    onClick={() => handleStartEditActivityAccount(act)}
+                                    className="bg-white hover:bg-slate-50 text-blue-600 p-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-all cursor-pointer shadow-2xs"
+                                    title="Ubah Rekening Kegiatan"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteActivityAccount(act.id)}
+                                    className="bg-white hover:bg-red-50 text-red-500 p-1.5 rounded-lg border border-slate-200 hover:border-red-300 transition-all cursor-pointer shadow-2xs"
+                                    title="Hapus Rekening Kegiatan"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={canWriteKeuangan ? 7 : 6} className="p-12 text-center text-slate-400 bg-white">
+                            <Tag className="w-12 h-12 text-slate-300 mx-auto mb-3 animate-[pulse_2s_infinite]" />
+                            <p className="text-xs font-semibold">Belum ada kode rekening kegiatan terdaftar.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Form Modal for Activity Account creation and update */}
+              <AnimatePresence>
+                {isActivityFormOpen && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => {
+                    setIsActivityFormOpen(false);
+                    setEditingActivityAccount(null);
+                    setActivityCode('');
+                    setActivityName('');
+                    setActivityProgram('');
+                    setActivityActName('');
+                    setActivityAllocation(0);
+                    setActivityDescription('');
+                    setActivityStatus('Aktif');
+                  }}>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-xl text-left overflow-y-auto max-h-[90vh]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                          <Tag className="w-4 h-4 text-blue-700" />
+                          <span>{editingActivityAccount ? 'Ubah Informasi Kode Rekening Kegiatan' : 'Daftarkan Kode Rekening Kegiatan Baru'}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsActivityFormOpen(false);
+                            setEditingActivityAccount(null);
+                          }}
+                          className="text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleActivitySubmit} className="space-y-4 text-xs font-sans">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Kode Rekening Kegiatan <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={activityCode}
+                              onChange={(e) => setActivityCode(e.target.value)}
+                              placeholder="misal: 5.1.02.01.01.0024"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold font-mono"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nama Rekening / Uraian Belanja <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={activityName}
+                              onChange={(e) => setActivityName(e.target.value)}
+                              placeholder="misal: Belanja Alat Tulis Kantor"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nama Program Urusan <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={activityProgram}
+                              onChange={(e) => setActivityProgram(e.target.value)}
+                              placeholder="misal: Program Penunjang Urusan Pemerintahan"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nama Kegiatan / Sub-Kegiatan <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={activityActName}
+                              onChange={(e) => setActivityActName(e.target.value)}
+                              placeholder="misal: Penyediaan Jasa Penunjang Urusan"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Plafond Pagu Anggaran (Rp) <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              value={activityAllocation || ''}
+                              onChange={(e) => setActivityAllocation(Number(e.target.value))}
+                              placeholder="Masukkan nilai rupiah anggaran"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1.5">Status Keaktifan</label>
+                            <div className="flex gap-4 pt-1">
+                              <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="activityStatus"
+                                  checked={activityStatus === 'Aktif'}
+                                  onChange={() => setActivityStatus('Aktif')}
+                                  className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 pointer-events-auto"
+                                />
+                                <span className="font-semibold text-slate-700">Aktif</span>
+                              </label>
+                              <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="activityStatus"
+                                  checked={activityStatus === 'Nonaktif'}
+                                  onChange={() => setActivityStatus('Nonaktif')}
+                                  className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 pointer-events-auto"
+                                />
+                                <span className="font-semibold text-slate-700">Nonaktif</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-left">
+                          <label className="block font-bold text-slate-700 mb-1">Catatan Fungsi / Deskripsi Belanja</label>
+                          <textarea
+                            value={activityDescription}
+                            onChange={(e) => setActivityDescription(e.target.value)}
+                            placeholder="Tuliskan catatan peruntukan atau detail belanja disini..."
+                            rows={3}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white"
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsActivityFormOpen(false);
+                              setEditingActivityAccount(null);
+                            }}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            {editingActivityAccount ? 'Simpan Perubahan' : 'Daftarkan Rekening'}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       )}
     </div>

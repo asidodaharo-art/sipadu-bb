@@ -29,6 +29,7 @@ interface PembangunanProps {
   onDeleteProject: (id: string) => void;
   activeSubTab?: 'landing' | 'paket_pekerjaan';
   onSubTabChange?: (tab: 'landing' | 'paket_pekerjaan') => void;
+  isOperasionalVariant?: boolean;
 }
 
 export default function Pembangunan({ 
@@ -39,7 +40,8 @@ export default function Pembangunan({
   onUpdateProjectProgress, 
   onDeleteProject,
   activeSubTab = 'landing',
-  onSubTabChange
+  onSubTabChange,
+  isOperasionalVariant = false
 }: PembangunanProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -59,7 +61,8 @@ export default function Pembangunan({
   const [newStatus, setNewStatus] = useState<Project['status']>('Perencanaan');
 
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
-  const canWrite = userSections.includes('pembangunan') || userSections.includes('all');
+  const canWrite = currentUser.role === 'admin' || userSections.includes('all') || 
+    (isOperasionalVariant ? userSections.includes('operasional') : userSections.includes('pembangunan'));
 
   // Format currency helpers e.g. Rp 4.250.000.000
   const formatRupiah = (value: number) => {
@@ -74,7 +77,7 @@ export default function Pembangunan({
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canWrite) {
-      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengusulkan paket!');
+      alert(`Anda tidak memiliki hak akses ${isOperasionalVariant ? 'seksi operasional' : 'seksi pembangunan'} untuk mengusulkan paket!`);
       return;
     }
     if (!name || !location || !budget || !contractor || !startDate || !endDate) {
@@ -124,7 +127,7 @@ export default function Pembangunan({
 
   const handleStartEditProject = (proj: Project) => {
     if (!canWrite) {
-      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengubah proyek ini!');
+      alert(`Anda tidak memiliki hak akses ${isOperasionalVariant ? 'seksi operasional' : 'seksi pembangunan'} untuk mengubah proyek ini!`);
       return;
     }
     setEditingProject(proj);
@@ -140,7 +143,7 @@ export default function Pembangunan({
 
   const openProgressModal = (project: Project) => {
     if (!canWrite) {
-      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengupdate progres!');
+      alert(`Anda tidak memiliki hak akses ${isOperasionalVariant ? 'seksi operasional' : 'seksi pembangunan'} untuk mengupdate progres!`);
       return;
     }
     setSelectedProjectToUpdate(project);
@@ -151,7 +154,7 @@ export default function Pembangunan({
   const handleSaveProgress = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canWrite) {
-      alert('Anda tidak memiliki hak akses seksi pembangunan untuk mengupdate progres!');
+      alert(`Anda tidak memiliki hak akses ${isOperasionalVariant ? 'seksi operasional' : 'seksi pembangunan'} untuk mengupdate progres!`);
       return;
     }
     if (selectedProjectToUpdate) {
@@ -332,7 +335,7 @@ export default function Pembangunan({
       {/* Control Action cover */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
         <div>
-          <h2 className="font-bold text-sm text-slate-800">Daftar Paket Program & Proyek Fisik Seksi Pembangunan</h2>
+          <h2 className="font-bold text-sm text-slate-800">Daftar Paket Program & Proyek Fisik {isOperasionalVariant ? 'Seksi Operasional' : 'Seksi Pembangunan'}</h2>
           <p className="text-xs text-slate-500">Pemantauan progres dan status pengerjaan fasilitas irigasi, bendung, & tanggulan dsb.</p>
         </div>
 
@@ -347,7 +350,7 @@ export default function Pembangunan({
           </button>
         ) : (
           <div className="text-[10px] bg-slate-100 px-3 py-1.5 text-slate-500 rounded-lg font-medium">
-            *Hubungi Seksi Pembangunan / Admin untuk mengedit progres
+            *Hubungi {isOperasionalVariant ? 'Seksi Operasional' : 'Seksi Pembangunan'} / Admin untuk mengedit progres
           </div>
         )}
       </div>
@@ -671,7 +674,7 @@ export default function Pembangunan({
                     >
                       Update Progres Fisik
                     </button>
-                    {currentUser.role === 'admin' && (
+                    {canWrite && (
                       <button
                         onClick={() => handleStartEditProject(proj)}
                         className="p-1.5 border border-blue-100 text-blue-500 hover:bg-blue-50 rounded-xl hover:text-blue-700 transition-all inline-block cursor-pointer"
@@ -681,7 +684,7 @@ export default function Pembangunan({
                         <Edit3 className="w-4 h-4" />
                       </button>
                     )}
-                    {currentUser.role === 'admin' && (
+                    {canWrite && (
                       <button
                         onClick={() => onDeleteProject(proj.id)}
                         className="p-1.5 border border-red-100 text-red-500 hover:bg-red-50 rounded-xl hover:text-red-700 transition-all inline-block cursor-pointer"

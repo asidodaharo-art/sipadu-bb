@@ -55,6 +55,8 @@ export interface Staff {
     tmt: string;
     noSk: string;
     tglSk: string;
+    pdfFile?: string;
+    pdfName?: string;
   }[];
 
   // Riwayat Gaji Berkala
@@ -65,6 +67,8 @@ export interface Staff {
     noSk: string;
     tglSk: string;
     pejabatPenandatangan: string;
+    pdfFile?: string;
+    pdfName?: string;
   }[];
 
   // Riwayat Pendidikan
@@ -75,6 +79,8 @@ export interface Staff {
     jurusan: string;
     tahunLulus: string;
     noIjazah?: string;
+    pdfFile?: string;
+    pdfName?: string;
   }[];
 
   // Riwayat Orang Tua
@@ -92,6 +98,8 @@ export interface Staff {
     tanggalLahir?: string;
     tanggalNikah?: string;
     statusPasangan: string; // Suami/Istri
+    pdfFile?: string;
+    pdfName?: string;
   };
 
   // Riwayat Anak
@@ -101,6 +109,8 @@ export interface Staff {
     tanggalLahir: string;
     jenisKelamin: string;
     statusAnak: string; // Anak Kandung, Anak Angkat, Anak Tiri, dsb.
+    pdfFile?: string;
+    pdfName?: string;
   }[];
 }
 
@@ -206,5 +216,26 @@ export interface FinanceTransaction {
   type: 'pemasukan' | 'pengeluaran';
   category: string;
   registeredBy: string;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  type: string;
+  description?: string;
+  status: 'Aktif' | 'Nonaktif';
+}
+
+export interface ActivityAccount {
+  id: string;
+  code: string; // e.g., 5.1.02.01.01.0024
+  name: string; // e.g., Belanja Alat Tulis Kantor
+  programName: string; // e.g., Program Penunjang Urusan Pemerintahan Daerah
+  activityName: string; // e.g., Penyediaan Jasa Penunjang Urusan Pemerintahan Daerah
+  allocation: number; // Plafond Anggaran, e.g., Rp. 25.000.000
+  description?: string;
+  status: 'Aktif' | 'Nonaktif';
 }
 

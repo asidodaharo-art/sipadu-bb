@@ -176,6 +176,82 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  // Helper to validate tab access based on user role and assigned sections
+  const isTabAllowed = (tabId: string) => {
+    if (!currentUser) return false;
+    const userSections = currentUser.section ? currentUser.section.split(',') : [];
+    const isAdmin = currentUser.role === 'admin' || userSections.includes('all');
+    const isPimpinan = userSections.includes('pimpinan');
+
+    if (isAdmin || isPimpinan) return true;
+
+    if (tabId === 'dashboard') {
+      // General dashboard only accessible if no specific department sections are assigned, or if they are Pimpinan / Admin
+      return userSections.length === 0;
+    }
+    if (tabId === 'penatausahaan') {
+      return userSections.some(s => ['adm_umum', 'personalia', 'aset', 'keuangan', 'penatausahaan', 'staff'].includes(s));
+    }
+    if (tabId === 'pembangunan') {
+      return userSections.includes('pembangunan');
+    }
+    if (tabId === 'operasional' || tabId === 'inventarisasi_di') {
+      return userSections.includes('operasional');
+    }
+    if (tabId === 'settings') {
+      return isAdmin;
+    }
+    return false;
+  };
+
+  // Helper to validate subtab access under Penatausahaan (Tata Usaha / Kantor)
+  const isPenatausahaanSubTabAllowed = (subTab: string) => {
+    if (!currentUser) return false;
+    const userSections = currentUser.section ? currentUser.section.split(',') : [];
+    const isAdmin = currentUser.role === 'admin' || userSections.includes('all');
+    const isPimpinan = userSections.includes('pimpinan');
+
+    if (isAdmin || isPimpinan) return true;
+    if (subTab === 'adm_umum') return userSections.includes('adm_umum') || userSections.includes('penatausahaan');
+    if (subTab === 'personalia') return userSections.includes('personalia') || userSections.includes('staff') || userSections.includes('penatausahaan');
+    if (subTab === 'aset_inventaris') return userSections.includes('aset') || userSections.includes('penatausahaan');
+    if (subTab === 'keuangan') return userSections.includes('keuangan') || userSections.includes('penatausahaan');
+    if (subTab === 'landing') return true; // landing as the general introduction index
+    return false;
+  };
+
+  // Enforce access control restrictions by auto-redirecting to the first allowed tab
+  useEffect(() => {
+    if (currentUser) {
+      const allowed = isTabAllowed(activeTab);
+      if (activeTab === 'inventarisasi_di') {
+        if (!isTabAllowed('operasional')) {
+          const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'settings'].find(t => isTabAllowed(t));
+          if (firstAllowed) setActiveTab(firstAllowed);
+        }
+      } else if (!allowed) {
+        const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'settings'].find(t => isTabAllowed(t));
+        if (firstAllowed) {
+          setActiveTab(firstAllowed);
+          if (firstAllowed === 'penatausahaan') {
+            const firstAllowedSub = ['adm_umum', 'personalia', 'aset_inventaris', 'keuangan'].find(sub => isPenatausahaanSubTabAllowed(sub));
+            if (firstAllowedSub) setPenatausahaanSubTab(firstAllowedSub as any);
+          }
+        }
+      }
+
+      // Also ensure selected Penatausahaan subtab is allowed
+      if (activeTab === 'penatausahaan' && penatausahaanSubTab !== 'landing' && !isPenatausahaanSubTabAllowed(penatausahaanSubTab)) {
+        const firstAllowedSub = ['adm_umum', 'personalia', 'aset_inventaris', 'keuangan'].find(sub => isPenatausahaanSubTabAllowed(sub));
+        if (firstAllowedSub) {
+          setPenatausahaanSubTab(firstAllowedSub as any);
+        } else {
+          setPenatausahaanSubTab('landing');
+        }
+      }
+    }
+  }, [currentUser, activeTab, penatausahaanSubTab]);
+
   // Helper to find staff photo by matching username with NIP
   const getCurrentUserPhoto = () => {
     if (!currentUser) return null;
@@ -496,15 +572,18 @@ export default function App() {
   const brandParts = getSidebarBrandParts();
 
   // Navigation Items
-  const navItems = [
+  const allNavItems = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
     { id: 'penatausahaan', label: 'Penatausahaan / TU', icon: FileText },
     { id: 'pembangunan', label: 'Seksi Pembangunan', icon: Wrench },
     { id: 'operasional', label: 'Seksi Operasional', icon: Activity },
   ];
 
+  // Filter based on user permissions
+  const navItems = allNavItems.filter((item) => isTabAllowed(item.id));
+
   // Only display Settings menu for administrators
-  if (currentUser.role === 'admin') {
+  if (currentUser.role === 'admin' || (currentUser.section && currentUser.section.split(',').includes('all'))) {
     navItems.push({ id: 'settings', label: 'Pengaturan Sistem', icon: SettingsIcon });
   }
 
@@ -642,7 +721,7 @@ export default function App() {
                       { id: 'personalia', label: 'Personalia', icon: Users },
                       { id: 'aset_inventaris', label: 'Aset & Inventaris', icon: Box },
                       { id: 'keuangan', label: 'Keuangan', icon: Wallet },
-                    ].map((sub) => {
+                    ].filter(sub => isPenatausahaanSubTabAllowed(sub.id)).map((sub) => {
                       const SubIcon = sub.icon;
                       const isSubActive = activeTab === 'penatausahaan' && penatausahaanSubTab === sub.id;
                       return (
@@ -873,7 +952,7 @@ export default function App() {
                             { id: 'personalia', label: 'Personalia', icon: Users },
                             { id: 'aset_inventaris', label: 'Aset & Inventaris', icon: Box },
                             { id: 'keuangan', label: 'Keuangan', icon: Wallet },
-                          ].map((sub) => {
+                          ].filter(sub => isPenatausahaanSubTabAllowed(sub.id)).map((sub) => {
                             const SubIcon = sub.icon;
                             const isSubActive = activeTab === 'penatausahaan' && penatausahaanSubTab === sub.id;
                             return (

@@ -108,7 +108,7 @@ export default function Operasional({
 
   // Access rights check
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
-  const canWrite = userSections.includes('operasional') || userSections.includes('all');
+  const canWrite = currentUser.role === 'admin' || userSections.includes('operasional') || userSections.includes('all');
 
   // Handling River Station addition
   const handleAddStation = (e: FormEvent) => {
@@ -281,6 +281,7 @@ export default function Operasional({
         onUpdateProjectProgress={onUpdateProjectProgress || (() => {})}
         onDeleteProject={onDeleteProject || (() => {})}
         activeSubTab="paket_pekerjaan"
+        isOperasionalVariant={true}
       />
     );
   }

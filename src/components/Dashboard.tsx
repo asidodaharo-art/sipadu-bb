@@ -338,7 +338,7 @@ export default function Dashboard({
         </div>
 
         {totalStaff > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             
             {/* Widget 1: DIAGRAM BATANG KOLOM GOLONGAN */}
             <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-golongan-card">
@@ -411,100 +411,6 @@ export default function Dashboard({
                     </span>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Widget 2: DIAGRAM LINGKARAN DOUGHNUT PENDIDIKAN */}
-            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4" id="demographic-pendidikan-card">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Diagram Lingkaran Pendidikan
-                  </span>
-                  <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Akademik Kualifikasi</span>
-                </div>
-                <h3 className="text-xs font-bold text-slate-700">Rasio Jenjang Pendidikan Tertinggi</h3>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-6 py-2">
-                {/* SVG Segmented Doughnut Chart */}
-                {(() => {
-                  const totalEduCount = sortedEduData.reduce((sum, item) => sum + item.count, 0);
-                  let currentPercent = 0;
-                  const colors = [
-                    'stroke-indigo-600 text-indigo-600',
-                    'stroke-emerald-500 text-emerald-500',
-                    'stroke-amber-500 text-amber-500',
-                    'stroke-blue-500 text-blue-500',
-                    'stroke-rose-500 text-rose-500',
-                    'stroke-purple-500 text-purple-500',
-                    'stroke-cyan-500 text-cyan-500',
-                    'stroke-slate-500 text-slate-500'
-                  ];
-                  const fillColors = [
-                    'bg-indigo-600', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500', 'bg-slate-500'
-                  ];
-
-                  const slices = sortedEduData.map((item, index) => {
-                    const percent = item.count / (totalEduCount || 1);
-                    const strokeOffset = 251.2 - (currentPercent * 251.2);
-                    currentPercent += percent;
-                    return {
-                      ...item,
-                      percent,
-                      pctText: Math.round(percent * 100),
-                      strokeOffset,
-                      colorClass: colors[index % colors.length],
-                      fillClass: fillColors[index % fillColors.length]
-                    };
-                  });
-
-                  return (
-                    <>
-                      <div className="relative w-36 h-36 shrink-0 mx-auto sm:mx-0">
-                        <svg className="w-full h-full transform -rotate-90 animate-fade-in" viewBox="0 0 100 100">
-                          {/* Inner base circle */}
-                          <circle cx="50" cy="50" r="40" className="stroke-slate-100 fill-transparent" strokeWidth="10" />
-                          {slices.map((slice) => (
-                            <circle
-                              key={slice.name}
-                              cx="50"
-                              cy="50"
-                              r="40"
-                              className={`fill-transparent transition-all duration-700 ${slice.colorClass.split(' ')[0]}`}
-                              strokeWidth="10"
-                              strokeDasharray="251.2"
-                              strokeDashoffset={slice.strokeOffset}
-                              strokeLinecap="round"
-                            />
-                          ))}
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-xl font-black text-slate-800 leading-none">{totalStaff}</span>
-                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest mt-1">Staf Profil</span>
-                        </div>
-                      </div>
-
-                      {/* Descriptive Legend Grid Table */}
-                      <div className="flex-1 w-full space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-                        {slices.map((slice) => (
-                          <div key={slice.name} className="flex items-center justify-between text-[11px] bg-white border border-slate-100 p-1.5 rounded-lg shadow-3xs" id={`slice-key-${slice.name}`}>
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2.5 h-2.5 rounded-xs ${slice.fillClass} shrink-0`} />
-                              <span className="font-extrabold text-slate-700">{slice.name} / Sederajat</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-extrabold text-slate-800">{slice.count} org</span>
-                              <span className="text-slate-300">|</span>
-                              <span className="text-[10px] font-black text-slate-400">{slice.pctText}%</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  );
-                })()}
               </div>
             </div>
 
