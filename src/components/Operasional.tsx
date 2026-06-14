@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { User, WaterLog, DamageReport, Project } from '../types';
 import Pembangunan from './Pembangunan';
-import { formatToIndoDate } from '../utils';
+import { formatToIndoDate, ymdToDmy, dmyToYmd } from '../utils';
 import { 
   Activity, 
   Plus, 
@@ -97,7 +97,7 @@ export default function Operasional({
   const [logLocation, setLogLocation] = useState(riverStations[0] || '');
   const [logTma, setLogTma] = useState<number>(100);
   const [logDebit, setLogDebit] = useState<number>(15.5);
-  const [logDate, setLogDate] = useState(() => new Date().toISOString().substring(0, 10));
+  const [logDate, setLogDate] = useState(() => ymdToDmy(new Date().toISOString().substring(0, 10)));
   const [logRecordedBy, setLogRecordedBy] = useState(currentUser.name);
 
   // Field states for Damage Report Form
@@ -105,7 +105,7 @@ export default function Operasional({
   const [repPhone, setRepPhone] = useState('');
   const [repLocation, setRepLocation] = useState('');
   const [repDescription, setRepDescription] = useState('');
-  const [repDate, setRepDate] = useState(() => new Date().toISOString().substring(0, 10));
+  const [repDate, setRepDate] = useState(() => ymdToDmy(new Date().toISOString().substring(0, 10)));
 
   // Access rights check
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
@@ -162,7 +162,13 @@ export default function Operasional({
       return;
     }
 
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(logDate)) {
+      alert('Format tanggal salah. Gunakan format dd/mm/yyyy (contoh: 25/05/2026)');
+      return;
+    }
+
     const calculatedStatus = determineStatus(logTma);
+    const standardDate = dmyToYmd(logDate);
 
     if (editingLogId) {
       onUpdateWaterLog({
@@ -171,7 +177,7 @@ export default function Operasional({
         tma: Number(logTma),
         debit: Number(logDebit),
         status: calculatedStatus,
-        date: logDate,
+        date: standardDate,
         recordedBy: logRecordedBy || currentUser.name
       });
       setEditingLogId(null);
@@ -182,7 +188,7 @@ export default function Operasional({
         tma: Number(logTma),
         debit: Number(logDebit),
         status: calculatedStatus,
-        date: logDate,
+        date: standardDate,
         recordedBy: logRecordedBy || currentUser.name
       });
     }
@@ -197,7 +203,7 @@ export default function Operasional({
     setLogLocation(log.location);
     setLogTma(log.tma);
     setLogDebit(log.debit);
-    setLogDate(log.date);
+    setLogDate(ymdToDmy(log.date));
     setLogRecordedBy(log.recordedBy);
     setIsLogFormOpen(true);
     setIsReportFormOpen(false);
@@ -216,13 +222,18 @@ export default function Operasional({
       return;
     }
 
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(repDate)) {
+      alert('Format tanggal salah. Gunakan format dd/mm/yyyy (contoh: 25/05/2026)');
+      return;
+    }
+
     onAddDamageReport({
       id: `report-${Date.now()}`,
       reporterName: repName,
       reporterPhone: repPhone || '-',
       location: repLocation,
       description: repDescription,
-      date: repDate,
+      date: dmyToYmd(repDate),
       status: 'Laporan Masuk'
     });
 
@@ -272,6 +283,20 @@ export default function Operasional({
     : 0;
   const criticalLogsCount = waterLogs.filter(l => l.status === 'Siaga' || l.status === 'Awas').length;
 
+  const totalBudgetOperasional = projects.reduce((acc, p) => acc + (p.budget || 0), 0);
+  const avgProgressOperasional = projects.length > 0
+    ? Math.round(projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length)
+    : 0;
+
+  const formatRupiah = (value: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   if (activeSubTab === 'paket_pekerjaan' || activeSubTab === 'progres_kegiatan' || activeSubTab === 'usulan_pekerjaan') {
     return (
       <Pembangunan
@@ -320,42 +345,42 @@ export default function Operasional({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Titik Pos Pantau</span>
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <MapPin className="w-5 h-5" />
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded font-black uppercase tracking-wider">Pagu APBD Seksi OP</span>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                <FileSpreadsheet className="w-5 h-5" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{activeStationsCount} Stasiun</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Stasiun hidrologi aktif terpantau</p>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight font-mono">{formatRupiah(totalBudgetOperasional)}</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Total alokasi anggaran {projects.length} paket pekerjaan</p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Tinggi Muka Air Rerata</span>
+              <span className="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-black uppercase tracking-wider">Kinerja Fisik OP</span>
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                <Waves className="w-5 h-5" />
+                <Activity className="w-5 h-5" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">{averageTmaOfLogs} cm</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Rerata log pengukuran TMA terbaru</p>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight font-mono">{avgProgressOperasional}%</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Rerata progres fisik lapangan</p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Laporan Kerusakan Aktif</span>
-              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                <AlertTriangle className="w-5 h-5" />
+              <span className="text-[10px] bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-black uppercase tracking-wider">Daftar Paket Seksi OP</span>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <Sliders className="w-5 h-5" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">
-                {damageReports.filter(d => d.status !== 'Selesai').length} Pengaduan
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight font-mono">
+                {projects.length} Paket Kerja
               </h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Laporan yang membutuhkan tindak lanjut</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Total paket pekerjaan operasional terdaftar</p>
             </div>
           </div>
         </div>
@@ -692,12 +717,13 @@ export default function Operasional({
                     </div>
 
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">Tanggal &amp; Waktu Ambil</label>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal &amp; Waktu Ambil <span className="text-xs text-slate-400 font-medium">(dd/mm/yyyy)</span></label>
                       <input
-                        type="date"
+                        type="text"
+                        placeholder="dd/mm/yyyy"
                         value={logDate}
                         onChange={(e) => setLogDate(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-bold outline-none focus:bg-white font-mono"
                         required
                       />
                     </div>
@@ -992,12 +1018,14 @@ export default function Operasional({
                     </div>
 
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">Tanggal Aduan</label>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal Aduan <span className="text-xs text-slate-400 font-medium">(dd/mm/yyyy)</span></label>
                       <input
-                        type="date"
+                        type="text"
+                        placeholder="dd/mm/yyyy"
                         value={repDate}
                         onChange={(e) => setRepDate(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-850 font-bold outline-none focus:bg-white font-mono"
+                        required
                       />
                     </div>
 

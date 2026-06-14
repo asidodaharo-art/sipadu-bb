@@ -239,3 +239,29 @@ export interface ActivityAccount {
   status: 'Aktif' | 'Nonaktif';
 }
 
+export interface SpjDocument {
+  id: string;
+  number: string;
+  date: string;
+  description: string;
+  activityCode: string; // reference to act code
+  amount: number;
+  recipient: string;
+  status: 'Draft' | 'Diajukan' | 'Diverifikasi' | 'Disetujui';
+  attachmentUrl?: string;
+}
+
+export interface BappDocument {
+  id: string;
+  number: string;
+  date: string;
+  projectName: string;
+  contractor: string;
+  amount: number;
+  progress: number;
+  terms: string;
+  verifiedBy: string;
+  status: 'Draft' | 'Diverifikasi' | 'Lunas';
+}
+
+

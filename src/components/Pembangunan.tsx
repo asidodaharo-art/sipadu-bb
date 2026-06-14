@@ -243,6 +243,7 @@ export default function Pembangunan({
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     projects.length > 0 ? projects[0].id : ''
   );
+  const [curveProjectId, setCurveProjectId] = useState<string>('all');
 
   React.useEffect(() => {
     if (projects.length > 0 && !selectedProjectId) {
@@ -396,6 +397,69 @@ export default function Pembangunan({
     alert('Sukses mengonversi usulan terpilih menjadi Paket Pekerjaan Seksi Pembangunan!');
   };
 
+  // Edit & Delete Proposal states and handlers
+  const [editingProp, setEditingProp] = useState<any | null>(null);
+  const [editPropTitle, setEditPropTitle] = useState('');
+  const [editPropLocation, setEditPropLocation] = useState('');
+  const [editPropType, setEditPropType] = useState('Irigasi');
+  const [editPropBudget, setEditPropBudget] = useState<number>(0);
+  const [editPropUrgency, setEditPropUrgency] = useState('Tinggi');
+  const [editPropDescription, setEditPropDescription] = useState('');
+  const [editPropProposer, setEditPropProposer] = useState('');
+  const [editPropStatus, setEditPropStatus] = useState('Menunggu Review');
+
+  const handleEditProposalClick = (p: any) => {
+    setEditingProp(p);
+    setEditPropTitle(p.title || '');
+    setEditPropLocation(p.location || '');
+    setEditPropType(p.type || 'Irigasi');
+    setEditPropBudget(p.budget || 0);
+    setEditPropUrgency(p.urgency || 'Tinggi');
+    setEditPropDescription(p.description || '');
+    setEditPropProposer(p.proposer || '');
+    setEditPropStatus(p.status || 'Menunggu Review');
+  };
+
+  const handleUpdateProposal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProp) return;
+    if (!editPropTitle || !editPropLocation || !editPropBudget) {
+      alert('Judul, lokasi, dan anggaran wajib diisi.');
+      return;
+    }
+
+    const updated = proposals.map(p => {
+      if (p.id === editingProp.id) {
+        return {
+          ...p,
+          title: editPropTitle,
+          location: editPropLocation,
+          type: editPropType,
+          budget: Number(editPropBudget),
+          urgency: editPropUrgency,
+          proposer: editPropProposer,
+          description: editPropDescription,
+          status: editPropStatus
+        };
+      }
+      return p;
+    });
+
+    setProposals(updated);
+    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+    setEditingProp(null);
+    alert('Usulan pekerjaan berhasil diperbarui!');
+  };
+
+  const handleDeleteProposal = (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus usulan pekerjaan ini?')) {
+      const updated = proposals.filter(p => p.id !== id);
+      setProposals(updated);
+      localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+      alert('Usulan pekerjaan berhasil dihapus!');
+    }
+  };
+
   // Math summary stats
   const totalBudget = projects.reduce((acc, p) => acc + p.budget, 0);
   const avgProgress = projects.length > 0 
@@ -408,6 +472,25 @@ export default function Pembangunan({
   if (activeSubTab === 'progres_kegiatan') {
     const selectedProj = projects.find(p => p.id === selectedProjectId);
     const relatedLogs = inspectionLogs.filter(log => log.projectId === selectedProjectId);
+    
+    // Sort and structure chronological chart data for visual progress trend graph
+    const chartData = selectedProj ? [
+      { date: selectedProj.startDate, percent: 0 },
+      ...[...relatedLogs]
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(log => ({
+          date: log.date,
+          percent: log.percent
+        }))
+    ] : [];
+
+    // Ensure the latest actual progress point is visually plotted
+    if (selectedProj && chartData.length > 0 && chartData[chartData.length - 1].percent < selectedProj.progress) {
+      chartData.push({
+        date: new Date().toISOString().split('T')[0],
+        percent: selectedProj.progress
+      });
+    }
     
     return (
       <div className="space-y-6 animate-fadeIn" id="pembangunan-progres-content">
@@ -531,20 +614,88 @@ export default function Pembangunan({
                     </div>
                   </div>
 
-                  {/* Progressive Timeline of Inspections */}
+                   {/* Progressive Timeline of Inspections */}
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+                    <div className="flex justify-between items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                      <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
                         <TrendingUp className="w-4 h-4 text-indigo-500" />
                         <span>Histori Inspeksi & Progress Log</span>
                       </h3>
                       {canWrite && (
                         <button
                           onClick={() => setIsLogFormActive(!isLogFormActive)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all border-none cursor-pointer animate-pulse"
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[10px] uppercase flex items-center gap-1 transition-all border-none cursor-pointer"
                         >
                           {isLogFormActive ? 'Tutup Form' : '+ Catat Log Baru'}
                         </button>
+                      )}
+                    </div>
+
+                    {/* Progress Trend Curve Chart */}
+                    <div className="border border-slate-150 p-4 rounded-2xl bg-white shadow-3xs space-y-3">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Kurva Realisasi Fisik (S-Curve)</span>
+                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-mono text-[9px] font-extrabold uppercase">
+                          Grafik Tren Progres
+                        </span>
+                      </div>
+                      {chartData.length > 1 ? (
+                        <div className="w-full h-36 bg-slate-50/40 border border-slate-100 rounded-xl p-3 flex items-center justify-center relative">
+                          <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
+                            <defs>
+                              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.00" />
+                              </linearGradient>
+                            </defs>
+                            {/* Gridlines */}
+                            <line x1="40" y1="15" x2="480" y2="15" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" />
+                            <line x1="40" y1="52.5" x2="480" y2="52.5" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" />
+                            <line x1="40" y1="90" x2="480" y2="90" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" />
+                            
+                            {/* Y-axis Labels */}
+                            <text x="12" y="18" className="text-[8px] font-mono font-bold fill-slate-400">100%</text>
+                            <text x="18" y="55" className="text-[8px] font-mono font-bold fill-slate-400">50%</text>
+                            <text x="22" y="93" className="text-[8px] font-mono font-bold fill-slate-400">0%</text>
+
+                            {/* Generate Path */}
+                            {(() => {
+                              const points = chartData.map((d, index) => {
+                                const x = 40 + (index / (chartData.length - 1)) * 440;
+                                // 0% is y = 90, 100% is y = 15 (height 75 range)
+                                const y = 90 - (d.percent / 100) * 75;
+                                return { x, y, ...d };
+                              });
+                              const pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+                              const areaD = `${pathD} L ${points[points.length - 1].x} 90 L ${points[0].x} 90 Z`;
+                              
+                              return (
+                                <>
+                                  {/* Fill Area */}
+                                  <path d={areaD} fill="url(#chartGrad)" />
+                                  {/* Line */}
+                                  <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  {/* Dots and Tooltips */}
+                                  {points.map((p, idx) => (
+                                    <g key={idx} className="group">
+                                      <circle cx={p.x} cy={p.y} r="3.5" fill="#ffffff" stroke="#2563eb" strokeWidth="2.5" />
+                                      <text x={p.x} y={p.y - 7} textAnchor="middle" className="text-[8px] font-mono font-extrabold fill-indigo-900">
+                                        {p.percent}%
+                                      </text>
+                                      <text x={p.x} y="105" textAnchor="middle" className="text-[7.5px] font-mono font-bold fill-slate-450">
+                                        {p.date.split('-').reverse().join('/')}
+                                      </text>
+                                    </g>
+                                  ))}
+                                </>
+                              );
+                            })()}
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="h-32 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                          <p className="text-slate-400 text-xs font-semibold">Membutuhkan log progres untuk membuat kurva realisasi.</p>
+                        </div>
                       )}
                     </div>
 
@@ -580,14 +731,37 @@ export default function Pembangunan({
                             />
                           </div>
                           <div>
-                            <div className="flex justify-between font-bold text-slate-650 mb-1">
+                            <div className="flex justify-between items-center font-bold text-slate-650 mb-1">
                               <span>Kemajuan Fisik</span>
-                              <span className="font-mono text-blue-600">{logPercent}%</span>
+                              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="any"
+                                  value={logPercent}
+                                  onChange={(e) => {
+                                    const valStr = e.target.value;
+                                    if (valStr === '') {
+                                      setLogPercent(0);
+                                      return;
+                                    }
+                                    let val = parseFloat(valStr);
+                                    if (isNaN(val)) val = 0;
+                                    if (val < 0) val = 0;
+                                    if (val > 100) val = 100;
+                                    setLogPercent(val);
+                                  }}
+                                  className="w-14 text-right text-xs font-mono font-bold text-blue-600 bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:ring-0"
+                                />
+                                <span className="text-[10px] text-slate-400 font-extrabold pr-1">%</span>
+                              </div>
                             </div>
                             <input 
                               type="range"
                               min="0"
                               max="100"
+                              step="any"
                               value={logPercent}
                               onChange={(e) => setLogPercent(Number(e.target.value))}
                               className="w-full h-1.5 bg-slate-200 rounded-lg accent-blue-600 cursor-pointer"
@@ -832,47 +1006,68 @@ export default function Pembangunan({
                   </div>
 
                   {/* Proposals Actions */}
-                  {canWrite && (p.status === 'Menunggu Review' || p.status === 'Disetujui' || p.status === 'Draf') && (
-                    <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-2 justify-end font-bold">
-                      {p.status === 'Draf' && (
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between font-bold gap-2 flex-wrap">
+                    <div className="flex items-center gap-1">
+                      {canWrite && (
+                        <>
+                          <button
+                            onClick={() => handleEditProposalClick(p)}
+                            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-blue-700 rounded-xl transition-all cursor-pointer border border-slate-200"
+                            title="Konfigurasi & Ubah Usulan"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProposal(p.id)}
+                            className="p-2 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-all cursor-pointer border border-slate-200 hover:border-rose-200"
+                            title="Hapus Usulan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex gap-1.5 justify-end">
+                      {p.status === 'Draf' && canWrite && (
                         <button
                           onClick={() => handleUpdateProposalStatus(p.id, 'Menunggu Review')}
-                          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs cursor-pointer text-center"
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs cursor-pointer text-center border-none"
                         >
                           Ajukan Review
                         </button>
                       )}
                       
-                      {p.status === 'Menunggu Review' && (
+                      {p.status === 'Menunggu Review' && canWrite && (
                         <>
                           <button
                             onClick={() => handleUpdateProposalStatus(p.id, 'Disetujui')}
-                            className="px-3.5 py-1.5 bg-emerald-650 hover:bg-emerald-700 text-white rounded-lg text-xs cursor-pointer text-center flex items-center gap-1 border-none"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs cursor-pointer text-center flex items-center gap-1 border-none shadow-3xs"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Setujui Usulan</span>
+                            <span>Setujui</span>
                           </button>
                           <button
                             onClick={() => handleUpdateProposalStatus(p.id, 'Ditolak')}
-                            className="px-3.5 py-1.5 bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 rounded-lg text-xs cursor-pointer text-center flex items-center gap-1"
+                            className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 rounded-lg text-xs cursor-pointer text-center flex items-center gap-1"
                           >
                             <X className="w-3.5 h-3.5" />
-                            <span>Tolak Usulan</span>
+                            <span>Tolak</span>
                           </button>
                         </>
                       )}
 
-                      {p.status === 'Disetujui' && (
+                      {p.status === 'Disetujui' && canWrite && (
                         <button
                           onClick={() => setConvertingProp(p)}
-                          className="w-full px-3.5 py-2 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer text-center border-none"
+                          className="px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer text-center border-none"
                         >
                           <Wrench className="w-4 h-4" />
-                          <span>Konversikan Jadi Paket Kerja Aktif</span>
+                          <span>Konversikan Jadi Paket Kerja</span>
                         </button>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })
@@ -991,6 +1186,144 @@ export default function Pembangunan({
                     className="px-5 py-2 bg-teal-650 hover:bg-teal-700 text-white rounded-lg cursor-pointer transition-colors border-none"
                   >
                     Ajukan Usulan
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Edit proposal modal popup dialog */}
+        {editingProp && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-full max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 text-xs animate-none"
+            >
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+                  <Edit3 className="w-4.5 h-4.5 text-blue-600" />
+                  <span>Ubah Data & Konfigurasi Usulan</span>
+                </h3>
+                <button 
+                  onClick={() => setEditingProp(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  Tutup
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateProposal} className="grid grid-cols-1 md:grid-cols-2 gap-4 font-semibold text-slate-700">
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-slate-600 mb-1">Judul Usulan / Nama Kegiatan</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editPropTitle}
+                    onChange={(e) => setEditPropTitle(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Lokasi Wilayah Kegiatan</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editPropLocation}
+                    onChange={(e) => setEditPropLocation(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Jenis Layanan Bidang</label>
+                  <select
+                    value={editPropType}
+                    onChange={(e) => setEditPropType(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-slate-800 font-semibold"
+                  >
+                    <option value="Irigasi">Irigasi Jaringan Utama/Sekunder</option>
+                    <option value="Bendung">Bendung / Pintu Pengatur</option>
+                    <option value="Tanggul">Tanggul / Pengaman Banjir</option>
+                    <option value="Lainnya">Fasilitas Penunjang Lainnya</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Estimasi Kebutuhan Pagu Anggaran (Rp)</label>
+                  <input 
+                    type="number"
+                    required
+                    value={editPropBudget || ''}
+                    onChange={(e) => setEditPropBudget(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-semibold focus:bg-white text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Tingkat Urgensi Kebutuhan</label>
+                  <select
+                    value={editPropUrgency}
+                    onChange={(e) => setEditPropUrgency(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-semibold text-rose-700"
+                  >
+                    <option value="Tinggi">⚡ Tinggi / Mendesak</option>
+                    <option value="Sedang">⏳ Sedang</option>
+                    <option value="Rendah">💤 Rendah / Pemeliharaan Berkala</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Nama Pengusul / Instansi</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editPropProposer}
+                    onChange={(e) => setEditPropProposer(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Status Usulan Pekerjaan</label>
+                  <select
+                    value={editPropStatus}
+                    onChange={(e) => setEditPropStatus(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-semibold text-sky-800"
+                  >
+                    <option value="Draf">Status: Draf</option>
+                    <option value="Menunggu Review">Status: Menunggu Review</option>
+                    <option value="Disetujui">Status: Disetujui</option>
+                    <option value="Ditolak">Status: Ditolak</option>
+                    <option value="Ditambahkan Ke Paket Kerja">Status: Ditambahkan Ke Paket Kerja</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-slate-600 mb-1">Narasi Justifikasi Masalah Lapangan & Dampak</label>
+                  <textarea 
+                    value={editPropDescription}
+                    onChange={(e) => setEditPropDescription(e.target.value)}
+                    placeholder="Menguraikan mengapa pekerjaan ini dibutuhkan, luas sawah terdampak dsb..."
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none h-24 resize-none focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+
+                <div className="md:col-span-2 pt-2 border-t border-slate-100 flex justify-end gap-2 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProp(null)}
+                    className="px-4 py-2 bg-slate-100 text-slate-650 hover:bg-slate-200 rounded-lg cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors border-none"
+                  >
+                    Simpan Perubahan
                   </button>
                 </div>
               </form>
@@ -1152,50 +1485,266 @@ export default function Pembangunan({
           </div>
         </div>
 
-        {/* Informational Cards on Responsibilities */}
-        <div className="bg-white p-8 rounded-3xl border border-slate-150 shadow-xs space-y-6">
-          <div>
-            <span className="text-[9px] bg-slate-100 text-slate-700 font-extrabold px-2.5 py-1 rounded border border-slate-200">
-              URAIAN TUGAS POKOK & FUNGSI
-            </span>
-            <h2 className="text-lg font-bold text-slate-800 mt-2">Pilar Utama Seksi Pembangunan</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Seksi pembangunan mengawal pengelolaan infrastruktur pengairan melalui tahapan berintegritas tinggi:
-            </p>
-          </div>
+        {(() => {
+          // Identify selected project or "all"
+          const selectedProjInstance = projects.find(p => p.id === curveProjectId);
+          
+          let curveDataPoints: { date: string; percent: number; isLogged?: boolean; inspector?: string; notes?: string }[] = [];
+          
+          if (curveProjectId === 'all' || !selectedProjInstance) {
+            // Collect all unique dates from project starts and all inspection logs for these projects
+            const datesSet = new Set<string>();
+            projects.forEach(p => {
+              if (p.startDate) datesSet.add(p.startDate);
+            });
+            inspectionLogs.forEach(log => {
+              if (log.date) datesSet.add(log.date);
+            });
+            const todayStr = new Date().toISOString().split('T')[0];
+            datesSet.add(todayStr);
+            
+            const sortedDates = Array.from(datesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+            
+            curveDataPoints = sortedDates.map(currentDate => {
+              let totalProgress = 0;
+              projects.forEach(p => {
+                if (new Date(currentDate) < new Date(p.startDate)) {
+                  totalProgress += 0;
+                } else {
+                  const projectLogs = inspectionLogs.filter(log => log.projectId === p.id);
+                  const logsOnOrBefore = projectLogs.filter(log => new Date(log.date) <= new Date(currentDate));
+                  if (logsOnOrBefore.length > 0) {
+                    logsOnOrBefore.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    totalProgress += logsOnOrBefore[0].percent;
+                  } else {
+                    totalProgress += p.progress || 0;
+                  }
+                }
+              });
+              const avgProgressAtDate = projects.length > 0 ? Math.round(totalProgress / projects.length) : 0;
+              return {
+                date: currentDate,
+                percent: avgProgressAtDate
+              };
+            });
+          } else {
+            // Single project S-curve
+            const p = selectedProjInstance;
+            const datesSet = new Set<string>();
+            if (p.startDate) datesSet.add(p.startDate);
+            
+            const projectLogs = inspectionLogs.filter(log => log.projectId === p.id);
+            projectLogs.forEach(log => {
+              if (log.date) datesSet.add(log.date);
+            });
+            
+            const todayStr = new Date().toISOString().split('T')[0];
+            datesSet.add(todayStr);
+            if (p.endDate) datesSet.add(p.endDate);
+            
+            const sortedDates = Array.from(datesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+            
+            curveDataPoints = sortedDates.map(currentDate => {
+              const logOnDate = projectLogs.find(log => log.date === currentDate);
+              
+              let percentAtDate = 0;
+              if (new Date(currentDate) < new Date(p.startDate)) {
+                percentAtDate = 0;
+              } else {
+                const logsOnOrBefore = projectLogs.filter(log => new Date(log.date) <= new Date(currentDate));
+                if (logsOnOrBefore.length > 0) {
+                  logsOnOrBefore.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                  percentAtDate = logsOnOrBefore[0].percent;
+                } else {
+                  percentAtDate = p.progress || 0;
+                }
+              }
+              
+              return {
+                date: currentDate,
+                percent: percentAtDate,
+                isLogged: !!logOnDate,
+                inspector: logOnDate?.inspector,
+                notes: logOnDate?.notes
+              };
+            });
+          }
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-blue-700 bg-blue-50">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-slate-800 text-sm">1. Perancangan & Usulan</h4>
-              <p className="text-xs text-slate-650 leading-relaxed">
-                Menyusun rencana anggaran biaya (RAB), spesifikasi teknis, serta daftar paket pembangunan pengairan sesuai kondisi riil dan aspirasi petani pemakai air.
-              </p>
-            </div>
+          return (
+            <div className="bg-white p-8 rounded-3xl border border-slate-150 shadow-xs space-y-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <span className="text-[9px] bg-indigo-50 text-indigo-700 font-extrabold px-2.5 py-1 rounded border border-indigo-100 uppercase tracking-wider">
+                    Kinerja Fisik per Paket Pekerjaan
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-800 mt-2">Kurva S Kemajuan Proyek</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Visualisasi grafik kemajuan fisik (Kurva S) per item kegiatan pembangunan irigasi dan tanggul seksi pembangunan.
+                  </p>
+                </div>
 
-            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-700 bg-indigo-50">
-                <Wrench className="w-5 h-5" />
+                {/* Mobile Selector */}
+                <div className="lg:hidden flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Pilih Paket:</span>
+                  <select
+                    value={curveProjectId}
+                    onChange={(e) => setCurveProjectId(e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-700 focus:outline-hidden"
+                  >
+                    <option value="all">📊 Semua Paket (Akumulasi)</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        💼 {p.name} ({p.progress}%)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <h4 className="font-bold text-slate-800 text-sm">2. Pelaksanaan Lapangan</h4>
-              <p className="text-xs text-slate-650 leading-relaxed">
-                Mengawasi jalannya konstruksi beton jaringan sekunder, rehabilitasi bendung utama, pintu air, dan tanggul sungai agar tahan lama dan presisi hulu ke hilir.
-              </p>
-            </div>
 
-            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-emerald-700 bg-emerald-50">
-                <UserCheck className="w-5 h-5" />
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Desktop Side List */}
+                <div className="hidden lg:flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-2 border-r border-slate-100">
+                  <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Pilih Paket Kerja</div>
+                  <button
+                    onClick={() => setCurveProjectId('all')}
+                    className={`w-full text-left p-3 rounded-xl transition-all border flex flex-col gap-1 cursor-pointer border-solid ${
+                      curveProjectId === 'all'
+                        ? 'bg-indigo-50/70 border-indigo-200 shadow-3xs'
+                        : 'bg-white hover:bg-slate-50 border-slate-150'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1 rounded-md ${curveProjectId === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-650'}`}>
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-black text-slate-800">Semua Paket (Rerata)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">Akumulasi Kurva S Gabungan ({projects.length} paket)</span>
+                  </button>
+
+                  {projects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setCurveProjectId(p.id)}
+                      className={`w-full text-left p-3 rounded-xl transition-all border flex flex-col gap-1 cursor-pointer border-solid ${
+                        curveProjectId === p.id
+                          ? 'bg-indigo-50/70 border-indigo-200 shadow-3xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-150'
+                      }`}
+                    >
+                      <div className="text-[10px] font-extrabold text-slate-700 line-clamp-1">{p.name}</div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono font-bold">{p.contractor}</span>
+                        <span className="text-xs font-mono font-black text-indigo-700">{p.progress}%</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Chart Area */}
+                <div className="lg:col-span-3 space-y-6">
+                  <div className="border border-slate-100 p-6 rounded-2xl bg-slate-50/30 space-y-4">
+                    <div className="flex justify-between items-center text-xs font-bold text-slate-650">
+                      <span className="flex items-center gap-1.5 uppercase tracking-wide text-[10px]">
+                        <TrendingUp className="w-4 h-4 text-indigo-500" />
+                        {curveProjectId === 'all' ? 'Tren Kemajuan Kumulatif (%)' : `Kurva S: ${selectedProjInstance?.name}`}
+                      </span>
+                      <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-mono text-[10px]">
+                        {curveProjectId === 'all' ? `Rerata: ${avgProgress}% Selesai` : `Kemajuan: ${selectedProjInstance?.progress}% Selesai`}
+                      </span>
+                    </div>
+
+                    {curveDataPoints.length > 1 ? (
+                      <div className="w-full h-48 bg-white border border-slate-150 rounded-xl p-4 flex items-center justify-center relative shadow-3xs">
+                        <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="aggChartGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.00" />
+                            </linearGradient>
+                          </defs>
+                          {/* Gridlines */}
+                          <line x1="40" y1="15" x2="480" y2="15" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                          <line x1="40" y1="52.5" x2="480" y2="52.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                          <line x1="40" y1="90" x2="480" y2="90" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                          
+                          {/* Y-axis Labels */}
+                          <text x="12" y="18" className="text-[8px] font-mono font-bold fill-slate-400">100%</text>
+                          <text x="18" y="55" className="text-[8px] font-mono font-bold fill-slate-400">50%</text>
+                          <text x="22" y="93" className="text-[8px] font-mono font-bold fill-slate-400">0%</text>
+
+                          {/* Generate Path */}
+                          {(() => {
+                            const points = curveDataPoints.map((d, index) => {
+                              const x = 40 + (index / (curveDataPoints.length - 1)) * 440;
+                              const y = 90 - (d.percent / 100) * 75;
+                              return { x, y, ...d };
+                            });
+                            const pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+                            const areaD = `${pathD} L ${points[points.length - 1].x} 90 L ${points[0].x} 90 Z`;
+                            
+                            return (
+                              <>
+                                {/* Fill Area */}
+                                <path d={areaD} fill="url(#aggChartGrad)" />
+                                {/* Line */}
+                                <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                                {/* Dots and Tooltips */}
+                                {points.map((p, idx) => (
+                                  <g key={idx} className="group">
+                                    <circle cx={p.x} cy={p.y} r={p.isLogged ? "5" : "4"} fill={p.isLogged ? "#ef4444" : "#ffffff"} stroke="#4f46e5" strokeWidth="2.5" className="transition-transform duration-200 hover:scale-150 cursor-pointer" />
+                                    <text x={p.x} y={p.y - 7} textAnchor="middle" className="text-[8px] font-mono font-extrabold fill-indigo-950">
+                                      {p.percent}%
+                                    </text>
+                                    <text x={p.x} y="105" textAnchor="middle" className="text-[7.5px] font-mono font-bold fill-slate-400">
+                                      {p.date.split('-').reverse().join('/')}
+                                    </text>
+                                  </g>
+                                ))}
+                              </>
+                            );
+                          })()}
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className="h-32 bg-white rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                        <p className="text-slate-400 text-xs font-semibold">Membutuhkan data paket pembangunan untuk memetakan kurva akumulatif.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected Project Details */}
+                  {selectedProjInstance && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-fadeIn">
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pelaksana/Kontraktor</div>
+                        <div className="text-xs font-bold text-slate-800 mt-1">{selectedProjInstance.contractor}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pagu Anggaran</div>
+                        <div className="text-xs font-bold text-slate-800 mt-1 font-mono">{formatRupiah(selectedProjInstance.budget)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Durasi Mulai</div>
+                        <div className="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{formatToIndoDate(selectedProjInstance.startDate)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Target Selesai</div>
+                        <div className="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{formatToIndoDate(selectedProjInstance.endDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <h4 className="font-bold text-slate-800 text-sm">3. Evaluasi & PHO/FHO</h4>
-              <p className="text-xs text-slate-650 leading-relaxed">
-                Melakukan kualifikasi mutu, audit ketaatan rencana, berita acuan kemajuan fisik lapangan hingga serah terima Provisional Hand Over.
-              </p>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
     );
   }
@@ -1444,14 +1993,40 @@ export default function Pembangunan({
 
             <form onSubmit={handleSaveProgress} className="space-y-4">
               <div>
-                <div className="flex justify-between text-xs font-bold text-slate-700 uppercase mb-2">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-700 uppercase mb-2">
                   <span>Persentase Progres</span>
-                  <span className="font-mono text-blue-600">{newProgress}%</span>
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      value={newProgress}
+                      onChange={(e) => {
+                        const valStr = e.target.value;
+                        if (valStr === '') {
+                          setNewProgress(0);
+                          return;
+                        }
+                        let val = parseFloat(valStr);
+                        if (isNaN(val)) val = 0;
+                        if (val < 0) val = 0;
+                        if (val > 100) val = 100;
+                        setNewProgress(val);
+                        if (val === 100) setNewStatus('Selesai');
+                        else if (val > 0) setNewStatus('Konstruksi');
+                        else setNewStatus('Perencanaan');
+                      }}
+                      className="w-14 text-right text-xs font-mono font-bold text-blue-600 bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:ring-0"
+                    />
+                    <span className="text-[10px] text-slate-400 font-extrabold pr-1">%</span>
+                  </div>
                 </div>
                 <input 
                   type="range"
                   min="0"
                   max="100"
+                  step="any"
                   value={newProgress}
                   onChange={(e) => {
                     const val = Number(e.target.value);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply, BankAccount, ActivityAccount } from '../types';
+import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply, BankAccount, ActivityAccount, SpjDocument, BappDocument } from '../types';
 import { 
   FileText, 
   Users, 
@@ -548,8 +548,8 @@ export default function Penatausahaan({
     localStorage.setItem('uptd_v3_consumables', JSON.stringify(supplies));
   }, [supplies]);
 
-  // Finance sub-tab state (Transaksi vs Nomor Rekening vs Kode Rekening Kegiatan)
-  const [financeSubTab, setFinanceSubTab] = useState<'transaksi' | 'rekening' | 'rekening_kegiatan'>('rekening_kegiatan');
+  // Finance sub-tab state (Transaksi vs Nomor Rekening vs Kode Rekening Kegiatan vs SPJ Rutin vs BAPP)
+  const [financeSubTab, setFinanceSubTab] = useState<'transaksi' | 'rekening' | 'rekening_kegiatan' | 'spj_rutin' | 'bapp'>('rekening_kegiatan');
 
   // Activity Accounts list state
   const [activityAccounts, setActivityAccounts] = useState<ActivityAccount[]>(() => {
@@ -614,6 +614,98 @@ export default function Penatausahaan({
   const [activityDescription, setActivityDescription] = useState('');
   const [activityStatus, setActivityStatus] = useState<'Aktif' | 'Nonaktif'>('Aktif');
   const [editingActivityAccount, setEditingActivityAccount] = useState<ActivityAccount | null>(null);
+
+  // SPJ Rutin states
+  const [spjDocuments, setSpjDocuments] = useState<SpjDocument[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_spj');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'spj-1',
+        number: '056/SPJ-RUTIN/UPTD/V/2026',
+        date: '2026-05-12',
+        description: 'Pertanggungjawaban Belanja Alat Tulis Kantor (ATK) bulan April-Mei',
+        activityCode: '5.1.02.01.01.0024',
+        amount: 4500000,
+        recipient: 'Toko ATK Berkah Mandiri',
+        status: 'Disetujui'
+      },
+      {
+        id: 'spj-2',
+        number: '057/SPJ-RUTIN/UPTD/V/2026',
+        date: '2026-05-20',
+        description: 'SPJ Perjalanan Dinas Rutin dalam Rangka Koordinasi Bendung Way Rarem',
+        activityCode: '5.1.02.04.01.0001',
+        amount: 3200000,
+        recipient: 'Tim Teknis OP UPTD',
+        status: 'Diverifikasi'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_spj', JSON.stringify(spjDocuments));
+  }, [spjDocuments]);
+
+  // SPJ Form states
+  const [isSpjFormOpen, setIsSpjFormOpen] = useState(false);
+  const [spjNumber, setSpjNumber] = useState('');
+  const [spjDate, setSpjDate] = useState('');
+  const [spjDescription, setSpjDescription] = useState('');
+  const [spjActivityCode, setSpjActivityCode] = useState('');
+  const [spjAmount, setSpjAmount] = useState(0);
+  const [spjRecipient, setSpjRecipient] = useState('');
+  const [spjStatus, setSpjStatus] = useState<SpjDocument['status']>('Draft');
+  const [editingSpj, setEditingSpj] = useState<SpjDocument | null>(null);
+
+  // BAPP states
+  const [bappDocuments, setBappDocuments] = useState<BappDocument[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_bapp');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'bapp-1',
+        number: '102/BAPP/PEMB-UPTD/V/2026',
+        date: '2026-05-18',
+        projectName: 'Pekerjaan Rehabilitasi Saluran Irigasi DI Gumbasa Sekunder',
+        contractor: 'CV. Karya Abadi Teknik',
+        amount: 145000000,
+        progress: 30,
+        terms: 'Termin I (30%)',
+        verifiedBy: 'Pejabat Pembuat Komitmen (PPK)',
+        status: 'Lunas'
+      },
+      {
+        id: 'bapp-2',
+        number: '103/BAPP/PEMB-UPTD/VI/2026',
+        date: '2026-06-02',
+        projectName: 'Pemeliharaan Rutin Tanggul Sungai Batang Hari',
+        contractor: 'PT. Bumi Sarana Raya',
+        amount: 75000000,
+        progress: 100,
+        terms: 'Termin Akhir (100% PHO)',
+        verifiedBy: 'Panitia Penerima Hasil Pekerjaan (PPHP)',
+        status: 'Diverifikasi'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_bapp', JSON.stringify(bappDocuments));
+  }, [bappDocuments]);
+
+  // BAPP Form states
+  const [isBappFormOpen, setIsBappFormOpen] = useState(false);
+  const [bappNumber, setBappNumber] = useState('');
+  const [bappDate, setBappDate] = useState('');
+  const [bappProjectName, setBappProjectName] = useState('');
+  const [bappContractor, setBappContractor] = useState('');
+  const [bappAmount, setBappAmount] = useState(0);
+  const [bappProgress, setBappProgress] = useState(0);
+  const [bappTerms, setBappTerms] = useState('');
+  const [bappVerifiedBy, setBappVerifiedBy] = useState('');
+  const [bappStatus, setBappStatus] = useState<BappDocument['status']>('Draft');
+  const [editingBapp, setEditingBapp] = useState<BappDocument | null>(null);
 
   // Bank Accounts state
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -918,6 +1010,162 @@ export default function Penatausahaan({
     if (confirm('Apakah Anda yakin ingin menghapus kode rekening kegiatan ini?')) {
       const updated = activityAccounts.filter(a => a.id !== id);
       setActivityAccounts(updated);
+    }
+  };
+
+  const handleSpjSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan!');
+      return;
+    }
+    if (!spjNumber || !spjDate || !spjDescription || !spjActivityCode || spjAmount <= 0) {
+      alert('Semua baris input SPJ wajib diisi dengan benar.');
+      return;
+    }
+
+    if (editingSpj) {
+      const updated = spjDocuments.map(s => s.id === editingSpj.id ? {
+        ...s,
+        number: spjNumber,
+        date: spjDate,
+        description: spjDescription,
+        activityCode: spjActivityCode,
+        amount: spjAmount,
+        recipient: spjRecipient,
+        status: spjStatus
+      } as SpjDocument : s);
+      setSpjDocuments(updated);
+      setEditingSpj(null);
+    } else {
+      const newSpj: SpjDocument = {
+        id: 'spj-' + Date.now(),
+        number: spjNumber,
+        date: spjDate,
+        description: spjDescription,
+        activityCode: spjActivityCode,
+        amount: spjAmount,
+        recipient: spjRecipient,
+        status: spjStatus
+      };
+      setSpjDocuments([newSpj, ...spjDocuments]);
+    }
+
+    setIsSpjFormOpen(false);
+    setSpjNumber('');
+    setSpjDate('');
+    setSpjDescription('');
+    setSpjActivityCode('');
+    setSpjAmount(0);
+    setSpjRecipient('');
+    setSpjStatus('Draft');
+  };
+
+  const handleStartEditSpj = (s: SpjDocument) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses!');
+      return;
+    }
+    setEditingSpj(s);
+    setSpjNumber(s.number);
+    setSpjDate(s.date);
+    setSpjDescription(s.description);
+    setSpjActivityCode(s.activityCode);
+    setSpjAmount(s.amount);
+    setSpjRecipient(s.recipient);
+    setSpjStatus(s.status);
+    setIsSpjFormOpen(true);
+  };
+
+  const handleDeleteSpj = (id: string) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses!');
+      return;
+    }
+    if (confirm('Apakah Anda yakin ingin menghapus SPJ ini?')) {
+      setSpjDocuments(spjDocuments.filter(s => s.id !== id));
+    }
+  };
+
+  const handleBappSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses seksi keuangan!');
+      return;
+    }
+    if (!bappNumber || !bappDate || !bappProjectName || !bappContractor || bappAmount <= 0) {
+      alert('Semua baris input BAPP wajib diisi dengan benar.');
+      return;
+    }
+
+    if (editingBapp) {
+      const updated = bappDocuments.map(b => b.id === editingBapp.id ? {
+        ...b,
+        number: bappNumber,
+        date: bappDate,
+        projectName: bappProjectName,
+        contractor: bappContractor,
+        amount: bappAmount,
+        progress: bappProgress,
+        terms: bappTerms,
+        verifiedBy: bappVerifiedBy,
+        status: bappStatus
+      } as BappDocument : b);
+      setBappDocuments(updated);
+      setEditingBapp(null);
+    } else {
+      const newBapp: BappDocument = {
+        id: 'bapp-' + Date.now(),
+        number: bappNumber,
+        date: bappDate,
+        projectName: bappProjectName,
+        contractor: bappContractor,
+        amount: bappAmount,
+        progress: bappProgress,
+        terms: bappTerms,
+        verifiedBy: bappVerifiedBy,
+        status: bappStatus
+      };
+      setBappDocuments([newBapp, ...bappDocuments]);
+    }
+
+    setIsBappFormOpen(false);
+    setBappNumber('');
+    setBappDate('');
+    setBappProjectName('');
+    setBappContractor('');
+    setBappAmount(0);
+    setBappProgress(0);
+    setBappTerms('');
+    setBappVerifiedBy('');
+    setBappStatus('Draft');
+  };
+
+  const handleStartEditBapp = (b: BappDocument) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses!');
+      return;
+    }
+    setEditingBapp(b);
+    setBappNumber(b.number);
+    setBappDate(b.date);
+    setBappProjectName(b.projectName);
+    setBappContractor(b.contractor);
+    setBappAmount(b.amount);
+    setBappProgress(b.progress);
+    setBappTerms(b.terms);
+    setBappVerifiedBy(b.verifiedBy);
+    setBappStatus(b.status);
+    setIsBappFormOpen(true);
+  };
+
+  const handleDeleteBapp = (id: string) => {
+    if (!canWriteKeuangan) {
+      alert('Anda tidak memiliki hak akses!');
+      return;
+    }
+    if (confirm('Apakah Anda yakin ingin menghapus BAPP ini?')) {
+      setBappDocuments(bappDocuments.filter(b => b.id !== id));
     }
   };
 
@@ -5320,7 +5568,7 @@ export default function Penatausahaan({
                         <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold font-mono">
                           <span className="text-slate-500">"{log.notes}"</span>
                           <span>Oleh: {log.recordedBy || 'Staf TU'}</span>
-                          <span className="text-blue-600">{log.date}</span>
+                          <span className="text-blue-600">{formatToIndoDate(log.date)}</span>
                         </div>
                       </div>
                     ))}
@@ -5341,7 +5589,7 @@ export default function Penatausahaan({
       {activeSubTab === 'keuangan' && (
         <div className="space-y-4" id="finances-panel">
           {/* Inner Subtabs for Keuangan */}
-          <div className="flex border-b border-slate-150 gap-4 mb-2">
+          <div className="flex border-b border-slate-150 gap-4 mb-2 overflow-x-auto whitespace-nowrap">
             <button
               onClick={() => setFinanceSubTab('rekening_kegiatan')}
               className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -5352,6 +5600,28 @@ export default function Penatausahaan({
             >
               <CreditCard className="w-3.5 h-3.5" />
               <span>Kode Rekening</span>
+            </button>
+            <button
+              onClick={() => setFinanceSubTab('spj_rutin')}
+              className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                financeSubTab === 'spj_rutin'
+                  ? 'border-blue-700 text-blue-700 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-655'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>SPJ Rutin</span>
+            </button>
+            <button
+              onClick={() => setFinanceSubTab('bapp')}
+              className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                financeSubTab === 'bapp'
+                  ? 'border-blue-700 text-blue-700 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-655'
+              }`}
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>BAPP</span>
             </button>
             <button
               onClick={() => setFinanceSubTab('transaksi')}
@@ -5970,6 +6240,626 @@ export default function Penatausahaan({
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
                           >
                             {editingActivityAccount ? 'Simpan Perubahan' : 'Daftarkan Rekening'}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {financeSubTab === 'spj_rutin' && (
+            <div className="space-y-4 font-sans text-left animate-fadeIn">
+              {/* Summary cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total SPJ Disetujui</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {formatRupiah(spjDocuments.filter(s => s.status === 'Disetujui').reduce((acc, curr) => acc + curr.amount, 0))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-650 flex items-center justify-center font-bold">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Menunggu Verifikasi</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {spjDocuments.filter(s => s.status === 'Diajukan' || s.status === 'Diverifikasi').length} Dokumen
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-650 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total Ajuan Rencana Belanja</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {formatRupiah(spjDocuments.reduce((acc, curr) => acc + curr.amount, 0))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Header */}
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="text-xs text-slate-500 font-medium">
+                  Pengarsipan Surat Pertanggungjawaban (SPJ) Rutin Belanja UPTD Terpadu
+                </div>
+                {canWriteKeuangan ? (
+                  <button
+                    onClick={() => {
+                      setEditingSpj(null);
+                      setSpjNumber('SPJ/' + new Date().getFullYear() + '/' + (spjDocuments.length + 57));
+                      setSpjDate(new Date().toISOString().split('T')[0]);
+                      setSpjDescription('');
+                      setSpjActivityCode(activityAccounts[0]?.code || '');
+                      setSpjAmount(0);
+                      setSpjRecipient('');
+                      setSpjStatus('Draft');
+                      setIsSpjFormOpen(true);
+                    }}
+                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Daftarkan SPJ Rutin Baru</span>
+                  </button>
+                ) : (
+                  <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                    *Hanya staf Keuangan / Admin yang dapat mengedit SPJ Rutin
+                  </div>
+                )}
+              </div>
+
+              {/* SPJ Table */}
+              <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
+                        <th className="p-4 text-center w-12">No</th>
+                        <th className="p-4 w-44">Nomor SPJ</th>
+                        <th className="p-4 w-28">Tanggal</th>
+                        <th className="p-4 w-44">Kode Rekening</th>
+                        <th className="p-4 min-w-[200px]">Uraian Belanja / Deskripsi Keperluan</th>
+                        <th className="p-4">Penerima</th>
+                        <th className="p-4 text-right">Nominal (Rp)</th>
+                        <th className="p-4 w-28 text-center">Status</th>
+                        {canWriteKeuangan && <th className="p-4 w-24 text-center">Aksi</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-650">
+                      {spjDocuments.length > 0 ? (
+                        spjDocuments.map((spj, idx) => (
+                          <tr key={spj.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                            <td className="p-4 font-mono font-bold text-slate-800">{spj.number}</td>
+                            <td className="p-4 font-mono whitespace-nowrap">{formatToIndoDate(spj.date)}</td>
+                            <td className="p-4">
+                              <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-extrabold border border-slate-200">
+                                {spj.activityCode}
+                              </span>
+                            </td>
+                            <td className="p-4 font-semibold text-slate-750">{spj.description}</td>
+                            <td className="p-4 font-bold text-slate-800">{spj.recipient}</td>
+                            <td className="p-4 text-right font-black text-slate-800">{formatRupiah(spj.amount)}</td>
+                            <td className="p-4 text-center">
+                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block border ${
+                                spj.status === 'Disetujui' ? 'bg-emerald-50 text-emerald-805 border-emerald-150' :
+                                spj.status === 'Diverifikasi' ? 'bg-purple-50 text-purple-800 border-purple-150' :
+                                spj.status === 'Diajukan' ? 'bg-blue-50 text-blue-805 border-blue-150' :
+                                'bg-slate-50 text-slate-600 border-slate-205'
+                              }`}>
+                                {spj.status}
+                              </span>
+                            </td>
+                            {canWriteKeuangan && (
+                              <td className="p-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleStartEditSpj(spj)}
+                                    className="text-blue-500 hover:text-blue-750 hover:bg-blue-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                    title="Edit SPJ"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSpj(spj.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                    title="Hapus SPJ"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={canWriteKeuangan ? 9 : 8} className="p-10 text-center text-slate-400">
+                            Belum ada dokumen Surat Pertanggungjawaban (SPJ) Rutin terdaftar.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Form Modal for SPJ */}
+              <AnimatePresence>
+                {isSpjFormOpen && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => setIsSpjFormOpen(false)}>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-xl text-left overflow-y-auto max-h-[90vh]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                          <FileText className="w-4 h-4 text-blue-700" />
+                          <span>{editingSpj ? 'Ubah Surat Pertanggungjawaban (SPJ) Rutin' : 'Form SPJ Rutin Baru'}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setIsSpjFormOpen(false)}
+                          className="text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleSpjSubmit} className="space-y-4 text-xs font-sans">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nomor SPJ <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={spjNumber}
+                              onChange={(e) => setSpjNumber(e.target.value)}
+                              placeholder="misal: 058/SPJ-RUTIN/UPTD/VI/2026"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-bold font-mono"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Tanggal SPJ <span className="text-red-500">*</span></label>
+                            <input
+                              type="date"
+                              value={spjDate}
+                              onChange={(e) => setSpjDate(e.target.value)}
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold font-mono"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Hubungkan Kode Rekening Kegiatan <span className="text-red-500">*</span></label>
+                            <select
+                              value={spjActivityCode}
+                              onChange={(e) => setSpjActivityCode(e.target.value)}
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold text-slate-755"
+                              required
+                            >
+                              <option value="">-- Pilih Kode Rekening --</option>
+                              {activityAccounts.map((act) => (
+                                <option key={act.id} value={act.code}>
+                                  {act.code} - {act.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nama Penerima Keuangan / Lembaga <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={spjRecipient}
+                              onChange={(e) => setSpjRecipient(e.target.value)}
+                              placeholder="misal: Toko Buku Merdeka / CV. Mandiri"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Jumlah Nominal SPJ (Rp) <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              value={spjAmount || ''}
+                              onChange={(e) => setSpjAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                              placeholder="misal: 1500000"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-bold text-blue-700"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Status Dokumen SPJ</label>
+                            <select
+                              value={spjStatus}
+                              onChange={(e: any) => setSpjStatus(e.target.value)}
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold text-slate-755"
+                            >
+                              <option value="Draft">Draft</option>
+                              <option value="Diajukan">Diajukan</option>
+                              <option value="Diverifikasi">Diverifikasi & Diproses</option>
+                              <option value="Disetujui">Disetujui & Rampung</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="text-left">
+                          <label className="block font-bold text-slate-700 mb-1">Uraian Belanja / Deskripsi Keperluan <span className="text-red-500">*</span></label>
+                          <textarea
+                            value={spjDescription}
+                            onChange={(e) => setSpjDescription(e.target.value)}
+                            placeholder="Contoh: Pembayaran ATK seksi operasional berupa kertas F4, maps, pulpen, dan klip arsip semester I"
+                            rows={3}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-medium"
+                            required
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsSpjFormOpen(false)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            {editingSpj ? 'Simpan Perubahan SPJ' : 'Daftarkan Dokumen SPJ'}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {financeSubTab === 'bapp' && (
+            <div className="space-y-4 font-sans text-left animate-fadeIn">
+              {/* Summary cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
+                    <CheckCircle className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Total BAP Lunas</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {formatRupiah(bappDocuments.filter(b => b.status === 'Lunas').reduce((acc, curr) => acc + curr.amount, 0))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Pekerjaan Rampung (Fisik 100%)</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {bappDocuments.filter(b => b.progress === 100).length} Laporan PHO/FHO
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-650 flex items-center justify-center font-bold">
+                    <FileText className="w-5 h-5 text-rose-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">Menunggu Verifikasi Pembayaran</div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {bappDocuments.filter(b => b.status === 'Diverifikasi').length} Berkas
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Header bar for BAPP */}
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="text-xs text-slate-500 font-medium">
+                  Berita Acara Pembayaran & Penyerahan (BAPP) Pembangunan & Pemeliharaan UPTD SDA Wilayah
+                </div>
+                {canWriteKeuangan ? (
+                  <button
+                    onClick={() => {
+                      setEditingBapp(null);
+                      setBappNumber('BAPP/PEMB/' + new Date().getFullYear() + '/' + (bappDocuments.length + 104));
+                      setBappDate(new Date().toISOString().split('T')[0]);
+                      setBappProjectName('');
+                      setBappContractor('');
+                      setBappAmount(0);
+                      setBappProgress(0);
+                      setBappTerms('Termin I (30%)');
+                      setBappVerifiedBy('');
+                      setBappStatus('Draft');
+                      setIsBappFormOpen(true);
+                    }}
+                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Buat BAPP Baru</span>
+                  </button>
+                ) : (
+                  <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                    *Hanya staf Keuangan / Admin yang dapat mengedit Berita Acara (BAPP)
+                  </div>
+                )}
+              </div>
+
+              {/* BAPP Table */}
+              <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
+                        <th className="p-4 text-center w-12">No</th>
+                        <th className="p-4 w-44">Nomor BAPP</th>
+                        <th className="p-4 w-28">Tanggal</th>
+                        <th className="p-4 min-w-[200px]">Nama Paket Pekerjaan</th>
+                        <th className="p-4">Pelaksana / Kontraktor</th>
+                        <th className="p-4 text-right">Nilai Termin (Rp)</th>
+                        <th className="p-4 w-36">Kemajuan Fisik</th>
+                        <th className="p-4">Tahapan / Termin</th>
+                        <th className="p-4">Pejabat Verifikasi</th>
+                        <th className="p-4 w-24 text-center">Status</th>
+                        {canWriteKeuangan && <th className="p-4 w-24 text-center">Aksi</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-650">
+                      {bappDocuments.length > 0 ? (
+                        bappDocuments.map((bapp, idx) => (
+                          <tr key={bapp.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                            <td className="p-4 font-mono font-bold text-indigo-755">{bapp.number}</td>
+                            <td className="p-4 font-mono whitespace-nowrap">{formatToIndoDate(bapp.date)}</td>
+                            <td className="p-4 font-semibold text-slate-800">{bapp.projectName}</td>
+                            <td className="p-4 font-bold text-slate-700">{bapp.contractor}</td>
+                            <td className="p-4 text-right font-black text-slate-800">{formatRupiah(bapp.amount)}</td>
+                            <td className="p-4">
+                              <div className="space-y-1">
+                                <div className="flex justify-between items-center text-[10px] font-mono font-black text-slate-500">
+                                  <span>{bapp.progress}%</span>
+                                  <span>Target</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                  <div 
+                                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
+                                    style={{ width: `${bapp.progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 font-bold text-indigo-600">{bapp.terms}</td>
+                            <td className="p-4 text-slate-450 font-medium whitespace-nowrap">{bapp.verifiedBy || <em className="text-slate-300">Belum didata</em>}</td>
+                            <td className="p-4 text-center">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
+                                bapp.status === 'Lunas' ? 'bg-emerald-50 text-emerald-850 border-emerald-150' :
+                                bapp.status === 'Diverifikasi' ? 'bg-indigo-50 text-indigo-855 border-indigo-150' :
+                                'bg-slate-50 text-slate-600 border-slate-205'
+                              }`}>
+                                {bapp.status}
+                              </span>
+                            </td>
+                            {canWriteKeuangan && (
+                              <td className="p-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleStartEditBapp(bapp)}
+                                    className="text-blue-500 hover:text-blue-750 hover:bg-blue-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                    title="Edit BAPP"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteBapp(bapp.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                    title="Hapus BAPP"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={canWriteKeuangan ? 11 : 10} className="p-10 text-center text-slate-400">
+                            Belum ada dokumen Berita Acara Pembayaran & Penyerahan (BAPP) terdaftar.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* BAPP Form Modal */}
+              <AnimatePresence>
+                {isBappFormOpen && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none" onClick={() => setIsBappFormOpen(false)}>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-xl text-left overflow-y-auto max-h-[90vh]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4 text-indigo-700" />
+                          <span>{editingBapp ? 'Ubah Berita Acara Pembayaran & Penyerahan (BAPP)' : 'Buat Berita Acara Pembayaran (BAPP) Baru'}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setIsBappFormOpen(false)}
+                          className="text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleBappSubmit} className="space-y-4 text-xs font-sans">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nomor BAPP <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={bappNumber}
+                              onChange={(e) => setBappNumber(e.target.value)}
+                              placeholder="misal: 104/BAPP/PEMB-UPTD/2026"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-bold font-mono"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-705 mb-1">Tanggal Berkas BAPP <span className="text-red-500">*</span></label>
+                            <input
+                              type="date"
+                              value={bappDate}
+                              onChange={(e) => setBappDate(e.target.value)}
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold font-mono"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-left">
+                          <label className="block font-bold text-slate-700 mb-1">Nama Paket Pekerjaan Konstruksi / Barang Jasa <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={bappProjectName}
+                            onChange={(e) => setBappProjectName(e.target.value)}
+                            placeholder="misal: Rehab Berat Saluran Irigasi Sekunder Way Tatayan Kiri"
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                            required
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Pelaksana / Kontraktor Rekanan <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={bappContractor}
+                              onChange={(e) => setBappContractor(e.target.value)}
+                              placeholder="misal: PT. Bumi Konstruksi Semesta"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Pejabat Verifikasi / PPTK Pendata <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={bappVerifiedBy}
+                              onChange={(e) => setBappVerifiedBy(e.target.value)}
+                              placeholder="misal: PPK Irigasi UPTD / Tim PPHP"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nominal Termin BAPP (Rp) <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              value={bappAmount || ''}
+                              onChange={(e) => setBappAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                              placeholder="misal: 68000000"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-bold text-blue-700"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Progres Kerja Fisik (%) <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={bappProgress || ''}
+                              onChange={(e) => setBappProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                              placeholder="misal: 100"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-bold text-emerald-700 font-mono"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Tahap Pembayaran / Termin <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={bappTerms}
+                              onChange={(e) => setBappTerms(e.target.value)}
+                              placeholder="misal: Termin Akhir / PHO (100%)"
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold text-indigo-650"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Status Berita Acara</label>
+                            <select
+                              value={bappStatus}
+                              onChange={(e: any) => setBappStatus(e.target.value)}
+                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white font-semibold text-slate-755"
+                            >
+                              <option value="Draft">Draft</option>
+                              <option value="Diverifikasi">Diverifikasi & Diproses PPK</option>
+                              <option value="Lunas">Lunas / SP2D Selesai</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-slate-50 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsBappFormOpen(false)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            {editingBapp ? 'Simpan Perubahan BAPP' : 'Daftarkan BAPP'}
                           </button>
                         </div>
                       </form>
