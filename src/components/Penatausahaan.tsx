@@ -7779,7 +7779,7 @@ export default function Penatausahaan({
                                     const actName = act.description || act.name;
                                     const isAccountSelected = contracts.some(c => 
                                       (!editingContract || c.id !== editingContract.id) && 
-                                      (c.projectName === actName || (c.accountCode && c.accountCode === (act.code || act.id)))
+                                      c.projectName.trim().toLowerCase() === actName.trim().toLowerCase()
                                     );
                                     return (
                                       <option 
@@ -7788,7 +7788,7 @@ export default function Penatausahaan({
                                         disabled={isAccountSelected}
                                         className={isAccountSelected ? "text-slate-400 bg-slate-100 italic" : ""}
                                       >
-                                        {actName}{isAccountSelected ? " (Sudah terpilih/terdaftar kontrak)" : ""}
+                                        {actName}{isAccountSelected ? " (Deskripsi pekerjaan sudah terdaftar kontrak)" : ""}
                                       </option>
                                     );
                                   })}
