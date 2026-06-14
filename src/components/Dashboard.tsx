@@ -22,6 +22,7 @@ import {
   Package
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { formatToIndoDate } from '../utils';
 
 interface DashboardProps {
   mails: Mail[];
@@ -639,7 +640,7 @@ export default function Dashboard({
                     </div>
                     <div className="flex justify-between items-center text-[10px] text-slate-400">
                       <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
-                      <span>Selesai: {project.endDate}</span>
+                      <span>Selesai: {formatToIndoDate(project.endDate)}</span>
                     </div>
                   </div>
                 ))}
@@ -674,7 +675,7 @@ export default function Dashboard({
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-slate-400">
                         <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" />{project.location}</span>
-                        <span>Selesai: {project.endDate}</span>
+                        <span>Selesai: {formatToIndoDate(project.endDate)}</span>
                       </div>
                     </div>
                   ))}
@@ -715,7 +716,7 @@ export default function Dashboard({
                       {mail.type === 'masuk' ? `Dari: ${mail.sender}` : `Ke: ${mail.recipient}`}
                     </p>
                   </div>
-                  <span className="text-[10px] text-slate-400 shrink-0 self-center">{mail.date}</span>
+                  <span className="text-[10px] text-slate-400 shrink-0 self-center">{formatToIndoDate(mail.date)}</span>
                 </div>
               ))}
             </div>

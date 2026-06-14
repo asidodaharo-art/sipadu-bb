@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { User, WaterLog, DamageReport, Project } from '../types';
 import Pembangunan from './Pembangunan';
+import { formatToIndoDate } from '../utils';
 import { 
   Activity, 
   Plus, 
@@ -787,7 +788,7 @@ export default function Operasional({
                           <td className="p-4 font-bold text-slate-600 whitespace-nowrap">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              {log.date}
+                              {formatToIndoDate(log.date)}
                             </span>
                           </td>
                           <td className="p-4 font-extrabold text-slate-900">
@@ -1068,7 +1069,7 @@ export default function Operasional({
                           <span className="text-[10px] text-slate-400 uppercase font-black font-mono block">ID: {report.id}</span>
                           <span className="flex items-center gap-1.5 text-slate-600 font-bold text-xs">
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            {report.date}
+                            {formatToIndoDate(report.date)}
                           </span>
                         </div>
                         

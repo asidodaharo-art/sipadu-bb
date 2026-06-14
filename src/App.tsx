@@ -42,6 +42,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatToIndoDate } from './utils';
 
 export default function App() {
   // One-time data purge to satisfy the user's request: empty all databases and lists, keeping only the Admin user credentials.
@@ -1078,7 +1079,7 @@ export default function App() {
               <span className="text-[10px] bg-indigo-50/70 text-indigo-700 font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider border border-indigo-100/50">
                 {activeLabel}
               </span>
-              <span className="text-xs text-slate-400 font-mono">{new Date().toDateString()}</span>
+              <span className="text-xs text-slate-400 font-mono">{formatToIndoDate(new Date())}</span>
             </div>
           </div>
 

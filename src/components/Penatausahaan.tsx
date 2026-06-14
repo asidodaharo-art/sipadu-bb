@@ -46,6 +46,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatToIndoDate } from '../utils';
 
 interface PenatausahaanProps {
   currentUser: User;
@@ -1160,8 +1161,8 @@ export default function Penatausahaan({
           index + 1,
           mail.referenceNumber,
           mail.originalLetterNumber || '-',
-          mail.date,
-          mail.letterDate || '-',
+          formatToIndoDate(mail.date),
+          formatToIndoDate(mail.letterDate || '-'),
           mail.sender,
           mail.recipient,
           mail.subject,
@@ -1171,7 +1172,7 @@ export default function Penatausahaan({
         return [
           index + 1,
           mail.referenceNumber,
-          mail.date,
+          formatToIndoDate(mail.date),
           mail.sender,
           mail.recipient,
           mail.subject,
@@ -1418,8 +1419,8 @@ export default function Penatausahaan({
                                 </span>
                               </div>
                               <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-amber-100/30 pt-1.5">
-                                <span>Lahir: {p.formattedDate}</span>
-                                <span>Est: <strong>{p.pensionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                                <span>Lahir: {formatToIndoDate(p.formattedDate)}</span>
+                                <span>Est: <strong>{formatToIndoDate(p.pensionDate)}</strong></span>
                               </div>
                             </div>
                           ))}
@@ -1477,7 +1478,7 @@ export default function Penatausahaan({
                               </div>
                               <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-blue-100/50 pt-1.5 font-semibold">
                                 <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
-                                <span>Rencana: <strong>{p.nextPromotionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                                <span>Rencana: <strong>{formatToIndoDate(p.nextPromotionDate)}</strong></span>
                               </div>
                               {p.diffDays <= 90 && (
                                 <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
@@ -1539,7 +1540,7 @@ export default function Penatausahaan({
                               </div>
                               <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-indigo-100/50 pt-1.5 font-semibold">
                                 <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
-                                <span>Rencana: <strong>{p.nextGajiDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                                <span>Rencana: <strong>{formatToIndoDate(p.nextGajiDate)}</strong></span>
                               </div>
                               {p.diffDays <= 90 && (
                                 <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
@@ -2047,10 +2048,10 @@ export default function Penatausahaan({
                           )}
                         </td>
                         <td className="p-4 font-semibold text-slate-800">
-                          <div className="font-medium text-slate-700">{mail.date}</div>
+                          <div className="font-medium text-slate-700">{formatToIndoDate(mail.date)}</div>
                           {mail.type === 'masuk' && mail.letterDate && (
                             <div className="text-[10px] text-slate-400 mt-1 font-normal">
-                              Tgl Surat: <span className="text-slate-500 font-semibold">{mail.letterDate}</span>
+                              Tgl Surat: <span className="text-slate-500 font-semibold">{formatToIndoDate(mail.letterDate)}</span>
                             </div>
                           )}
                         </td>
@@ -2827,10 +2828,10 @@ export default function Penatausahaan({
                                       <tr key={r.id}>
                                         <td className="p-3 text-center text-slate-400">{i + 1}</td>
                                         <td className="p-3 font-bold text-slate-800">{r.pangkat} ({r.golongan})</td>
-                                        <td className="p-3 text-blue-600 font-semibold">{r.tmt}</td>
+                                        <td className="p-3 text-blue-600 font-semibold">{formatToIndoDate(r.tmt)}</td>
                                         <td className="p-3 text-xs">
                                           <div>SK No: <span className="font-mono text-slate-800 font-bold">{r.noSk}</span></div>
-                                          {r.tglSk && <div className="text-[10px] text-slate-400">Tanggal SK: {r.tglSk}</div>}
+                                          {r.tglSk && <div className="text-[10px] text-slate-400">Tanggal SK: {formatToIndoDate(r.tglSk)}</div>}
                                           {r.pdfFile && (
                                             <button
                                               type="button"
@@ -3039,11 +3040,11 @@ export default function Penatausahaan({
                                   editStaffDraft.riwayatGaji.map((r, i) => (
                                     <tr key={r.id}>
                                       <td className="p-3 text-center text-slate-400">{i + 1}</td>
-                                      <td className="p-3 text-blue-600 font-mono font-bold">{r.tmtGaji}</td>
+                                      <td className="p-3 text-blue-600 font-mono font-bold">{formatToIndoDate(r.tmtGaji)}</td>
                                       <td className="p-3 font-bold text-emerald-600">Rp {(r.gajiPokok || 0).toLocaleString('id-ID')}</td>
                                       <td className="p-3">
                                         <div className="font-semibold text-slate-800 animate-none">SK: {r.noSk}</div>
-                                        <div className="text-[10px] text-slate-400">Penandatangan: {r.pejabatPenandatangan || '-'} {r.tglSk && `| tgl SK ${r.tglSk}`}</div>
+                                        <div className="text-[10px] text-slate-400">Penandatangan: {r.pejabatPenandatangan || '-'} {r.tglSk && `| tgl SK ${formatToIndoDate(r.tglSk)}`}</div>
                                         {r.pdfFile && (
                                           <button
                                             type="button"
@@ -3686,7 +3687,7 @@ export default function Penatausahaan({
                                         )}
                                       </td>
                                       <td className="p-2.5 text-slate-600">{r.jenisKelamin}</td>
-                                      <td className="p-2.5 text-center font-mono font-bold text-slate-600">{r.tanggalLahir}</td>
+                                      <td className="p-2.5 text-center font-mono font-bold text-slate-600">{formatToIndoDate(r.tanggalLahir)}</td>
                                       <td className="p-2.5">
                                         <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-full font-bold text-[10px]">
                                           {r.statusAnak}
@@ -4342,7 +4343,7 @@ export default function Penatausahaan({
                               {asset.price ? `Rp ${asset.price.toLocaleString('id-ID')}` : '-'}
                             </td>
                             <td className="p-4 font-medium text-slate-600">{asset.location}</td>
-                            <td className="p-4 text-slate-400 font-mono">{asset.purchaseDate}</td>
+                            <td className="p-4 text-slate-400 font-mono">{formatToIndoDate(asset.purchaseDate)}</td>
                             {currentUser.role === 'admin' && (
                               <td className="p-4 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
@@ -4611,7 +4612,7 @@ export default function Penatausahaan({
                                 <div>&bull; <strong>Nama Barang:</strong> {activeDistribution.assetName}</div>
                                 <div>&bull; <strong>Status Alokasi:</strong> <span className="uppercase font-black px-2 py-0.5 rounded text-[9px] bg-red-100 text-red-800">{activeDistribution.status === 'dipakai' ? 'DIPAKAI' : 'DIPINJAM'}</span></div>
                                 <div>&bull; <strong>Penanggung Jawab:</strong> {activeDistribution.staffName}</div>
-                                <div>&bull; <strong>TMT Tanggal Penyerahan:</strong> {activeDistribution.allocationDate}</div>
+                                <div>&bull; <strong>TMT Tanggal Penyerahan:</strong> {formatToIndoDate(activeDistribution.allocationDate)}</div>
                                 <div>&bull; <strong>Kondisi Unit:</strong> {activeDistribution.conditionAtAllocation}</div>
                               </div>
                               {activeDistribution.notes && (
@@ -4695,7 +4696,7 @@ export default function Penatausahaan({
                                 {d.quantity} Unit
                               </span>
                             </td>
-                            <td className="p-4 text-blue-600 font-mono">{d.allocationDate}</td>
+                            <td className="p-4 text-blue-600 font-mono">{formatToIndoDate(d.allocationDate)}</td>
                             <td className="p-4">
                               {d.conditionAtAllocation === 'Baik' && (
                                 <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-200">🟢 Baik</span>
@@ -5579,7 +5580,7 @@ export default function Penatausahaan({
                     filteredFinances.map((trans, idx) => (
                       <tr key={trans.id} className="hover:bg-slate-50/20 transition-all">
                         <td className="p-4 font-mono text-slate-400">{idx + 1}</td>
-                        <td className="p-4 text-slate-500 font-mono font-medium whitespace-nowrap">{trans.date}</td>
+                        <td className="p-4 text-slate-500 font-mono font-medium whitespace-nowrap">{formatToIndoDate(trans.date)}</td>
                         <td className="p-4">
                           {trans.type === 'pemasukan' ? (
                             <span className="bg-indigo-50 border border-indigo-150 text-indigo-700 rounded-full font-bold text-[9px] uppercase tracking-wider py-0.5 px-2 inline-flex items-center">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project, User } from '../types';
+import { formatToIndoDate } from '../utils';
 import { 
   Wrench, 
   MapPin, 
@@ -522,11 +523,11 @@ export default function Pembangunan({
                     </div>
                     <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
                       <span className="block text-[9px] text-slate-400 font-bold uppercase">Tanggal Mulai</span>
-                      <strong className="text-xs text-slate-700 font-bold">{selectedProj.startDate}</strong>
+                      <strong className="text-xs text-slate-700 font-bold">{formatToIndoDate(selectedProj.startDate)}</strong>
                     </div>
                     <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
                       <span className="block text-[9px] text-slate-400 font-bold uppercase">Rencana Selesai</span>
-                      <strong className="text-xs text-slate-700 font-bold">{selectedProj.endDate}</strong>
+                      <strong className="text-xs text-slate-700 font-bold">{formatToIndoDate(selectedProj.endDate)}</strong>
                     </div>
                   </div>
 
@@ -632,7 +633,7 @@ export default function Pembangunan({
                             <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row justify-between gap-2.5 hover:bg-slate-50 hover:border-slate-150 transition-all text-xs">
                               <div className="space-y-1 sm:max-w-[75%]">
                                 <div className="text-[10px] text-slate-400 font-semibold flex items-center gap-1.5">
-                                  <span>{log.date}</span>
+                                  <span>{formatToIndoDate(log.date)}</span>
                                   <span>•</span>
                                   <span>Pengawas: <strong>{log.inspector}</strong></span>
                                 </div>
@@ -1570,8 +1571,8 @@ export default function Pembangunan({
                       />
                     </div>
                     <div className="flex justify-between text-[9px] text-slate-400 pt-0.5">
-                      <span>Mulai: {proj.startDate}</span>
-                      <span>Target: {proj.endDate}</span>
+                      <span>Mulai: {formatToIndoDate(proj.startDate)}</span>
+                      <span>Target: {formatToIndoDate(proj.endDate)}</span>
                     </div>
                   </div>
                 </div>
