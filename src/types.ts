@@ -309,6 +309,7 @@ export interface Contract {
 
   // Detail Tambahan: Data Rekanan (Partner)
   rekananDirektur?: string;
+  rekananJabatan?: string;
   rekananNpwp?: string;
   rekananAddress?: string;
   rekananBankName?: string;

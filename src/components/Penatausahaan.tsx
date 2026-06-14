@@ -718,6 +718,7 @@ export default function Penatausahaan({
 
   // Rekanan details
   const [rekananDirektur, setRekananDirektur] = useState('');
+  const [rekananJabatan, setRekananJabatan] = useState('');
   const [rekananNpwp, setRekananNpwp] = useState('');
   const [rekananAddress, setRekananAddress] = useState('');
   const [rekananBankName, setRekananBankName] = useState('');
@@ -957,6 +958,7 @@ export default function Penatausahaan({
         pejabatPengawas,
         nipPengawas,
         rekananDirektur,
+        rekananJabatan,
         rekananNpwp,
         rekananAddress,
         rekananBankName,
@@ -999,6 +1001,7 @@ export default function Penatausahaan({
         pejabatPengawas,
         nipPengawas,
         rekananDirektur,
+        rekananJabatan,
         rekananNpwp,
         rekananAddress,
         rekananBankName,
@@ -1045,6 +1048,7 @@ export default function Penatausahaan({
     setPejabatPengawas(c.pejabatPengawas || '');
     setNipPengawas(c.nipPengawas || '');
     setRekananDirektur(c.rekananDirektur || '');
+    setRekananJabatan(c.rekananJabatan || '');
     setRekananNpwp(c.rekananNpwp || '');
     setRekananAddress(c.rekananAddress || '');
     setRekananBankName(c.rekananBankName || '');
@@ -7198,6 +7202,7 @@ export default function Penatausahaan({
                           setPejabatPengawas('');
                           setNipPengawas('');
                           setRekananDirektur('');
+                          setRekananJabatan('');
                           setRekananNpwp('');
                           setRekananAddress('');
                           setRekananBankName('');
@@ -7402,7 +7407,14 @@ export default function Penatausahaan({
                                               </div>
                                               <div className="text-left">
                                                 <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Direktur / Pimpinan</div>
-                                                <div className="font-semibold text-slate-800">{c.rekananDirektur || '-'}</div>
+                                                <div className="font-semibold text-slate-800 flex flex-wrap items-center gap-1">
+                                                  <span>{c.rekananDirektur || '-'}</span>
+                                                  {c.rekananJabatan && (
+                                                    <span className="text-[10px] text-slate-650 font-medium bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                      {c.rekananJabatan}
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
                                               <div className="col-span-2 text-left">
                                                 <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">NPWP Perusahaan</div>
@@ -8217,7 +8229,7 @@ export default function Penatausahaan({
                               </h4>
 
                               <div className="space-y-3">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-white p-2.5 rounded-lg border border-slate-100 text-left">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-2.5 rounded-lg border border-slate-100 text-left">
                                   <div>
                                     <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nama Rekanan / Perusahaan <span className="text-red-500">*</span></label>
                                     <input
@@ -8235,6 +8247,16 @@ export default function Penatausahaan({
                                       value={rekananDirektur}
                                       onChange={(e) => setRekananDirektur(e.target.value)}
                                       placeholder="Nama Direktur..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Jabatan Direksi</label>
+                                    <input
+                                      type="text"
+                                      value={rekananJabatan}
+                                      onChange={(e) => setRekananJabatan(e.target.value)}
+                                      placeholder="misal: Direktur Utama / Kuasa Direksi"
                                       className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
                                     />
                                   </div>
