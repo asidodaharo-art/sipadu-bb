@@ -37,7 +37,9 @@ import {
   Box,
   Wallet,
   Sun,
-  Moon
+  Moon,
+  TrendingUp,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -159,8 +161,8 @@ export default function App() {
   });
 
   const [penatausahaanSubTab, setPenatausahaanSubTab] = useState<'landing' | 'adm_umum' | 'personalia' | 'aset_inventaris' | 'keuangan'>('landing');
-  const [pembangunanSubTab, setPembangunanSubTab] = useState<'landing' | 'paket_pekerjaan'>('landing');
-  const [operasionalSubTab, setOperasionalSubTab] = useState<'landing' | 'paket_pekerjaan'>('landing');
+  const [pembangunanSubTab, setPembangunanSubTab] = useState<'landing' | 'paket_pekerjaan' | 'progres_kegiatan' | 'usulan_pekerjaan'>('landing');
+  const [operasionalSubTab, setOperasionalSubTab] = useState<'landing' | 'paket_pekerjaan' | 'progres_kegiatan' | 'usulan_pekerjaan'>('landing');
 
   const [profile, setProfile] = useState<InstansiProfile>(() => {
     const saved = localStorage.getItem('uptd_profile');
@@ -592,9 +594,17 @@ export default function App() {
       ? 'Inventarisasi DI' 
       : activeTab === 'pembangunan' && pembangunanSubTab === 'paket_pekerjaan'
         ? 'Data Paket Pekerjaan'
-        : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan'
-          ? 'Data Paket Pekerjaan'
-          : (navItems.find((item) => item.id === activeTab)?.label || 'Portal');
+        : activeTab === 'pembangunan' && pembangunanSubTab === 'progres_kegiatan'
+          ? 'Progres Kegiatan'
+          : activeTab === 'pembangunan' && pembangunanSubTab === 'usulan_pekerjaan'
+            ? 'Usulan Pekerjaan'
+            : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan'
+              ? 'Data Paket Pekerjaan'
+              : activeTab === 'operasional' && operasionalSubTab === 'progres_kegiatan'
+                ? 'Progres Kegiatan'
+                : activeTab === 'operasional' && operasionalSubTab === 'usulan_pekerjaan'
+                  ? 'Usulan Pekerjaan'
+                  : (navItems.find((item) => item.id === activeTab)?.label || 'Portal');
 
   return (
     <div className="min-h-screen flex bg-slate-50 relative" id="portal-app">
@@ -688,6 +698,8 @@ export default function App() {
                   <div className="pl-4 space-y-1 mt-1 transition-all border-l border-slate-800/80 ml-4">
                     {[
                       { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                      { id: 'progres_kegiatan', label: 'Progres Kegiatan', icon: TrendingUp },
+                      { id: 'usulan_pekerjaan', label: 'Usulan Pekerjaan', icon: BookOpen },
                     ].map((sub) => {
                       const SubIcon = sub.icon;
                       const isSubActive = activeTab === 'pembangunan' && pembangunanSubTab === sub.id;
@@ -752,11 +764,13 @@ export default function App() {
                     {[
                       { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
                       { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                      { id: 'progres_kegiatan', label: 'Progres Kegiatan', icon: TrendingUp },
+                      { id: 'usulan_pekerjaan', label: 'Usulan Pekerjaan', icon: BookOpen },
                     ].map((sub) => {
                       const SubIcon = sub.icon;
                       const isSubActive = sub.id === 'inventarisasi_di' 
                         ? activeTab === 'inventarisasi_di' 
-                        : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan';
+                        : activeTab === 'operasional' && operasionalSubTab === sub.id;
                       return (
                         <button
                           key={sub.id}
@@ -765,7 +779,7 @@ export default function App() {
                               setActiveTab('inventarisasi_di');
                             } else {
                               setActiveTab('operasional');
-                              setOperasionalSubTab('paket_pekerjaan');
+                              setOperasionalSubTab(sub.id as any);
                             }
                             setIsMobileSidebarOpen(false);
                           }}
@@ -920,6 +934,8 @@ export default function App() {
                         <div className="pl-4 space-y-1 mt-1 border-l border-slate-800/80 ml-4">
                           {[
                             { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                            { id: 'progres_kegiatan', label: 'Progres Kegiatan', icon: TrendingUp },
+                            { id: 'usulan_pekerjaan', label: 'Usulan Pekerjaan', icon: BookOpen },
                           ].map((sub) => {
                             const SubIcon = sub.icon;
                             const isSubActive = activeTab === 'pembangunan' && pembangunanSubTab === sub.id;
@@ -982,11 +998,13 @@ export default function App() {
                           {[
                             { id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers },
                             { id: 'paket_pekerjaan', label: 'Data Paket Pekerjaan', icon: Wrench },
+                            { id: 'progres_kegiatan', label: 'Progres Kegiatan', icon: TrendingUp },
+                            { id: 'usulan_pekerjaan', label: 'Usulan Pekerjaan', icon: BookOpen },
                           ].map((sub) => {
                             const SubIcon = sub.icon;
                             const isSubActive = sub.id === 'inventarisasi_di' 
                               ? activeTab === 'inventarisasi_di' 
-                              : activeTab === 'operasional' && operasionalSubTab === 'paket_pekerjaan';
+                              : activeTab === 'operasional' && operasionalSubTab === sub.id;
                             return (
                               <button
                                 key={sub.id}
@@ -995,7 +1013,7 @@ export default function App() {
                                     setActiveTab('inventarisasi_di');
                                   } else {
                                     setActiveTab('operasional');
-                                    setOperasionalSubTab('paket_pekerjaan');
+                                    setOperasionalSubTab(sub.id as any);
                                   }
                                   setIsMobileSidebarOpen(false);
                                 }}

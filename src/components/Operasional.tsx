@@ -44,8 +44,8 @@ interface OperasionalProps {
   onUpdateDamageStatus: (id: string, status: DamageReport['status']) => void;
   onDeleteDamageReport: (id: string) => void;
   onClearOperasionalData: () => void;
-  activeSubTab?: 'landing' | 'paket_pekerjaan';
-  onSubTabChange?: (tab: 'landing' | 'paket_pekerjaan') => void;
+  activeSubTab?: 'landing' | 'paket_pekerjaan' | 'progres_kegiatan' | 'usulan_pekerjaan';
+  onSubTabChange?: (tab: 'landing' | 'paket_pekerjaan' | 'progres_kegiatan' | 'usulan_pekerjaan') => void;
 }
 
 export default function Operasional({
@@ -271,7 +271,7 @@ export default function Operasional({
     : 0;
   const criticalLogsCount = waterLogs.filter(l => l.status === 'Siaga' || l.status === 'Awas').length;
 
-  if (activeSubTab === 'paket_pekerjaan') {
+  if (activeSubTab === 'paket_pekerjaan' || activeSubTab === 'progres_kegiatan' || activeSubTab === 'usulan_pekerjaan') {
     return (
       <Pembangunan
         currentUser={currentUser}
@@ -280,7 +280,8 @@ export default function Operasional({
         onUpdateProject={onUpdateProject || (() => {})}
         onUpdateProjectProgress={onUpdateProjectProgress || (() => {})}
         onDeleteProject={onDeleteProject || (() => {})}
-        activeSubTab="paket_pekerjaan"
+        activeSubTab={activeSubTab}
+        onSubTabChange={onSubTabChange}
         isOperasionalVariant={true}
       />
     );
