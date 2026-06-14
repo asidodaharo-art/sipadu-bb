@@ -1354,236 +1354,215 @@ export default function Penatausahaan({
           )}
 
           {/* SECTION: MONITORING KEPEGAWAIAN (< 1 TAHUN) */}
-          {isSubTabAllowed('personalia') && (
-            <div className="space-y-4">
-            <div className="border-b border-slate-200 pb-2">
-              <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                <span>Monitoring Agenda Kepegawaian (Masa Efektif &lt; 1 Tahun)</span>
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Peringatan berkala otomatis untuk mengantisipasi siklus kepegawaian esensial, disinkronisasikan dari pangkalan data personalia (Tanggal Lahir, Riwayat Kepangkatan, &amp; Riwayat Gaji Berkala).
-              </p>
-            </div>
+          {isSubTabAllowed('personalia') && (() => {
+            const hasPension = pensionAlerts.length > 0;
+            const hasPromotion = promotionAlerts.length > 0;
+            const hasSalary = salaryAlerts.length > 0;
+            const totalVisibleCols = [hasPension, hasPromotion, hasSalary].filter(Boolean).length;
+            
+            if (totalVisibleCols === 0) return null;
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-              {/* KOLOM A: RENCANA MASA PENSIUN */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                        <Heart className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-800">Masa Pensiun (58 Thn)</h4>
-                        <p className="text-[9px] text-slate-400 font-medium">Berdasarkan tanggal lahir</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
-                      {pensionAlerts.length} Pegawai
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-                    {pensionAlerts.length > 0 ? (
-                      pensionAlerts.map(p => (
-                        <div 
-                          key={p.staff.id}
-                          className="p-3 bg-amber-50/40 border border-amber-100/75 rounded-xl hover:bg-amber-50 transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div 
-                                onClick={() => onSubTabChange('personalia')}
-                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
-                              >
-                                {p.staff.name}
-                              </div>
-                              <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
-                            </div>
-                            <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                              {p.diffDays} Hari Lagi
-                            </span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-amber-100/30 pt-1.5">
-                            <span>Lahir: {p.formattedDate}</span>
-                            <span>Est: <strong>{p.pensionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
-                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Pengingat Pensiun</span>
-                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
-                          Tidak terdeteksi pegawai yang akan mencapai batas usia pensiun (58 tahun) dalam kurun waktu kurang dari 12 bulan ke depan.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+            return (
+              <div className="space-y-4">
+                <div className="border-b border-slate-200 pb-2">
+                  <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <span>Monitoring Agenda Kepegawaian (Masa Efektif &lt; 1 Tahun)</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Peringatan berkala otomatis untuk mengantisipasi siklus kepegawaian esensial, disinkronisasikan dari pangkalan data personalia (Tanggal Lahir, Riwayat Kepangkatan, &amp; Riwayat Gaji Berkala).
+                  </p>
                 </div>
-                <button 
-                  onClick={() => onSubTabChange('personalia')}
-                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
-                >
-                  Kelola Personalia Pegawai →
-                </button>
-              </div>
 
-              {/* KOLOM B: RENCANA KENAIKAN PANGKAT */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                        <Award className="w-4 h-4" />
-                      </div>
+                <div className={`grid grid-cols-1 ${
+                  totalVisibleCols === 3 ? 'md:grid-cols-3' : 
+                  totalVisibleCols === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1'
+                } gap-6 w-full`}>
+                  {/* KOLOM A: RENCANA MASA PENSIUN */}
+                  {hasPension && (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800">Kenaikan Pangkat (4 Keatas)</h4>
-                        <p className="text-[9px] text-slate-400 font-medium">+4 tahun dari tanggal SK terakhir</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
-                      {promotionAlerts.length} Pegawai
-                    </span>
-                  </div>
-
-                  {/* Warning Notice */}
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl flex items-start gap-2 text-[10px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
-                    <span>Peringatan: 3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kepangkatan.</span>
-                  </div>
-
-                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
-                    {promotionAlerts.length > 0 ? (
-                      promotionAlerts.map(p => (
-                        <div 
-                          key={p.staff.id}
-                          className="p-3 bg-blue-50/40 border border-blue-100/75 rounded-xl hover:bg-blue-50 transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                              <Heart className="w-4 h-4" />
+                            </div>
                             <div>
-                              <div 
-                                onClick={() => onSubTabChange('personalia')}
-                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
-                              >
-                                {p.staff.name}
-                              </div>
-                              <div className="text-[9px] text-slate-500 font-medium mt-0.5">
-                                {p.staff.pangkat} &bull; <strong className="font-mono text-slate-700">{p.staff.golongan}</strong>
-                              </div>
+                              <h4 className="font-bold text-xs text-slate-800">Masa Pensiun (58 Thn)</h4>
+                              <p className="text-[9px] text-slate-400 font-semibold font-medium">Berdasarkan tanggal lahir</p>
                             </div>
-                            <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                              {p.diffDays} Hari Lagi
-                            </span>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-blue-100/50 pt-1.5">
-                            <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
-                            <span>Rencana: <strong>{p.nextPromotionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
-                          </div>
-                          {p.diffDays <= 90 && (
-                            <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
-                            </div>
-                          )}
+                          <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                            {pensionAlerts.length} Pegawai
+                          </span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
-                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Usulan Pangkat</span>
-                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
-                          Tidak terdeteksi pegawai yang masuk jadwal siklus kenaikan pangkat reguler 4 tahunan dalam kurun waktu kurang dari 12 bulan ke depan.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <button 
-                  onClick={() => onSubTabChange('personalia')}
-                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
-                >
-                  Kelola Personalia Pegawai →
-                </button>
-              </div>
 
-              {/* KOLOM C: RENCANA KENAIKAN GAJI BERKALA */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                        <TrendingUp className="w-4 h-4" />
+                        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                          {pensionAlerts.map(p => (
+                            <div 
+                              key={p.staff.id}
+                              className="p-3 bg-amber-50/40 border border-amber-100/75 rounded-xl hover:bg-amber-50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div 
+                                    onClick={() => onSubTabChange('personalia')}
+                                    className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                                  >
+                                    {p.staff.name}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
+                                </div>
+                                <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                                  {p.diffDays} Hari Lagi
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-amber-100/30 pt-1.5">
+                                <span>Lahir: {p.formattedDate}</span>
+                                <span>Est: <strong>{p.pensionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                      <button 
+                        onClick={() => onSubTabChange('personalia')}
+                        className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100 cursor-pointer"
+                      >
+                        Kelola Personalia Pegawai →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* KOLOM B: RENCANA KENAIKAN PANGKAT */}
+                  {hasPromotion && (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800">Kenaikan Gaji Berkala (KGB)</h4>
-                        <p className="text-[9px] text-slate-400 font-medium">+2 tahun dari tanggal gaji terakhir</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
-                      {salaryAlerts.length} Pegawai
-                    </span>
-                  </div>
-
-                  {/* Warning Notice */}
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl flex items-start gap-2 text-[10px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
-                    <span>Peringatan: 3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas KGB.</span>
-                  </div>
-
-                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
-                    {salaryAlerts.length > 0 ? (
-                      salaryAlerts.map(p => (
-                        <div 
-                          key={p.staff.id}
-                          className="p-3 bg-indigo-50/40 border border-indigo-100/75 rounded-xl hover:bg-indigo-50 transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                              <Award className="w-4 h-4" />
+                            </div>
                             <div>
-                              <div 
-                                onClick={() => onSubTabChange('personalia')}
-                                className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
-                              >
-                                {p.staff.name}
-                              </div>
-                              <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
+                              <h4 className="font-bold text-xs text-slate-800">Kenaikan Pangkat (4 Keatas)</h4>
+                              <p className="text-[9px] text-slate-400 font-semibold font-medium">+4 tahun dari tanggal SK terakhir</p>
                             </div>
-                            <span className="text-[9px] font-black bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                              {p.diffDays} Hari Lagi
-                            </span>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-indigo-100/50 pt-1.5">
-                            <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
-                            <span>Rencana: <strong>{p.nextGajiDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
-                          </div>
-                          {p.diffDays <= 90 && (
-                            <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
-                            </div>
-                          )}
+                          <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                            {promotionAlerts.length} Pegawai
+                          </span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="py-8 px-4 text-center space-y-2 border border-dashed border-slate-100 rounded-xl">
-                        <span className="text-[10px] font-bold text-slate-400 block">Tidak Ada Pengingat KGB</span>
-                        <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
-                          Tidak terdeteksi pegawai yang terjadwal memperoleh kenaikan gaji berkala (KGB) 2 tahunan dalam kurun waktu kurang dari 12 bulan ke depan.
-                        </p>
+
+                        <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                          {promotionAlerts.map(p => (
+                            <div 
+                              key={p.staff.id}
+                              className="p-3 bg-blue-50/40 border border-blue-100/75 rounded-xl hover:bg-blue-50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div 
+                                    onClick={() => onSubTabChange('personalia')}
+                                    className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                                  >
+                                    {p.staff.name}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-medium mt-0.5">
+                                    {p.staff.pangkat} &bull; <strong className="font-mono text-slate-700">{p.staff.golongan}</strong>
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                                  {p.diffDays} Hari Lagi
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-blue-100/50 pt-1.5 font-semibold">
+                                <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
+                                <span>Rencana: <strong>{p.nextPromotionDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                              </div>
+                              {p.diffDays <= 90 && (
+                                <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <button 
+                        onClick={() => onSubTabChange('personalia')}
+                        className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100 cursor-pointer"
+                      >
+                        Kelola Personalia Pegawai →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* KOLOM C: RENCANA KENAIKAN GAJI BERKALA */}
+                  {hasSalary && (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                              <TrendingUp className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-xs text-slate-800">Kenaikan Gaji Berkala (KGB)</h4>
+                              <p className="text-[9px] text-slate-400 font-semibold font-medium">+2 tahun dari tanggal gaji terakhir</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full">
+                            {salaryAlerts.length} Pegawai
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                          {salaryAlerts.map(p => (
+                            <div 
+                              key={p.staff.id}
+                              className="p-3 bg-indigo-50/40 border border-indigo-100/75 rounded-xl hover:bg-indigo-50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div 
+                                    onClick={() => onSubTabChange('personalia')}
+                                    className="font-bold text-[11px] text-slate-800 hover:text-blue-600 cursor-pointer hover:underline"
+                                  >
+                                    {p.staff.name}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 font-mono mt-0.5">NIP: {p.staff.nip}</div>
+                                </div>
+                                <span className="text-[9px] font-black bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                                  {p.diffDays} Hari Lagi
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-[9px] font-medium text-slate-500 border-t border-indigo-100/50 pt-1.5 font-semibold">
+                                <span className="truncate max-w-[120px]" title={p.source}>Sumber: {p.source}</span>
+                                <span>Rencana: <strong>{p.nextGajiDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>
+                              </div>
+                              {p.diffDays <= 90 && (
+                                <div className="mt-2 p-1.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] text-rose-800 font-extrabold flex items-center gap-1.5">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>Harus segera mengurus, sudah memasuki H-3 bulan!</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => onSubTabChange('personalia')}
+                        className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100 cursor-pointer"
+                      >
+                        Kelola Personalia Pegawai →
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <button 
-                  onClick={() => onSubTabChange('personalia')}
-                  className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-100"
-                >
-                  Kelola Personalia Pegawai →
-                </button>
               </div>
-            </div>
-          </div>
-          )}
+            );
+          })()}
 
           {!isSubTabAllowed('adm_umum') && !isSubTabAllowed('personalia') && (
             <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center space-y-2" id="empty-landing-info">
@@ -2669,13 +2648,7 @@ export default function Penatausahaan({
                       {/* Subtab 2: RIWAYAT KEPANGKATAN */}
                       {editModalTab === 'pangkat' && (
                         <div className="space-y-4">
-                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
-                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kepangkatan.
-                            </div>
-                          </div>
+
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
                             <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
@@ -2895,13 +2868,7 @@ export default function Penatausahaan({
                       {/* Subtab 3: RIWAYAT GAJI BERKALA */}
                       {editModalTab === 'gaji' && (
                         <div className="space-y-4">
-                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
-                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas kenaikan gaji berkala (KGB).
-                            </div>
-                          </div>
+
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
                             <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
@@ -3114,13 +3081,7 @@ export default function Penatausahaan({
                       {/* Subtab 4: RIWAYAT PENDIDIKAN */}
                       {editModalTab === 'pendidikan' && (
                         <div className="space-y-4">
-                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
-                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas pendidikan / ijazah.
-                            </div>
-                          </div>
+
 
                           <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
                             <h4 className="font-bold text-[11px] text-slate-700 uppercase flex items-center gap-1.5">
@@ -3413,13 +3374,7 @@ export default function Penatausahaan({
                       {/* Subtab 6: RIWAYAT PASANGAN */}
                       {editModalTab === 'pasangan' && (
                         <div className="space-y-4">
-                          <div className="bg-amber-50 border border-amber-200/70 p-3.5 rounded-xl flex items-start gap-2.5 text-[11px] text-amber-900 font-semibold leading-relaxed shadow-3xs">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-extrabold uppercase text-[10px] text-amber-850 block mb-0.5">⚠️ Peringatan Penting Dokumen</span>
-                              3 bulan sebelum jatuh tempo sudah harus mengurus dan mempersiapkan berkas pasangan (buku nikah / akta cerai/kematian).
-                            </div>
-                          </div>
+
 
                           <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50/30 space-y-4 max-w-xl mx-auto shadow-sm">
                             <h4 className="font-bold text-[11px] text-slate-850 border-b border-slate-200 pb-1.5 flex items-center justify-between uppercase">
