@@ -145,6 +145,9 @@ export default function Penatausahaan({
 
   // 2. Kenaikan Pangkat (< 1 tahun, tanggal TMT kepangkatan terakhir + 4 tahun)
   const promotionAlerts = staff.map(s => {
+    if (!s.riwayatKepangkatan || s.riwayatKepangkatan.length === 0) {
+      return null;
+    }
     let lastSkDate: Date | null = null;
     let source = '';
     
@@ -199,33 +202,21 @@ export default function Penatausahaan({
 
   // 3. Kenaikan Gaji Berkala (< 1 tahun, tanggal gaji berkala terakhir + 2 tahun)
   const salaryAlerts = staff.map(s => {
+    if (!s.riwayatGaji || s.riwayatGaji.length === 0) {
+      return null;
+    }
     let lastGajiDate: Date | null = null;
     let source = '';
     
-    if (s.riwayatGaji && s.riwayatGaji.length > 0) {
-      const sorted = [...s.riwayatGaji].sort((a, b) => {
-        const da = new Date(a.tmtGaji || a.tglSk);
-        const db = new Date(b.tmtGaji || b.tglSk);
-        return db.getTime() - da.getTime();
-      });
-      const latest = sorted[0];
-      if (latest.tmtGaji || latest.tglSk) {
-        lastGajiDate = new Date(latest.tmtGaji || latest.tglSk);
-        source = `KGB Terakhir${latest.noSk ? ` - No. SK: ${latest.noSk}` : ''}`;
-      }
-    }
-    
-    // Fallback to NIP CPNS
-    if (!lastGajiDate) {
-      const nipCompact = s.nip?.replace(/\s+/g, '') || '';
-      if (nipCompact.length >= 14) {
-        const cpnsYear = parseInt(nipCompact.substring(8, 12), 10);
-        const cpnsMonth = parseInt(nipCompact.substring(12, 14), 10) - 1;
-        if (!isNaN(cpnsYear) && !isNaN(cpnsMonth)) {
-          lastGajiDate = new Date(cpnsYear, cpnsMonth, 1);
-          source = 'NIP CPNS (KGB berkala 2 tahun)';
-        }
-      }
+    const sorted = [...s.riwayatGaji].sort((a, b) => {
+      const da = new Date(a.tmtGaji || a.tglSk);
+      const db = new Date(b.tmtGaji || b.tglSk);
+      return db.getTime() - da.getTime();
+    });
+    const latest = sorted[0];
+    if (latest.tmtGaji || latest.tglSk) {
+      lastGajiDate = new Date(latest.tmtGaji || latest.tglSk);
+      source = `KGB Terakhir${latest.noSk ? ` - No. SK: ${latest.noSk}` : ''}`;
     }
     
     if (!lastGajiDate) return null;
