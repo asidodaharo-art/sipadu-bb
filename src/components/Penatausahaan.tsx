@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply, BankAccount, ActivityAccount, SpjDocument, BappDocument } from '../types';
+import { Mail, Staff, User, Asset, FinanceTransaction, AssetDistribution, ConsumableSupply, BankAccount, ActivityAccount, SpjDocument, BappDocument, Contract, Project } from '../types';
 import { 
   FileText, 
   Users, 
@@ -43,10 +43,13 @@ import {
   Sliders,
   Sparkles,
   Camera,
-  User as UserIcon
+  User as UserIcon,
+  Briefcase,
+  FileCheck,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatToIndoDate } from '../utils';
+import { formatToIndoDate, ymdToDmy, dmyToYmd } from '../utils';
 
 interface PenatausahaanProps {
   currentUser: User;
@@ -548,8 +551,8 @@ export default function Penatausahaan({
     localStorage.setItem('uptd_v3_consumables', JSON.stringify(supplies));
   }, [supplies]);
 
-  // Finance sub-tab state (Transaksi vs Nomor Rekening vs Kode Rekening Kegiatan vs SPJ Rutin vs BAPP)
-  const [financeSubTab, setFinanceSubTab] = useState<'transaksi' | 'rekening' | 'rekening_kegiatan' | 'spj_rutin' | 'bapp'>('rekening_kegiatan');
+  // Finance sub-tab state (Nomor Rekening vs Kode Rekening Kegiatan vs SPJ Rutin vs BAPP)
+  const [financeSubTab, setFinanceSubTab] = useState<'rekening' | 'rekening_kegiatan' | 'spj_rutin' | 'bapp'>('rekening_kegiatan');
 
   // Activity Accounts list state
   const [activityAccounts, setActivityAccounts] = useState<ActivityAccount[]>(() => {
@@ -662,37 +665,431 @@ export default function Penatausahaan({
   const [bappDocuments, setBappDocuments] = useState<BappDocument[]>(() => {
     const saved = localStorage.getItem('uptd_v3_bapp');
     if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'bapp-1',
-        number: '102/BAPP/PEMB-UPTD/V/2026',
-        date: '2026-05-18',
-        projectName: 'Pekerjaan Rehabilitasi Saluran Irigasi DI Gumbasa Sekunder',
-        contractor: 'CV. Karya Abadi Teknik',
-        amount: 145000000,
-        progress: 30,
-        terms: 'Termin I (30%)',
-        verifiedBy: 'Pejabat Pembuat Komitmen (PPK)',
-        status: 'Lunas'
-      },
-      {
-        id: 'bapp-2',
-        number: '103/BAPP/PEMB-UPTD/VI/2026',
-        date: '2026-06-02',
-        projectName: 'Pemeliharaan Rutin Tanggul Sungai Batang Hari',
-        contractor: 'PT. Bumi Sarana Raya',
-        amount: 75000000,
-        progress: 100,
-        terms: 'Termin Akhir (100% PHO)',
-        verifiedBy: 'Panitia Penerima Hasil Pekerjaan (PPHP)',
-        status: 'Diverifikasi'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
     localStorage.setItem('uptd_v3_bapp', JSON.stringify(bappDocuments));
   }, [bappDocuments]);
+
+  // BAPP sub-tab controller (Berkas BAPP vs Data Kontrak)
+  const [bappSubTab, setBappSubTab] = useState<'berkas_bapp' | 'data_kontrak'>('data_kontrak');
+
+  // Contract list state
+  const [contracts, setContracts] = useState<Contract[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_contracts');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('uptd_v3_contracts', JSON.stringify(contracts));
+  }, [contracts]);
+
+  // Contract form states
+  const [isContractFormOpen, setIsContractFormOpen] = useState(false);
+  const [contractNumber, setContractNumber] = useState('');
+  const [contractRawDate, setContractRawDate] = useState('');
+  const [contractProjectName, setContractProjectName] = useState('');
+  
+  // New user-requested fields
+  const [contractAccountCode, setContractAccountCode] = useState('');
+  const [contractSppbjNumber, setContractSppbjNumber] = useState('');
+  const [contractSppbjRawDate, setContractSppbjRawDate] = useState('');
+  const [contractSpmkNumber, setContractSpmkNumber] = useState('');
+  const [contractSpmkRawDate, setContractSpmkRawDate] = useState('');
+  const [contractSplNumber, setContractSplNumber] = useState('');
+  const [contractSplRawDate, setContractSplRawDate] = useState('');
+  const [contractDuration, setContractDuration] = useState('');
+
+  // Additional detail states
+  const [contractAddendums, setContractAddendums] = useState<{ id: string; number: string; date: string; description?: string; amount?: number; duration?: string; }[]>([]);
+  const [contractClosingNumber, setContractClosingNumber] = useState('');
+  const [contractClosingDate, setContractClosingDate] = useState('');
+  const [contractClosingNotes, setContractClosingNotes] = useState('');
+
+  // Pejabat details
+  const [pejabatPPK, setPejabatPPK] = useState('');
+  const [nipPPK, setNipPPK] = useState('');
+  const [pejabatPPTK, setPejabatPPTK] = useState('');
+  const [nipPPTK, setNipPPTK] = useState('');
+  const [pejabatPengawas, setPejabatPengawas] = useState('');
+  const [nipPengawas, setNipPengawas] = useState('');
+
+  // Rekanan details
+  const [rekananDirektur, setRekananDirektur] = useState('');
+  const [rekananNpwp, setRekananNpwp] = useState('');
+  const [rekananAddress, setRekananAddress] = useState('');
+  const [rekananBankName, setRekananBankName] = useState('');
+  const [rekananBankAccount, setRekananBankAccount] = useState('');
+  const [rekananBankBranch, setRekananBankBranch] = useState('');
+
+  // Temporary inputs for creating a new addendum item
+  const [tempAddendumNumber, setTempAddendumNumber] = useState('');
+  const [tempAddendumDate, setTempAddendumDate] = useState('');
+  const [tempAddendumDescription, setTempAddendumDescription] = useState('');
+  const [tempAddendumAmount, setTempAddendumAmount] = useState<number>(0);
+  const [tempAddendumDuration, setTempAddendumDuration] = useState('');
+
+  const [contractorName, setContractorName] = useState('');
+  const [contractAmount, setContractAmount] = useState(0);
+  const [contractRawStartDate, setContractRawStartDate] = useState('');
+  const [contractRawEndDate, setContractRawEndDate] = useState('');
+  const [contractType, setContractType] = useState<'Pembangunan' | 'Pemeliharaan' | 'Rehabilitasi' | 'Lainnya'>('Pembangunan');
+  const [contractStatus, setContractStatus] = useState<Contract['status']>('Aktif');
+  const [contractNotes, setContractNotes] = useState('');
+  const [expandedContractId, setExpandedContractId] = useState<string | null>(null);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [activeContractTab, setActiveContractTab] = useState<'utama' | 'addendum' | 'pejabat' | 'rekanan'>('utama');
+
+  // List of active projects from Pembangunan & Operasional
+  const [pembangunanProjects, setPembangunanProjects] = useState<Project[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_projects');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [operasionalProjects, setOperasionalProjects] = useState<Project[]>(() => {
+    const saved = localStorage.getItem('uptd_v3_projects_operasional');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    if (isContractFormOpen) {
+      const savedPembangunan = localStorage.getItem('uptd_v3_projects');
+      if (savedPembangunan) {
+        setPembangunanProjects(JSON.parse(savedPembangunan));
+      }
+      const savedOperasional = localStorage.getItem('uptd_v3_projects_operasional');
+      if (savedOperasional) {
+        setOperasionalProjects(JSON.parse(savedOperasional));
+      }
+    }
+  }, [isContractFormOpen]);
+
+  const isProjectInList = (name: string) => {
+    if (!name || name === '__custom__') return false;
+    const inPembangunan = pembangunanProjects.some(p => p.name === name);
+    const inOperasional = operasionalProjects.some(p => p.name === name);
+    return inPembangunan || inOperasional;
+  };
+
+  const handleSelectProject = (val: string) => {
+    if (val === '__custom__') {
+      setContractProjectName('__custom__');
+      return;
+    }
+    if (!val) {
+      setContractProjectName('');
+      return;
+    }
+
+    setContractProjectName(val);
+
+    // Find project in pembangunan or operasional
+    const allProjs = [
+      ...pembangunanProjects.map(p => ({ ...p, section: 'Pembangunan' })),
+      ...operasionalProjects.map(p => ({ ...p, section: 'Operasional' }))
+    ];
+    const selectedProj = allProjs.find(p => p.name === val);
+
+    if (selectedProj) {
+      if (selectedProj.contractor) {
+        setContractorName(selectedProj.contractor);
+      }
+      if (selectedProj.budget) {
+        setContractAmount(selectedProj.budget);
+      }
+      if (selectedProj.startDate) {
+        setContractRawStartDate(ymdToDmy(selectedProj.startDate));
+      }
+      if (selectedProj.endDate) {
+        setContractRawEndDate(ymdToDmy(selectedProj.endDate));
+      }
+      // Set type based on section
+      if (selectedProj.section === 'Pembangunan') {
+        setContractType('Pembangunan');
+      } else if (selectedProj.section === 'Operasional') {
+        setContractType('Pemeliharaan');
+      }
+    }
+  };
+
+  const handleSelectActivityAccount = (val: string) => {
+    if (!val) {
+      setContractProjectName('');
+      setContractAccountCode('');
+      return;
+    }
+    const found = activityAccounts.find(act => (act.description || act.name) === val || act.code === val);
+    if (found) {
+      setContractProjectName(found.description || found.name);
+      setContractAccountCode(found.code);
+    } else {
+      setContractProjectName(val);
+    }
+  };
+
+  // Handlers for Contract
+  const handleContractSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!contractProjectName) {
+      setActiveContractTab('utama');
+      alert('Nama Pekerjaan wajib diisi.');
+      return;
+    }
+    if (!contractNumber) {
+      setActiveContractTab('utama');
+      alert('Nomor Kontrak wajib diisi.');
+      return;
+    }
+    if (!contractRawDate) {
+      setActiveContractTab('utama');
+      alert('Tanggal Kontrak wajib diisi.');
+      return;
+    }
+    if (!contractDuration) {
+      setActiveContractTab('utama');
+      alert('Jangka Waktu Pelaksanaan wajib diisi.');
+      return;
+    }
+    if (!contractorName) {
+      setActiveContractTab('rekanan');
+      alert('Nama Rekanan / Perusahaan wajib diisi pada tab Data Rekanan.');
+      return;
+    }
+    if (!contractAmount || contractAmount <= 0) {
+      setActiveContractTab('utama');
+      alert('Nilai Kontrak (Rupiah) wajib diisi dengan nilai lebih dari 0 pada tab Data Utama.');
+      return;
+    }
+
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(contractRawDate)) {
+      setActiveContractTab('utama');
+      alert('Format tanggal Kontrak salah. Silakan masukkan format dd/mm/yyyy (contoh: 25/05/2026)');
+      return;
+    }
+
+    if (contractSppbjRawDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(contractSppbjRawDate)) {
+      setActiveContractTab('utama');
+      alert('Format tanggal SPPBJ salah. Silakan gunakan format dd/mm/yyyy atau kosongkan.');
+      return;
+    }
+
+    if (contractSpmkRawDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(contractSpmkRawDate)) {
+      setActiveContractTab('utama');
+      alert('Format tanggal SPMK salah. Silakan gunakan format dd/mm/yyyy atau kosongkan.');
+      return;
+    }
+
+    if (contractSplRawDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(contractSplRawDate)) {
+      setActiveContractTab('utama');
+      alert('Format tanggal SPL salah. Silakan gunakan format dd/mm/yyyy atau kosongkan.');
+      return;
+    }
+
+    if (contractClosingDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(contractClosingDate)) {
+      setActiveContractTab('addendum');
+      alert('Format tanggal Kontrak Penutup salah. Silakan gunakan format dd/mm/yyyy atau kosongkan.');
+      return;
+    }
+
+    // Duplicate contract number or project name validation to avoid double records
+    const isDuplicateNumber = contracts.some(c => 
+      (!editingContract || c.id !== editingContract.id) &&
+      c.contractNumber.trim().toLowerCase() === contractNumber.trim().toLowerCase()
+    );
+
+    if (isDuplicateNumber) {
+      setActiveContractTab('utama');
+      alert(`Nomor Kontrak "${contractNumber}" sudah terdaftar dalam sistem. Silakan gunakan Nomor Kontrak lain untuk menghindari data ganda.`);
+      return;
+    }
+
+    const isDuplicateName = contracts.some(c => 
+      (!editingContract || c.id !== editingContract.id) &&
+      c.projectName.trim().toLowerCase() === contractProjectName.trim().toLowerCase()
+    );
+
+    if (isDuplicateName) {
+      setActiveContractTab('utama');
+      alert(`Nama Pekerjaan "${contractProjectName}" sudah terdaftar dalam sistem. Silakan gunakan Nama Pekerjaan lain untuk menghindari data ganda.`);
+      return;
+    }
+
+    const standardDate = dmyToYmd(contractRawDate);
+    const standardSppbjDate = contractSppbjRawDate ? dmyToYmd(contractSppbjRawDate) : '';
+    const standardSpmkDate = contractSpmkRawDate ? dmyToYmd(contractSpmkRawDate) : '';
+    const standardSplDate = contractSplRawDate ? dmyToYmd(contractSplRawDate) : '';
+    const standardClosingDate = contractClosingDate ? dmyToYmd(contractClosingDate) : '';
+
+    if (editingContract) {
+      const updated = contracts.map(c => c.id === editingContract.id ? {
+        ...c,
+        projectName: contractProjectName,
+        accountCode: contractAccountCode,
+        contractNumber,
+        contractDate: standardDate,
+        sppbjNumber: contractSppbjNumber,
+        sppbjDate: standardSppbjDate,
+        spmkNumber: contractSpmkNumber,
+        spmkDate: standardSpmkDate,
+        splNumber: contractSplNumber,
+        splDate: standardSplDate,
+        duration: contractDuration,
+        // safe fallbacks for optional original fields to avoid crashing
+        contractorName: contractorName || '-',
+        amount: Number(contractAmount) || 0,
+        startDate: standardDate,
+        endDate: standardDate,
+        status: contractStatus,
+        notes: contractNotes,
+
+        // new dynamic properties
+        addendums: contractAddendums,
+        closingContractNumber: contractClosingNumber,
+        closingContractDate: standardClosingDate,
+        closingClosingNotes: contractClosingNotes,
+        pejabatPPK,
+        nipPPK,
+        pejabatPPTK,
+        nipPPTK,
+        pejabatPengawas,
+        nipPengawas,
+        rekananDirektur,
+        rekananNpwp,
+        rekananAddress,
+        rekananBankName,
+        rekananBankAccount,
+        rekananBankBranch
+      } : c);
+      setContracts(updated);
+      setEditingContract(null);
+    } else {
+      const newContract: Contract = {
+        id: 'ctr-' + Date.now(),
+        projectName: contractProjectName,
+        accountCode: contractAccountCode,
+        contractNumber,
+        contractDate: standardDate,
+        sppbjNumber: contractSppbjNumber,
+        sppbjDate: standardSppbjDate,
+        spmkNumber: contractSpmkNumber,
+        spmkDate: standardSpmkDate,
+        splNumber: contractSplNumber,
+        splDate: standardSplDate,
+        duration: contractDuration,
+        // safe fallbacks for optional original fields to avoid crashing
+        contractorName: contractorName || '-',
+        amount: Number(contractAmount) || 0,
+        startDate: standardDate,
+        endDate: standardDate,
+        status: contractStatus,
+        notes: contractNotes,
+
+        // new dynamic properties
+        addendums: contractAddendums,
+        closingContractNumber: contractClosingNumber,
+        closingContractDate: standardClosingDate,
+        closingClosingNotes: contractClosingNotes,
+        pejabatPPK,
+        nipPPK,
+        pejabatPPTK,
+        nipPPTK,
+        pejabatPengawas,
+        nipPengawas,
+        rekananDirektur,
+        rekananNpwp,
+        rekananAddress,
+        rekananBankName,
+        rekananBankAccount,
+        rekananBankBranch
+      };
+      setContracts([newContract, ...contracts]);
+    }
+
+    setIsContractFormOpen(false);
+  };
+
+  const handleStartEditContract = (c: Contract) => {
+    setEditingContract(c);
+    setContractProjectName(c.projectName);
+    setContractAccountCode(c.accountCode || '');
+    setContractNumber(c.contractNumber);
+    setContractRawDate(ymdToDmy(c.contractDate));
+    setContractSppbjNumber(c.sppbjNumber || '');
+    setContractSppbjRawDate(c.sppbjDate ? ymdToDmy(c.sppbjDate) : '');
+    setContractSpmkNumber(c.spmkNumber || '');
+    setContractSpmkRawDate(c.spmkDate ? ymdToDmy(c.spmkDate) : '');
+    setContractSplNumber(c.splNumber || '');
+    setContractSplRawDate(c.splDate ? ymdToDmy(c.splDate) : '');
+    setContractDuration(c.duration || '');
+
+    setContractorName(c.contractorName || '');
+    setContractAmount(c.amount || 0);
+    setContractRawStartDate(c.startDate ? ymdToDmy(c.startDate) : '');
+    setContractRawEndDate(c.endDate ? ymdToDmy(c.endDate) : '');
+    setContractType('Pembangunan');
+    setContractStatus(c.status || 'Aktif');
+    setContractNotes(c.notes || '');
+
+    // Set additional ones
+    setContractAddendums(c.addendums || []);
+    setContractClosingNumber(c.closingContractNumber || '');
+    setContractClosingDate(c.closingContractDate ? ymdToDmy(c.closingContractDate) : '');
+    setContractClosingNotes(c.closingClosingNotes || '');
+    setPejabatPPK(c.pejabatPPK || '');
+    setNipPPK(c.nipPPK || '');
+    setPejabatPPTK(c.pejabatPPTK || '');
+    setNipPPTK(c.nipPPTK || '');
+    setPejabatPengawas(c.pejabatPengawas || '');
+    setNipPengawas(c.nipPengawas || '');
+    setRekananDirektur(c.rekananDirektur || '');
+    setRekananNpwp(c.rekananNpwp || '');
+    setRekananAddress(c.rekananAddress || '');
+    setRekananBankName(c.rekananBankName || '');
+    setRekananBankAccount(c.rekananBankAccount || '');
+    setRekananBankBranch(c.rekananBankBranch || '');
+
+    setActiveContractTab('utama');
+    setIsContractFormOpen(true);
+  };
+
+  const handleDeleteContract = (id: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data kontrak ini?')) {
+      setContracts(contracts.filter(c => c.id !== id));
+    }
+  };
+
+  const handleAddAddendumToList = () => {
+    if (!tempAddendumNumber) {
+      alert('Nomor Addendum wajib diisi.');
+      return;
+    }
+    if (!tempAddendumDate) {
+      alert('Tanggal Addendum wajib diisi.');
+      return;
+    }
+    const newItem = {
+      id: 'add-' + Date.now(),
+      number: tempAddendumNumber,
+      date: tempAddendumDate,
+      description: tempAddendumDescription || '',
+      amount: Number(tempAddendumAmount) || 0,
+      duration: tempAddendumDuration || ''
+    };
+    setContractAddendums([...contractAddendums, newItem]);
+    setTempAddendumNumber('');
+    setTempAddendumDate('');
+    setTempAddendumDescription('');
+    setTempAddendumAmount(0);
+    setTempAddendumDuration('');
+  };
+
+  const handleRemoveAddendumFromList = (id: string) => {
+    setContractAddendums(contractAddendums.filter(item => item.id !== id));
+  };
+
 
   // BAPP Form states
   const [isBappFormOpen, setIsBappFormOpen] = useState(false);
@@ -1505,9 +1902,15 @@ export default function Penatausahaan({
       case 'personalia': return 'Cari nama / NIP pegawai...';
       case 'aset_inventaris': return 'Cari nama, kode, atau lokasi aset...';
       case 'keuangan': 
-        return financeSubTab === 'rekening_kegiatan' 
-          ? 'Cari kode kegiatan, nama belanja, program...' 
-          : 'Cari transaksi, deskripsi, atau kategori kas...';
+        if (financeSubTab === 'rekening_kegiatan') {
+          return 'Cari kode kegiatan, nama belanja, program...';
+        } else if (financeSubTab === 'spj_rutin') {
+          return 'Cari SPJ, nomor berkas, kegunaan...';
+        } else if (financeSubTab === 'bapp') {
+          return 'Cari BAPP, nomor kontrak, pelaksana, paket pekerjaan...';
+        } else {
+          return 'Cari kode kegiatan, rekening, SPJ, atau dokumen...';
+        }
       default: return 'Cari...';
     }
   };
@@ -5621,22 +6024,11 @@ export default function Penatausahaan({
               }`}
             >
               <CheckCircle className="w-3.5 h-3.5" />
-              <span>BAPP</span>
-            </button>
-            <button
-              onClick={() => setFinanceSubTab('transaksi')}
-              className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                financeSubTab === 'transaksi'
-                  ? 'border-blue-700 text-blue-700 font-extrabold'
-                  : 'border-transparent text-slate-400 hover:text-slate-650'
-              }`}
-            >
-              <Wallet className="w-3.5 h-3.5" />
-              <span>Transaksi Keuangan (Buku Kas)</span>
+              <span>Data Kontrak</span>
             </button>
           </div>
 
-          {financeSubTab === 'transaksi' && (
+          {false && (
             <>
               {/* Budget balance summaries */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -6544,164 +6936,559 @@ export default function Penatausahaan({
 
           {financeSubTab === 'bapp' && (
             <div className="space-y-4 font-sans text-left animate-fadeIn">
-              {/* Summary cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
-                    <CheckCircle className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Total BAP Lunas</div>
-                    <div className="text-sm font-bold text-slate-800">
-                      {formatRupiah(bappDocuments.filter(b => b.status === 'Lunas').reduce((acc, curr) => acc + curr.amount, 0))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                  <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                    <TrendingUp className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Pekerjaan Rampung (Fisik 100%)</div>
-                    <div className="text-sm font-bold text-slate-800">
-                      {bappDocuments.filter(b => b.progress === 100).length} Laporan PHO/FHO
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-                  <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-650 flex items-center justify-center font-bold">
-                    <FileText className="w-5 h-5 text-rose-600" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Menunggu Verifikasi Pembayaran</div>
-                    <div className="text-sm font-bold text-slate-800">
-                      {bappDocuments.filter(b => b.status === 'Diverifikasi').length} Berkas
-                    </div>
-                  </div>
-                </div>
+              {/* BAPP Sub-Navigation (Tab Switcher) */}
+              <div className="flex border-b border-slate-150 gap-4 mb-2 overflow-x-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setBappSubTab('data_kontrak')}
+                  className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    bappSubTab === 'data_kontrak'
+                      ? 'border-blue-700 text-blue-700 font-extrabold'
+                      : 'border-transparent text-slate-400 hover:text-slate-655'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Data Kontrak</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBappSubTab('berkas_bapp')}
+                  className={`pb-2.5 px-1 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    bappSubTab === 'berkas_bapp'
+                      ? 'border-blue-700 text-blue-700 font-extrabold'
+                      : 'border-transparent text-slate-400 hover:text-slate-655'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Berkas BAPP / BAP</span>
+                </button>
               </div>
 
-              {/* Action Header bar for BAPP */}
-              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div className="text-xs text-slate-500 font-medium">
-                  Berita Acara Pembayaran & Penyerahan (BAPP) Pembangunan & Pemeliharaan UPTD SDA Wilayah
-                </div>
-                {canWriteKeuangan ? (
-                  <button
-                    onClick={() => {
-                      setEditingBapp(null);
-                      setBappNumber('BAPP/PEMB/' + new Date().getFullYear() + '/' + (bappDocuments.length + 104));
-                      setBappDate(new Date().toISOString().split('T')[0]);
-                      setBappProjectName('');
-                      setBappContractor('');
-                      setBappAmount(0);
-                      setBappProgress(0);
-                      setBappTerms('Termin I (30%)');
-                      setBappVerifiedBy('');
-                      setBappStatus('Draft');
-                      setIsBappFormOpen(true);
-                    }}
-                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Buat BAPP Baru</span>
-                  </button>
-                ) : (
-                  <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
-                    *Hanya staf Keuangan / Admin yang dapat mengedit Berita Acara (BAPP)
-                  </div>
-                )}
-              </div>
+              {bappSubTab === 'berkas_bapp' ? (
+                <>
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fadeIn font-sans">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
+                        <CheckCircle className="w-5 h-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Total BAP Lunas</div>
+                        <div className="text-sm font-bold text-slate-800">
+                          {formatRupiah(bappDocuments.filter(b => b.status === 'Lunas').reduce((acc, curr) => acc + curr.amount, 0))}
+                        </div>
+                      </div>
+                    </div>
 
-              {/* BAPP Table */}
-              <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
-                        <th className="p-4 text-center w-12">No</th>
-                        <th className="p-4 w-44">Nomor BAPP</th>
-                        <th className="p-4 w-28">Tanggal</th>
-                        <th className="p-4 min-w-[200px]">Nama Paket Pekerjaan</th>
-                        <th className="p-4">Pelaksana / Kontraktor</th>
-                        <th className="p-4 text-right">Nilai Termin (Rp)</th>
-                        <th className="p-4 w-36">Kemajuan Fisik</th>
-                        <th className="p-4">Tahapan / Termin</th>
-                        <th className="p-4">Pejabat Verifikasi</th>
-                        <th className="p-4 w-24 text-center">Status</th>
-                        {canWriteKeuangan && <th className="p-4 w-24 text-center">Aksi</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs text-slate-650">
-                      {bappDocuments.length > 0 ? (
-                        bappDocuments.map((bapp, idx) => (
-                          <tr key={bapp.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
-                            <td className="p-4 font-mono font-bold text-indigo-755">{bapp.number}</td>
-                            <td className="p-4 font-mono whitespace-nowrap">{formatToIndoDate(bapp.date)}</td>
-                            <td className="p-4 font-semibold text-slate-800">{bapp.projectName}</td>
-                            <td className="p-4 font-bold text-slate-700">{bapp.contractor}</td>
-                            <td className="p-4 text-right font-black text-slate-800">{formatRupiah(bapp.amount)}</td>
-                            <td className="p-4">
-                              <div className="space-y-1">
-                                <div className="flex justify-between items-center text-[10px] font-mono font-black text-slate-500">
-                                  <span>{bapp.progress}%</span>
-                                  <span>Target</span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                  <div 
-                                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
-                                    style={{ width: `${bapp.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-4 font-bold text-indigo-600">{bapp.terms}</td>
-                            <td className="p-4 text-slate-450 font-medium whitespace-nowrap">{bapp.verifiedBy || <em className="text-slate-300">Belum didata</em>}</td>
-                            <td className="p-4 text-center">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
-                                bapp.status === 'Lunas' ? 'bg-emerald-50 text-emerald-850 border-emerald-150' :
-                                bapp.status === 'Diverifikasi' ? 'bg-indigo-50 text-indigo-855 border-indigo-150' :
-                                'bg-slate-50 text-slate-600 border-slate-205'
-                              }`}>
-                                {bapp.status}
-                              </span>
-                            </td>
-                            {canWriteKeuangan && (
-                              <td className="p-4 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={() => handleStartEditBapp(bapp)}
-                                    className="text-blue-500 hover:text-blue-750 hover:bg-blue-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
-                                    title="Edit BAPP"
-                                  >
-                                    <Edit3 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteBapp(bapp.id)}
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
-                                    title="Hapus BAPP"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            )}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                        <TrendingUp className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Pekerjaan Rampung (Fisik 100%)</div>
+                        <div className="text-sm font-bold text-slate-800">
+                          {bappDocuments.filter(b => b.progress === 100).length} Laporan PHO/FHO
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-650 flex items-center justify-center font-bold">
+                        <FileText className="w-5 h-5 text-rose-600" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Menunggu Verifikasi Pembayaran</div>
+                        <div className="text-sm font-bold text-slate-800">
+                          {bappDocuments.filter(b => b.status === 'Diverifikasi').length} Berkas
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Header bar for BAPP */}
+                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="text-xs text-slate-500 font-medium">
+                      Berita Acara Pembayaran & Penyerahan (BAPP) Pembangunan & Pemeliharaan UPTD SDA Wilayah
+                    </div>
+                    {canWriteKeuangan ? (
+                      <button
+                        onClick={() => {
+                          setEditingBapp(null);
+                          setBappNumber('BAPP/PEMB/' + new Date().getFullYear() + '/' + (bappDocuments.length + 104));
+                          setBappDate(new Date().toISOString().split('T')[0]);
+                          setBappProjectName('');
+                          setBappContractor('');
+                          setBappAmount(0);
+                          setBappProgress(0);
+                          setBappTerms('Termin I (30%)');
+                          setBappVerifiedBy('');
+                          setBappStatus('Draft');
+                          setIsBappFormOpen(true);
+                        }}
+                        className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Buat BAPP Baru</span>
+                      </button>
+                    ) : (
+                      <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                        *Hanya staf Keuangan / Admin yang dapat mengedit Berita Acara (BAPP)
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BAPP Table */}
+                  <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
+                            <th className="p-4 text-center w-12">No</th>
+                            <th className="p-4 w-44">Nomor BAPP</th>
+                            <th className="p-4 w-28">Tanggal</th>
+                            <th className="p-4 min-w-[200px]">Nama Paket Pekerjaan</th>
+                            <th className="p-4">Pelaksana / Kontraktor</th>
+                            <th className="p-4 text-right">Nilai Termin (Rp)</th>
+                            <th className="p-4 w-36">Kemajuan Fisik</th>
+                            <th className="p-4">Tahapan / Termin</th>
+                            <th className="p-4">Pejabat Verifikasi</th>
+                            <th className="p-4 w-24 text-center">Status</th>
+                            {canWriteKeuangan && <th className="p-4 w-24 text-center">Aksi</th>}
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={canWriteKeuangan ? 11 : 10} className="p-10 text-center text-slate-400">
-                            Belum ada dokumen Berita Acara Pembayaran & Penyerahan (BAPP) terdaftar.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs text-slate-650">
+                          {bappDocuments.length > 0 ? (
+                            bappDocuments.map((bapp, idx) => (
+                              <tr key={bapp.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="p-4 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                                <td className="p-4 font-mono font-bold text-indigo-755">{bapp.number}</td>
+                                <td className="p-4 font-mono whitespace-nowrap">{formatToIndoDate(bapp.date)}</td>
+                                <td className="p-4 font-semibold text-slate-800">{bapp.projectName}</td>
+                                <td className="p-4 font-bold text-slate-700">{bapp.contractor}</td>
+                                <td className="p-4 text-right font-black text-slate-800">{formatRupiah(bapp.amount)}</td>
+                                <td className="p-4">
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between items-center text-[10px] font-mono font-black text-slate-500">
+                                      <span>{bapp.progress}%</span>
+                                      <span>Target</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden font-sans">
+                                      <div 
+                                        className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
+                                        style={{ width: `${bapp.progress}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-4 font-bold text-indigo-600">{bapp.terms}</td>
+                                <td className="p-4 text-slate-450 font-medium whitespace-nowrap">{bapp.verifiedBy || <em className="text-slate-300">Belum didata</em>}</td>
+                                <td className="p-4 text-center">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
+                                    bapp.status === 'Lunas' ? 'bg-emerald-50 text-emerald-855 border-emerald-150' :
+                                    bapp.status === 'Diverifikasi' ? 'bg-indigo-50 text-indigo-855 border-indigo-150' :
+                                    'bg-slate-50 text-slate-600 border-slate-205'
+                                  }`}>
+                                    {bapp.status}
+                                  </span>
+                                </td>
+                                {canWriteKeuangan && (
+                                  <td className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        onClick={() => handleStartEditBapp(bapp)}
+                                        className="text-blue-500 hover:text-blue-750 hover:bg-blue-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                        title="Edit BAPP"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteBapp(bapp.id)}
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                        title="Hapus BAPP"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={canWriteKeuangan ? 11 : 10} className="p-10 text-center text-slate-400 font-medium">
+                                Belum ada dokumen Berita Acara Pembayaran & Penyerahan (BAPP) terdaftar.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Data Kontrak sub-page */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fadeIn font-sans">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <Briefcase className="w-5 h-5 text-indigo-650" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400 font-sans">Total Paket Pekerjaan</div>
+                        <div className="text-sm font-bold text-slate-800 font-sans">
+                          {contracts.length} Dokumen Kontrak / SPK
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                        <FileCheck className="w-5 h-5 text-emerald-650" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400 font-sans">Kode Rekening Terkait</div>
+                        <div className="text-sm font-bold text-slate-800 font-sans">
+                          {new Set(contracts.map(c => c.accountCode).filter(Boolean)).size} Rekening Kegiatan
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                      <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-655 flex items-center justify-center font-bold">
+                        <Layers className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400 font-sans">Jangka Waktu Pelaksanaan</div>
+                        <div className="text-sm font-bold text-slate-800 font-sans">
+                          {contracts.filter(c => c.duration).length} Berkas Memiliki Estimasi Durasi
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Header bar for Contracts */}
+                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="text-xs text-slate-500 font-medium font-sans">
+                      Data Kontrak & Surat Perintah Kerja (SPK) UPTD SDA Wilayah
+                    </div>
+                    {canWriteKeuangan ? (
+                      <button
+                        onClick={() => {
+                          setEditingContract(null);
+                          setContractNumber('CTR/SDA/PEMB/' + new Date().getFullYear() + '/' + (contracts.length + 101));
+                          setContractRawDate(ymdToDmy(new Date().toISOString().substring(0, 10)));
+                          setContractProjectName('');
+                          setContractorName('');
+                          setContractAmount(0);
+                          setContractRawStartDate(ymdToDmy(new Date().toISOString().substring(0, 10)));
+                          setContractRawEndDate(ymdToDmy(new Date().toISOString().substring(0, 10)));
+                          setContractType('Pembangunan');
+                          setContractStatus('Aktif');
+                          setContractNotes('');
+
+                          // reset details
+                          setContractAddendums([]);
+                          setContractClosingNumber('');
+                          setContractClosingDate('');
+                          setContractClosingNotes('');
+                          setPejabatPPK('');
+                          setNipPPK('');
+                          setPejabatPPTK('');
+                          setNipPPTK('');
+                          setPejabatPengawas('');
+                          setNipPengawas('');
+                          setRekananDirektur('');
+                          setRekananNpwp('');
+                          setRekananAddress('');
+                          setRekananBankName('');
+                          setRekananBankAccount('');
+                          setRekananBankBranch('');
+
+                          // reset temp addendum inputs
+                          setTempAddendumNumber('');
+                          setTempAddendumDate('');
+                          setTempAddendumDescription('');
+                          setTempAddendumAmount(0);
+                          setTempAddendumDuration('');
+
+                          setActiveContractTab('utama');
+                          setIsContractFormOpen(true);
+                        }}
+                        className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1 shadow cursor-pointer transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Buat Kontrak Baru</span>
+                      </button>
+                    ) : (
+                      <div className="text-[10px] bg-slate-100 px-2 py-1 text-slate-500 rounded font-medium">
+                        *Hanya staf Keuangan / Admin yang dapat mengedit Kontrak Kerja
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Contracts Table */}
+                  <div className="bg-white rounded-2xl border border-slate-150 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-150">
+                            <th className="p-4 text-center w-12">No</th>
+                            <th className="p-4 min-w-[200px]">Nama Paket Pekerjaan</th>
+                            <th className="p-4 w-32">Kode Rekening</th>
+                            <th className="p-4 w-40">No. Kontrak / Tanggal</th>
+                            <th className="p-4 w-40">No. SPPBJ / Tanggal</th>
+                            <th className="p-4 w-40">No. SPMK / Tanggal</th>
+                            <th className="p-4 w-40">No. SPL / Tanggal</th>
+                            <th className="p-4 w-32 text-center">Jangka Waktu</th>
+                            <th className="p-4 w-32 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs text-slate-650">
+                          {contracts.length > 0 ? (
+                            contracts.map((c, idx) => (
+                              <React.Fragment key={c.id}>
+                                <tr className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="p-4 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
+                                  <td className="p-4 font-semibold text-slate-800">
+                                    <div className="text-slate-800 font-bold text-xs">{c.projectName}</div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono">
+                                      <span className="bg-rose-50 text-rose-750 font-extrabold px-1.5 py-0.5 rounded text-[10px] border border-rose-100 flex items-center">
+                                        Nilai: {formatRupiah(c.amount || 0)}
+                                      </span>
+                                      {c.contractorName && (
+                                        <span className="bg-slate-50 text-slate-550 font-semibold px-1.5 py-0.5 rounded text-[10px] border border-slate-100 font-sans">
+                                          Rekanan: {c.contractorName}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-4 font-mono font-bold">
+                                    <span className="font-semibold bg-blue-50 text-blue-750 border border-blue-100 px-2 py-0.5 rounded text-[10px]">
+                                      {c.accountCode || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 font-mono">
+                                    <div className="font-bold text-indigo-755">{c.contractNumber}</div>
+                                    <div className="text-[10px] text-slate-400">{c.contractDate ? formatToIndoDate(c.contractDate) : '-'}</div>
+                                  </td>
+                                  <td className="p-4 font-mono">
+                                    <div className="font-bold text-slate-800">{c.sppbjNumber || '-'}</div>
+                                    {c.sppbjDate && <div className="text-[10px] text-slate-400">{formatToIndoDate(c.sppbjDate)}</div>}
+                                  </td>
+                                  <td className="p-4 font-mono">
+                                    <div className="font-bold text-slate-800">{c.spmkNumber || '-'}</div>
+                                    {c.spmkDate && <div className="text-[10px] text-slate-400">{formatToIndoDate(c.spmkDate)}</div>}
+                                  </td>
+                                  <td className="p-4 font-mono">
+                                    <div className="font-bold text-slate-800">{c.splNumber || '-'}</div>
+                                    {c.splDate && <div className="text-[10px] text-slate-400">{formatToIndoDate(c.splDate)}</div>}
+                                  </td>
+                                  <td className="p-4 text-center font-semibold text-indigo-600 font-mono">
+                                    {c.duration || '-'}
+                                  </td>
+                                  <td className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        onClick={() => setExpandedContractId(expandedContractId === c.id ? null : c.id)}
+                                        className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                          expandedContractId === c.id 
+                                            ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs' 
+                                            : 'text-slate-500 hover:text-slate-750 hover:bg-slate-50 border-slate-200'
+                                        }`}
+                                        title={expandedContractId === c.id ? "Sembunyikan Rincian" : "Tampilkan Rincian Detail"}
+                                      >
+                                        <Eye className="w-4 h-4 animate-pulse" />
+                                      </button>
+                                      {canWriteKeuangan && (
+                                        <>
+                                          <button
+                                            onClick={() => handleStartEditContract(c)}
+                                            className="text-blue-500 hover:text-blue-750 hover:bg-blue-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                            title="Edit Kontrak"
+                                          >
+                                            <Edit3 className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteContract(c.id)}
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                                            title="Hapus Kontrak"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {expandedContractId === c.id && (
+                                  <tr className="bg-slate-50/75 transition-all text-xs">
+                                    <td colSpan={9} className="p-4 border-b border-slate-200">
+                                      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 text-left">
+                                        
+                                        {/* Header Detail */}
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                          <div className="flex items-center space-x-2 text-slate-800">
+                                            <div className="h-6 w-6 bg-blue-50 rounded-md flex items-center justify-center font-bold text-blue-600">
+                                              <Eye className="w-3.5 h-3.5" />
+                                            </div>
+                                            <span className="font-extrabold text-[11px] uppercase tracking-wider text-slate-700">Rincian Lengkap Data Kontrak # {c.contractNumber}</span>
+                                          </div>
+                                          <span className={`px-2 py-0.5 text-[9px] uppercase font-black tracking-wide rounded-full border ${
+                                            c.status === 'Aktif' 
+                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                                          }`}>
+                                            Status: {c.status || 'Aktif'}
+                                          </span>
+                                        </div>
+
+                                        {/* Status & Nilai Kontrak Overview */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs">
+                                          <div className="text-left animate-fadeIn">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Nama Pekerjaan</span>
+                                            <span className="font-extrabold text-slate-800 text-xs">{c.projectName}</span>
+                                          </div>
+                                          <div className="text-left animate-fadeIn">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">Kode Rekening</span>
+                                            <span className="font-bold font-mono text-blue-700 inline-block bg-blue-50 border border-blue-100 px-2 py-0.5 rounded text-[11px] mt-0.5">{c.accountCode || '-'}</span>
+                                          </div>
+                                          <div className="text-left animate-fadeIn">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider font-sans">Nilai Kontrak Utama</span>
+                                            <span className="font-black font-mono text-rose-700 text-sm inline-block bg-rose-50 border border-rose-100 px-2 py-0.5 rounded mt-0.5">{formatRupiah(c.amount || 0)}</span>
+                                          </div>
+                                        </div>
+
+                                        {/* Grid detail */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          
+                                          {/* Kolom Kiri: Pejabat Pelaksana */}
+                                          <div className="space-y-3 bg-slate-50/50 p-3.5 rounded-lg border border-slate-100 text-left">
+                                            <h5 className="font-black text-[9px] uppercase tracking-widest text-indigo-700 flex items-center gap-1">
+                                              <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                              Pejabat Pendukung Lapangan
+                                            </h5>
+                                            
+                                            <div className="space-y-2">
+                                              <div className="text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Pejabat Pembuat Komitmen (PPK)</div>
+                                                <div className="font-bold text-slate-800">{c.pejabatPPK || '-'}</div>
+                                                <div className="text-[10px] text-slate-500 font-mono font-medium">NIP. {c.nipPPK || '-'}</div>
+                                              </div>
+                                              <div className="border-t border-slate-100 my-1 pt-1 text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Pejabat Pelaksana Teknis Kegiatan (PPTK)</div>
+                                                <div className="font-bold text-slate-800">{c.pejabatPPTK || '-'}</div>
+                                                <div className="text-[10px] text-slate-500 font-mono font-medium">NIP. {c.nipPPTK || '-'}</div>
+                                              </div>
+                                              <div className="border-t border-slate-100 my-1 pt-1 text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Pejabat / Petugas Pengawas Lapangan</div>
+                                                <div className="font-bold text-slate-800">{c.pejabatPengawas || '-'}</div>
+                                                <div className="text-[10px] text-slate-500 font-mono font-medium">{c.nipPengawas || '-'}</div>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Kolom Kanan: Rincian Rekanan */}
+                                          <div className="space-y-3 bg-slate-50/50 p-3.5 rounded-lg border border-slate-100 text-left">
+                                            <h5 className="font-black text-[9px] uppercase tracking-widest text-blue-700 flex items-center gap-1">
+                                              <span className="h-1.5 w-1.5 bg-blue-500 rounded-full"></span>
+                                              Data Rekanan / Penyedia Jasa
+                                            </h5>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                              <div className="text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Nama Perusahaan</div>
+                                                <div className="font-bold text-slate-800">{c.contractorName || '-'}</div>
+                                              </div>
+                                              <div className="text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Direktur / Pimpinan</div>
+                                                <div className="font-semibold text-slate-800">{c.rekananDirektur || '-'}</div>
+                                              </div>
+                                              <div className="col-span-2 text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">NPWP Perusahaan</div>
+                                                <div className="font-mono text-slate-800 font-medium">{c.rekananNpwp || '-'}</div>
+                                              </div>
+                                              <div className="col-span-2 text-left">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Alamat Lengkap Perusahaan</div>
+                                                <div className="font-medium text-slate-600">{c.rekananAddress || '-'}</div>
+                                              </div>
+                                              <div className="col-span-2 border-t border-slate-100 pt-1 text-left">
+                                                <div className="text-[9px] text-blue-600 font-bold uppercase tracking-wider font-mono">Rekening Bank Penyedia</div>
+                                                <div className="font-semibold text-slate-800">{c.rekananBankName || '-'}</div>
+                                                <div className="font-mono font-bold text-blue-800 text-[11px]">{c.rekananBankAccount || '-'} <span className="font-sans text-[10px] text-slate-500 font-normal">({c.rekananBankBranch || 'Cabang -'})</span></div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Baris 3: Addendum & Closing */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-3">
+                                          
+                                          {/* Addendum */}
+                                          <div className="space-y-2 text-left">
+                                            <div className="text-[9px] text-yellow-600 font-black uppercase tracking-wider flex items-center gap-1">
+                                              <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full"></span>
+                                              Riwayat Addendum Kontrak ({c.addendums?.length || 0})
+                                            </div>
+                                            {c.addendums && c.addendums.length > 0 ? (
+                                              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                                {c.addendums.map((add, idx) => (
+                                                  <div key={idx} className="p-2 border border-slate-100 rounded-lg bg-yellow-50/20 text-left">
+                                                    <div className="font-bold text-slate-800 flex items-center justify-between">
+                                                      <span>Addendum Ke-{idx + 1}: <span className="font-mono text-yellow-700">{add.number}</span></span>
+                                                      <span className="text-[10px] font-medium text-slate-500 font-mono">{add.date}</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-600 font-medium">Uraian: {add.description || 'Tidak ada uraian'}</div>
+                                                    {(add.amount && add.amount > 0) || add.duration ? (
+                                                      <div className="text-[10px] mt-0.5 font-bold flex flex-wrap gap-x-2 text-slate-700">
+                                                        {add.amount && add.amount > 0 && <span className="text-emerald-700">Nilai: {formatRupiah(add.amount)}</span>}
+                                                        {add.duration && <span className="text-blue-700 font-sans">Waktu: + {add.duration}</span>}
+                                                      </div>
+                                                    ) : null}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <div className="text-[11px] text-slate-400 italic py-2 bg-slate-50 rounded-lg text-center font-medium">Belum ada kontrak addendum terdaftar.</div>
+                                            )}
+                                          </div>
+
+                                          {/* Closing */}
+                                          <div className="space-y-2 text-left">
+                                            <div className="text-[9px] text-red-600 font-black uppercase tracking-wider flex items-center gap-1">
+                                              <span className="h-1.5 w-1.5 bg-red-500 rounded-full"></span>
+                                              Status Penyelesaian & Kontrak Penutup (Closing)
+                                            </div>
+                                            {c.closingContractNumber ? (
+                                              <div className="p-3 border border-red-150 rounded-lg bg-red-50/20 text-left space-y-1">
+                                                <div className="font-bold text-red-700">No. Kontrak Penutup: <span className="font-mono text-xs">{c.closingContractNumber}</span></div>
+                                                <div className="text-[10px] text-slate-500 font-medium font-mono font-sans">Tanggal Closing: {c.closingContractDate ? formatToIndoDate(c.closingContractDate) : '-'}</div>
+                                                {c.closingClosingNotes && <div className="text-[10px] text-slate-700 font-medium italic border-t border-slate-100 pt-1 mt-1">Catatan: {c.closingClosingNotes}</div>}
+                                              </div>
+                                            ) : (
+                                              <div className="text-[11px] text-slate-400 italic py-3 bg-slate-50/50 rounded-lg text-center font-medium flex items-center justify-center min-h-[64px]">Kontrak ini belum memiliki Kontrak Penutup / Masih Aktif.</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={9} className="p-10 text-center text-slate-400 font-medium font-sans">
+                                Belum ada data Kontrak Kerja terdaftar.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* BAPP Form Modal */}
               <AnimatePresence>
@@ -6860,6 +7647,676 @@ export default function Penatausahaan({
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
                           >
                             {editingBapp ? 'Simpan Perubahan BAPP' : 'Daftarkan BAPP'}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Data Kontrak Form Modal */}
+              <AnimatePresence>
+                {isContractFormOpen && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 font-sans select-none animate-fadeIn" onClick={() => setIsContractFormOpen(false)}>
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 w-full max-w-2xl text-left overflow-y-auto max-h-[90vh]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5 animate-pulse">
+                          <Briefcase className="w-4 h-4 text-indigo-755" />
+                          <span>{editingContract ? 'Ubah Data Kontrak / SPK' : 'Daftarkan Kontrak / SPK Baru'}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setIsContractFormOpen(false)}
+                          className="text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleContractSubmit} className="space-y-4 text-xs font-sans">
+                        
+                        {/* Tab Navigation Hub */}
+                        <div className="flex border-b border-slate-205 overflow-x-auto select-none gap-1 bg-slate-50/65 p-1 rounded-xl border border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => setActiveContractTab('utama')}
+                            className={`flex-1 py-2 px-2.5 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              activeContractTab === 'utama'
+                                ? 'bg-blue-600 text-white shadow-sm font-black'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Data Utama</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setActiveContractTab('addendum')}
+                            className={`flex-1 py-2 px-2.5 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              activeContractTab === 'addendum'
+                                ? 'bg-yellow-500 text-slate-950 shadow-sm font-black'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>Addendum & Penutup</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveContractTab('pejabat')}
+                            className={`flex-1 py-2 px-2.5 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              activeContractTab === 'pejabat'
+                                ? 'bg-teal-600 text-white shadow-sm font-black'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Pejabat Pelaksana</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveContractTab('rekanan')}
+                            className={`flex-1 py-2 px-2.5 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              activeContractTab === 'rekanan'
+                                ? 'bg-indigo-600 text-white shadow-sm font-black'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Award className="w-3.5 h-3.5" />
+                            <span>Data Rekanan</span>
+                          </button>
+                        </div>
+
+                        {/* SUB-HALAMAN 1: DATA UTAMA */}
+                        {activeContractTab === 'utama' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            {/* Bagian 1: Nama Pekerjaan & Rekening */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                Informasi Paket Pekerjaan
+                              </h4>
+                              
+                              <div>
+                                <label className="block font-bold text-slate-700 mb-1">Nama Pekerjaan (Data dari Deskripsi Kode Rekening) <span className="text-red-500">*</span></label>
+                                <select
+                                  value={activityAccounts.some(act => (act.description || act.name) === contractProjectName) ? contractProjectName : (contractProjectName ? '__manual__' : '')}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '__manual__') {
+                                      setContractProjectName('');
+                                      setContractAccountCode('');
+                                    } else {
+                                      handleSelectActivityAccount(val);
+                                    }
+                                  }}
+                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800"
+                                >
+                                  <option value="">-- Pilih Pekerjaan dari Kode Rekening --</option>
+                                  {activityAccounts.map((act, idx) => {
+                                    const actName = act.description || act.name;
+                                    const isAccountSelected = contracts.some(c => 
+                                      (!editingContract || c.id !== editingContract.id) && 
+                                      (c.projectName === actName || (c.accountCode && c.accountCode === (act.code || act.id)))
+                                    );
+                                    return (
+                                      <option 
+                                        key={act.id || act.code || idx} 
+                                        value={actName}
+                                        disabled={isAccountSelected}
+                                        className={isAccountSelected ? "text-slate-400 bg-slate-100 italic" : ""}
+                                      >
+                                        {actName}{isAccountSelected ? " (Sudah terpilih/terdaftar kontrak)" : ""}
+                                      </option>
+                                    );
+                                  })}
+                                  <option value="__manual__">-- Input Manual Nama Pekerjaan Baru --</option>
+                                </select>
+                              </div>
+
+                              {/* Kode rekening terisi otomatis */}
+                              {activityAccounts.some(act => (act.description || act.name) === contractProjectName) && (
+                                <div className="animate-fadeIn">
+                                  <label className="block font-bold text-slate-500 mb-1">Kode Rekening <span className="text-xs text-blue-600 font-normal">(Otomatis Terisi)</span></label>
+                                  <div className="p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg font-mono font-bold text-blue-800 flex items-center justify-between">
+                                    <span>{contractAccountCode || '-'}</span>
+                                    <span className="text-[9px] uppercase px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-sans tracking-wide">Tersinkron</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Input manual override */}
+                              {(!activityAccounts.some(act => (act.description || act.name) === contractProjectName) || contractProjectName === '') && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-fadeIn">
+                                  <div className="md:col-span-2">
+                                    <label className="block font-bold text-slate-700 mb-1">Nama Pekerjaan <span className="text-red-500">*</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractProjectName}
+                                      onChange={(e) => setContractProjectName(e.target.value)}
+                                      placeholder="Ketik deskripsi pekerjaan..."
+                                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-bold text-slate-700 mb-1">Kode Rekening <span className="text-red-500">*</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractAccountCode}
+                                      onChange={(e) => setContractAccountCode(e.target.value)}
+                                      placeholder="misal: 5.01.03.11"
+                                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold font-mono text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="animate-fadeIn">
+                                <label className="block font-bold text-slate-700 mb-1">Nilai Kontrak (Rp) <span className="text-red-500">*</span></label>
+                                <input
+                                  type="number"
+                                  value={contractAmount || ''}
+                                  onChange={(e) => setContractAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                                  placeholder="misal: 154000000"
+                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold text-rose-700 font-sans"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            {/* Bagian 2: Informasi Kontrak & Pelaksanaan */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                Data Kontrak & Jangka Waktu
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block font-bold text-slate-700 mb-1">No. Kontrak <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="text"
+                                    value={contractNumber}
+                                    onChange={(e) => setContractNumber(e.target.value)}
+                                    placeholder="misal: 02/SP-PJ/UPTD-SDA/2026"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold font-mono text-indigo-755"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block font-bold text-slate-700 mb-1">Tgl. Kontrak <span className="text-xs text-slate-400 font-medium">(dd/mm/yyyy)</span> <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="text"
+                                    value={contractRawDate}
+                                    onChange={(e) => setContractRawDate(e.target.value)}
+                                    placeholder="02/03/2026"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block font-bold text-slate-700 mb-1">Jangka Waktu Pelaksanaan <span className="text-red-500">*</span></label>
+                                  <input
+                                    type="text"
+                                    value={contractDuration}
+                                    onChange={(e) => setContractDuration(e.target.value)}
+                                    placeholder="misal: 90 Hari Kalender"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold text-teal-650"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bagian 3: Dokumen Pendukung Lapangan */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                Dokumen Pendukung Fisik (SPPBJ, SPMK, SPL)
+                              </h4>
+
+                              <div className="space-y-2.5">
+                                {/* SPPBJ */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-2 bg-white rounded-lg border border-slate-100">
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">No. SPPBJ</label>
+                                    <input
+                                      type="text"
+                                      value={contractSppbjNumber}
+                                      onChange={(e) => setContractSppbjNumber(e.target.value)}
+                                      placeholder="Nomor SPPBJ..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">Tgl. SPPBJ <span className="text-xs text-slate-400 font-normal">(dd/mm/yyyy)</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractSppbjRawDate}
+                                      onChange={(e) => setContractSppbjRawDate(e.target.value)}
+                                      placeholder="dd/mm/yyyy"
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* SPMK */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-2 bg-white rounded-lg border border-slate-100">
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">No. SPMK</label>
+                                    <input
+                                      type="text"
+                                      value={contractSpmkNumber}
+                                      onChange={(e) => setContractSpmkNumber(e.target.value)}
+                                      placeholder="Nomor SPMK..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">Tgl. SPMK <span className="text-xs text-slate-400 font-normal">(dd/mm/yyyy)</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractSpmkRawDate}
+                                      onChange={(e) => setContractSpmkRawDate(e.target.value)}
+                                      placeholder="dd/mm/yyyy"
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* SPL */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-2 bg-white rounded-lg border border-slate-100">
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">No. SPL</label>
+                                    <input
+                                      type="text"
+                                      value={contractSplNumber}
+                                      onChange={(e) => setContractSplNumber(e.target.value)}
+                                      placeholder="Nomor SPL..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-bold text-slate-600 mb-1">Tgl. SPL <span className="text-xs text-slate-400 font-normal">(dd/mm/yyyy)</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractSplRawDate}
+                                      onChange={(e) => setContractSplRawDate(e.target.value)}
+                                      placeholder="dd/mm/yyyy"
+                                      className="w-full p-2 bg-slate-50 border border-slate-150 rounded-lg font-mono outline-none focus:bg-white text-slate-700"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SUB-HALAMAN 2: KONTRAK ADDENDUM & PENUTUP */}
+                        {activeContractTab === 'addendum' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            {/* Bagian 4: Lampiran Kontrak Addendum */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full"></span>
+                                Kontrak Addendum / Amandemen Jangka Waktu & Nilai
+                              </h4>
+
+                              {/* Daftar addendum yang sudah ditambahkan */}
+                              {contractAddendums.length > 0 ? (
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto mb-2">
+                                  {contractAddendums.map((add, idx) => (
+                                    <div key={add.id || idx} className="flex items-center justify-between p-2.5 bg-white border border-slate-155 rounded-lg font-sans text-xs">
+                                      <div className="text-left">
+                                        <div className="font-bold text-slate-750">Addendum Ke-{idx + 1}: <span className="text-blue-700 font-mono">{add.number}</span></div>
+                                        <div className="text-[10px] text-slate-500 font-medium">Tanggal: <span className="font-mono">{add.date}</span> | {add.duration ? `Tambahan Waktu: ${add.duration}` : 'Tanpa Tambahan Waktu'}</div>
+                                        {add.description && <div className="text-[10px] text-slate-600 italic">Keterangan: {add.description}</div>}
+                                        {add.amount && add.amount > 0 ? <div className="text-[10px] text-emerald-700 font-semibold">Perubahan Nilai: {formatRupiah(add.amount)}</div> : null}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveAddendumFromList(add.id)}
+                                        className="p-1 text-red-500 hover:bg-red-50 rounded cursor-pointer animate-pulse"
+                                        title="Hapus Addendum"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-white text-center text-slate-400 border border-slate-150 rounded-lg text-[11px] italic">
+                                  Belum ada kontrak addendum terdaftar. Silakan tambah bila kontrak mengalami perubahan/addendum lebih dari satu kali.
+                                </div>
+                              )}
+
+                              {/* Box tambah addendum */}
+                              <div className="p-3 bg-white rounded-lg border border-slate-155 space-y-2 mt-2">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Form Tambah Kontrak Addendum Baru</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 text-left">Nomor Addendum</label>
+                                    <input
+                                      type="text"
+                                      value={tempAddendumNumber}
+                                      onChange={(e) => setTempAddendumNumber(e.target.value)}
+                                      placeholder="No. Addendum..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-250 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 text-left">Tanggal Addendum <span className="text-slate-400 normal-case font-normal">(dd/mm/yyyy)</span></label>
+                                    <input
+                                      type="text"
+                                      value={tempAddendumDate}
+                                      onChange={(e) => setTempAddendumDate(e.target.value)}
+                                      placeholder="dd/mm/yyyy"
+                                      className="w-full p-2 bg-slate-50 border border-slate-250 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 text-left">Perubahan Nilai (Rp) <span className="text-slate-400 font-normal">(Bila Ada)</span></label>
+                                    <input
+                                      type="number"
+                                      value={tempAddendumAmount || ''}
+                                      onChange={(e) => setTempAddendumAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                                      placeholder="misal: 15000000"
+                                      className="w-full p-2 bg-slate-50 border border-slate-250 rounded text-xs font-bold text-slate-800 outline-none focus:bg-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 text-left">Penambahan Waktu <span className="text-slate-400 font-normal">(Bila Ada)</span></label>
+                                    <input
+                                      type="text"
+                                      value={tempAddendumDuration}
+                                      onChange={(e) => setTempAddendumDuration(e.target.value)}
+                                      placeholder="misal: 14 Hari Kalender"
+                                      className="w-full p-2 bg-slate-50 border border-slate-255 rounded text-xs outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 text-left">Materi Perubahan / Keterangan Addendum</label>
+                                  <input
+                                    type="text"
+                                    value={tempAddendumDescription}
+                                    onChange={(e) => setTempAddendumDescription(e.target.value)}
+                                    placeholder="misal: Addendum I Perpanjangan Waktu Pelaksanaan..."
+                                    className="w-full p-2 bg-slate-50 border border-slate-255 rounded text-xs outline-none focus:bg-white text-slate-800"
+                                  />
+                                </div>
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={handleAddAddendumToList}
+                                    className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-slate-900 text-[10px] font-bold rounded flex items-center gap-1 transition-colors outline-none cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    Tambah ke Daftar Addendum
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bagian 5: Kontrak Penutup */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-red-500 rounded-full"></span>
+                                Kontrak Penutup (Closing Contract)
+                              </h4>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block font-bold text-slate-600 mb-1 text-left">No. Kontrak Penutup</label>
+                                  <input
+                                    type="text"
+                                    value={contractClosingNumber}
+                                    onChange={(e) => setContractClosingNumber(e.target.value)}
+                                    placeholder="Nomor Kontrak Penutup..."
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg font-mono outline-none focus:ring-1 focus:ring-blue-500 text-slate-800"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block font-bold text-slate-600 mb-1 text-left">Tgl. Kontrak Penutup <span className="text-xs text-slate-400 font-normal">(dd/mm/yyyy)</span></label>
+                                  <input
+                                    type="text"
+                                    value={contractClosingDate}
+                                    onChange={(e) => setContractClosingDate(e.target.value)}
+                                    placeholder="dd/mm/yyyy"
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg font-mono outline-none focus:ring-1 focus:ring-blue-500 text-slate-800"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block font-bold text-slate-600 mb-1 text-left">Catatan Kontrak Penutup</label>
+                                <textarea
+                                  value={contractClosingNotes}
+                                  onChange={(e) => setContractClosingNotes(e.target.value)}
+                                  placeholder="Ketik rincian penyelesaian kontrak penutup..."
+                                  rows={2}
+                                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 font-medium"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SUB-HALAMAN 3: DATA PEJABAT PELAKSANA KEGIATAN */}
+                        {activeContractTab === 'pejabat' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            {/* Bagian 6: Data Pejabat */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-teal-500 rounded-full"></span>
+                                Data Pejabat Pelaksana Kegiatan / Pengawas
+                              </h4>
+
+                              <div className="space-y-3">
+                                {/* Pejabat Pembuat Komitment (PPK) */}
+                                <div className="p-3 bg-white rounded-lg border border-slate-150 space-y-2">
+                                  <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest text-left">Pejabat Pembuat Komitmen (PPK)</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Nama Pejabat PPK</label>
+                                      <input
+                                        type="text"
+                                        value={pejabatPPK}
+                                        onChange={(e) => setPejabatPPK(e.target.value)}
+                                        placeholder="Nama Pejabat PPK..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">NIP PPK</label>
+                                      <input
+                                        type="text"
+                                        value={nipPPK}
+                                        onChange={(e) => setNipPPK(e.target.value)}
+                                        placeholder="NIP PPK..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Pejabat Pelaksana Teknis Kegiatan (PPTK) */}
+                                <div className="p-3 bg-white rounded-lg border border-slate-150 space-y-2">
+                                  <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest text-left">Pejabat Pelaksana Teknis Kegiatan (PPTK)</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Nama Pejabat PPTK</label>
+                                      <input
+                                        type="text"
+                                        value={pejabatPPTK}
+                                        onChange={(e) => setPejabatPPTK(e.target.value)}
+                                        placeholder="Nama PPTK..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">NIP PPTK</label>
+                                      <input
+                                        type="text"
+                                        value={nipPPTK}
+                                        onChange={(e) => setNipPPTK(e.target.value)}
+                                        placeholder="NIP PPTK..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Pejabat / Pengawas Lapangan */}
+                                <div className="p-3 bg-white rounded-lg border border-slate-150 space-y-2">
+                                  <div className="text-[10px] font-bold text-teal-700 uppercase tracking-widest text-left font-sans">Pejabat / Petugas Pengawas Lapangan</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Nama Pengawas Lapangan</label>
+                                      <input
+                                        type="text"
+                                        value={pejabatPengawas}
+                                        onChange={(e) => setPejabatPengawas(e.target.value)}
+                                        placeholder="Nama Pengawas..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">NIP / Jabatan Pengawas</label>
+                                      <input
+                                        type="text"
+                                        value={nipPengawas}
+                                        onChange={(e) => setNipPengawas(e.target.value)}
+                                        placeholder="NIP Pengawas..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SUB-HALAMAN 4: DATA REKANAN */}
+                        {activeContractTab === 'rekanan' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            {/* Bagian 7: Rincian Data Rekanan (Penyedia Jasa) */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <h4 className="font-extrabold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 bg-blue-500 rounded-full"></span>
+                                Rincian Data Rekanan / Penyedia Jasa
+                              </h4>
+
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-white p-2.5 rounded-lg border border-slate-100 text-left">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nama Rekanan / Perusahaan <span className="text-red-500">*</span></label>
+                                    <input
+                                      type="text"
+                                      value={contractorName}
+                                      onChange={(e) => setContractorName(e.target.value)}
+                                      placeholder="misal: PT. Sinar Indah Konstruksi"
+                                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-bold outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nama Direktur / Penanggungjawab</label>
+                                    <input
+                                      type="text"
+                                      value={rekananDirektur}
+                                      onChange={(e) => setRekananDirektur(e.target.value)}
+                                      placeholder="Nama Direktur..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-semibold outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-100 text-left">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Nomor NPWP Perusahaan</label>
+                                    <input
+                                      type="text"
+                                      value={rekananNpwp}
+                                      onChange={(e) => setRekananNpwp(e.target.value)}
+                                      placeholder="misal: 01.234.567.8-901.000"
+                                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-100 text-left">
+                                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5 font-sans">Alamat Lengkap Kantor Penyedia</label>
+                                  <input
+                                      type="text"
+                                      value={rekananAddress}
+                                      onChange={(e) => setRekananAddress(e.target.value)}
+                                      placeholder="Jalan, No, Kota..."
+                                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs outline-none focus:bg-white text-slate-800 font-medium align-middle"
+                                  />
+                                </div>
+
+                                <div className="p-3 bg-white rounded-lg border border-slate-150 space-y-2">
+                                  <div className="text-[10px] font-bold text-blue-800 uppercase tracking-widest text-left font-mono">Informasi Rekening Bank Rekanan</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left">
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Nama Bank</label>
+                                      <input
+                                        type="text"
+                                        value={rekananBankName}
+                                        onChange={(e) => setRekananBankName(e.target.value)}
+                                        placeholder="misal: Bank Sumut"
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5 font-sans">No. Rekening Partner</label>
+                                      <input
+                                        type="text"
+                                        value={rekananBankAccount}
+                                        onChange={(e) => setRekananBankAccount(e.target.value)}
+                                        placeholder="Nomor Rekening..."
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs font-mono outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Kantor Cabang</label>
+                                      <input
+                                        type="text"
+                                        value={rekananBankBranch}
+                                        onChange={(e) => setRekananBankBranch(e.target.value)}
+                                        placeholder="misal: Cabang Utama Medan"
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs outline-none focus:bg-white text-slate-800"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsContractFormOpen(false)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            {editingContract ? 'Simpan Perubahan Kontrak' : 'Daftarkan Kontrak'}
                           </button>
                         </div>
                       </form>

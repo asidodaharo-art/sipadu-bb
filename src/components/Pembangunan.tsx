@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, User } from '../types';
 import { formatToIndoDate } from '../utils';
 import { 
@@ -61,6 +61,21 @@ export default function Pembangunan({
   const [newProgress, setNewProgress] = useState(0);
   const [newStatus, setNewStatus] = useState<Project['status']>('Perencanaan');
 
+  // Contracts state for autofill / data synchronization
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [selectedContractDuration, setSelectedContractDuration] = useState<string>('');
+
+  useEffect(() => {
+    if (isFormOpen) {
+      const savedContracts = localStorage.getItem('uptd_v3_contracts');
+      if (savedContracts) {
+        setContracts(JSON.parse(savedContracts));
+      } else {
+        setContracts([]);
+      }
+    }
+  }, [isFormOpen]);
+
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
   const canWrite = currentUser.role === 'admin' || userSections.includes('all') || 
     (isOperasionalVariant ? userSections.includes('operasional') : userSections.includes('pembangunan'));
@@ -73,6 +88,50 @@ export default function Pembangunan({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
+  };
+
+  const handleStartDateChange = (val: string, durationStr: string = selectedContractDuration) => {
+    setStartDate(val);
+    if (val && durationStr) {
+      const match = durationStr.match(/\d+/);
+      const days = match ? parseInt(match[0], 10) : 0;
+      if (days > 0) {
+        const dateObj = new Date(val);
+        if (!isNaN(dateObj.getTime())) {
+          dateObj.setDate(dateObj.getDate() + days + 1);
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          setEndDate(`${year}-${month}-${day}`);
+        }
+      }
+    }
+  };
+
+  const handleAutofillFromContract = (selectedContract: any) => {
+    setName(selectedContract.projectName || '');
+    setBudget(selectedContract.amount || 0);
+    setContractor(selectedContract.contractorName || '');
+    const duration = selectedContract.duration || '';
+    setSelectedContractDuration(duration);
+    
+    const initialStart = selectedContract.startDate || selectedContract.spmkDate || selectedContract.contractDate || '';
+    setStartDate(initialStart);
+    
+    if (initialStart && duration) {
+      const match = duration.match(/\d+/);
+      const days = match ? parseInt(match[0], 10) : 0;
+      if (days > 0) {
+        const dateObj = new Date(initialStart);
+        if (!isNaN(dateObj.getTime())) {
+          dateObj.setDate(dateObj.getDate() + days + 1);
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          setEndDate(`${year}-${month}-${day}`);
+        }
+      }
+    }
   };
 
   const handleCreateProject = (e: React.FormEvent) => {
@@ -1864,6 +1923,48 @@ export default function Pembangunan({
               </div>
 
               <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {contracts.length > 0 && (
+                  <div className="md:col-span-3 bg-blue-50/70 border border-blue-100 p-3 rounded-xl text-left animate-fadeIn">
+                    <label className="block text-[11px] font-extrabold text-blue-800 mb-1 flex items-center">
+                      <Briefcase className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                      Pilih dari Data Kontrak (Autofill Otomatis)
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        if (selectedId) {
+                          const selectedContract = contracts.find(c => c.id === selectedId);
+                          if (selectedContract) {
+                            handleAutofillFromContract(selectedContract);
+                          }
+                        }
+                      }}
+                      className="w-full p-2 bg-white border border-blue-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 font-bold text-xs cursor-pointer"
+                    >
+                      <option value="">-- Pilih Kontrak untuk Autofill Data Pekerjaan --</option>
+                      {contracts.map((c) => {
+                        const isContractUsed = projects.some(p => 
+                          (!editingProject || p.id !== editingProject.id) &&
+                          p.name.trim().toLowerCase() === c.projectName.trim().toLowerCase()
+                        );
+                        return (
+                          <option 
+                            key={c.id} 
+                            value={c.id}
+                            disabled={isContractUsed}
+                            className={isContractUsed ? "text-slate-400 bg-slate-100 italic" : "text-slate-800 font-semibold"}
+                          >
+                            {c.projectName} (No Kontrak: {c.contractNumber}) {c.duration ? `[Masa Pelaksanaan: ${c.duration}]` : ''}{isContractUsed ? " (Sudah terdaftar sebagai paket pekerjaan)" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <p className="text-[10px] text-blue-600 font-medium mt-1">
+                      *Memilih kontrak akan mengisi otomatis Pagu Anggaran, Kontraktor, Tanggal Awal, dan menghitung otomatis Tanggal Rencana Selesai (Awal + Masa Pelaksanaan + 1 hari).
+                    </p>
+                  </div>
+                )}
+
                 <div className="md:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">Nama / Judul Program Kementerian & Daerah</label>
                   <input 
@@ -1917,7 +2018,7 @@ export default function Pembangunan({
                   <input 
                     type="date" 
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-880 focus:bg-white focus:ring-1 focus:ring-blue-100 outline-none"
                     required
                   />

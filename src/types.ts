@@ -264,4 +264,57 @@ export interface BappDocument {
   status: 'Draft' | 'Diverifikasi' | 'Lunas';
 }
 
+export interface Contract {
+  id: string;
+  projectName: string;
+  accountCode: string;
+  contractNumber: string;
+  contractDate: string;
+  sppbjNumber: string;
+  sppbjDate: string;
+  spmkNumber: string;
+  spmkDate: string;
+  splNumber: string;
+  splDate: string;
+  duration: string;
+  status?: 'Aktif' | 'Selesai' | 'Amandemen' | 'Putus Kontrak';
+  contractorName?: string;
+  amount?: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+
+  // Detail Tambahan: Kontrak Addendum (bisa lebih dari satu kali)
+  addendums?: {
+    id: string;
+    number: string;
+    date: string;
+    description?: string;
+    amount?: number;
+    duration?: string;
+  }[];
+
+  // Detail Tambahan: Kontrak Penutup
+  closingContractNumber?: string;
+  closingContractDate?: string;
+  closingClosingNotes?: string;
+
+  // Detail Tambahan: Data Pejabat
+  pejabatPPK?: string;
+  nipPPK?: string;
+  pejabatPPTK?: string;
+  nipPPTK?: string;
+  pejabatPengawas?: string;
+  nipPengawas?: string;
+
+  // Detail Tambahan: Data Rekanan (Partner)
+  rekananDirektur?: string;
+  rekananNpwp?: string;
+  rekananAddress?: string;
+  rekananBankName?: string;
+  rekananBankAccount?: string;
+  rekananBankBranch?: string;
+}
+
+
 
