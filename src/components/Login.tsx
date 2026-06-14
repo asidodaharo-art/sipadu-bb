@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight, Activity, Sun, Moon } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, Database, AlertCircle, ArrowRight, Activity, Sun, Moon, Layers } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LoginProps {
@@ -203,18 +203,18 @@ export default function Login({
             <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center mb-3">
               Pintas Masuk Cepat (Akses Cepat)
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin', 'admin123')}
                 id="quick-login-admin"
                 className="p-2 border border-blue-100 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-xl text-left transition-all group pointer-cursor"
               >
-                <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-blue-800">
-                  <ShieldCheck className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                  <span>Admin</span>
+                <div className="flex items-center space-x-1.5 font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-blue-800">
+                  <ShieldCheck className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Admin</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Akses penuh sistem &amp; pengaturan</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-2">Akses penuh sistem</p>
               </button>
 
               <button
@@ -223,11 +223,11 @@ export default function Login({
                 id="quick-login-staff-pemb"
                 className="p-2 border border-cyan-100 bg-cyan-50/50 hover:bg-cyan-50 text-cyan-800 rounded-xl text-left transition-all group pointer-cursor"
               >
-                <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-cyan-900">
-                  <Database className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                  <span>Pembangunan</span>
+                <div className="flex items-center space-x-1.5 font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-900">
+                  <Database className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Pembangunan</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Input progress fisik proyek</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-2">Progress fisik proyek</p>
               </button>
 
               <button
@@ -236,11 +236,24 @@ export default function Login({
                 id="quick-login-staff-oper"
                 className="p-2 border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-800 rounded-xl text-left transition-all group pointer-cursor"
               >
-                <div className="flex items-center space-x-1.5 font-bold text-[11px] uppercase tracking-wider text-indigo-900">
-                  <Activity className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                  <span>Operasional</span>
+                <div className="flex items-center space-x-1.5 font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-indigo-900">
+                  <Activity className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Operasional</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Debit air &amp; kerusakan irigasi</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-2">Debit air &amp; kerusakan</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('surveyor', 'surveyor123')}
+                id="quick-login-staff-surveyor"
+                className="p-2 border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 rounded-xl text-left transition-all group pointer-cursor"
+              >
+                <div className="flex items-center space-x-1.5 font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-950">
+                  <Layers className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Surveyor</span>
+                </div>
+                <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-2">Input data inventaris DI</p>
               </button>
             </div>
           </div>

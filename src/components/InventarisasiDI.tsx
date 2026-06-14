@@ -296,7 +296,7 @@ export default function InventarisasiDI({ currentUser }: InventarisasiDIProps) {
 
   // Access rights check
   const userSections = currentUser.section ? currentUser.section.split(',') : [];
-  const canWrite = currentUser.role === 'admin' || userSections.includes('operasional') || userSections.includes('all');
+  const canWrite = currentUser.role === 'admin' || userSections.includes('operasional') || userSections.includes('all') || userSections.includes('surveyor');
 
   // Helper sync with localStorage
   const syncAndSetData = (newList: DaerahIrigasi[]) => {

@@ -176,7 +176,7 @@ export default function Settings({
       id: 'u-' + Math.random().toString(36).substring(2, 9),
       username: newUsername.trim(),
       name: newName,
-      role: selectedAccess.includes('all') ? 'admin' : 'staff',
+      role: selectedAccess.includes('all') ? 'admin' : (selectedAccess.includes('surveyor') && selectedAccess.length === 1 ? 'surveyor' : 'staff'),
       password: newPassword,
       section: selectedAccess.join(',')
     };
@@ -220,7 +220,7 @@ export default function Settings({
       ...editingUser,
       username: editUsername.trim(),
       name: editName,
-      role: editAccess.includes('all') ? 'admin' : 'staff',
+      role: editAccess.includes('all') ? 'admin' : (editAccess.includes('surveyor') && editAccess.length === 1 ? 'surveyor' : 'staff'),
       password: editPassword,
       section: editAccess.join(',')
     };
@@ -581,6 +581,7 @@ export default function Settings({
                                   { value: 'keuangan', label: 'Keuangan (keuangan)' },
                                   { value: 'operasional', label: 'Operasional (seksi operasional)' },
                                   { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
+                                  { value: 'surveyor', label: 'Surveyor (hanya input data inventaris DI)' },
                                   { value: 'staff', label: 'Staff (hanya pegawai yang menggunakan NIP sebagai username yang dapat mengedit data personalia)' },
                                   { value: 'all', label: 'Semua hak akses' },
                                 ].map((opt) => {
@@ -709,6 +710,7 @@ export default function Settings({
                                   { value: 'keuangan', label: 'Keuangan (keuangan)' },
                                   { value: 'operasional', label: 'Operasional (seksi operasional)' },
                                   { value: 'pembangunan', label: 'Pembangunan (seksi pembanguan)' },
+                                  { value: 'surveyor', label: 'Surveyor (hanya input data inventaris DI)' },
                                   { value: 'staff', label: 'Staff (hanya NIP sebagai username)' },
                                   { value: 'all', label: 'Semua hak akses' },
                                 ].map((opt) => {
@@ -786,6 +788,8 @@ export default function Settings({
                               return 'Operasional';
                             case 'pembangunan':
                               return 'Pembangunan';
+                            case 'surveyor':
+                              return 'Surveyor (DI)';
                             case 'staff':
                               return 'Staff (NIP)';
                             case 'all':
@@ -805,7 +809,7 @@ export default function Settings({
                             <div className="flex items-center space-x-2">
                               <strong className="text-slate-800 font-bold">{u.name}</strong>
                               <span className={`px-2 py-0.2 rounded text-[9px] font-black uppercase ${
-                                u.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                                u.role === 'admin' ? 'bg-amber-100 text-amber-800' : u.role === 'surveyor' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
                               }`}>
                                 {u.role}
                               </span>

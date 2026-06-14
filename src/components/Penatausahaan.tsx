@@ -140,21 +140,21 @@ export default function Penatausahaan({
     item !== null && item.diffDays >= 0 && item.diffDays <= 365
   );
 
-  // 2. Kenaikan Pangkat (< 1 tahun, tanggal SK terakhir + 4 tahun)
+  // 2. Kenaikan Pangkat (< 1 tahun, tanggal TMT kepangkatan terakhir + 4 tahun)
   const promotionAlerts = staff.map(s => {
     let lastSkDate: Date | null = null;
     let source = '';
     
     if (s.riwayatKepangkatan && s.riwayatKepangkatan.length > 0) {
       const sorted = [...s.riwayatKepangkatan].sort((a, b) => {
-        const da = new Date(a.tglSk || a.tmt);
-        const db = new Date(b.tglSk || b.tmt);
+        const da = new Date(a.tmt || a.tglSk);
+        const db = new Date(b.tmt || b.tglSk);
         return db.getTime() - da.getTime();
       });
       const latest = sorted[0];
-      if (latest.tglSk || latest.tmt) {
-        lastSkDate = new Date(latest.tglSk || latest.tmt);
-        source = `SK Terakhir (${latest.noSk || 'Tanpa Nomor'})`;
+      if (latest.tmt || latest.tglSk) {
+        lastSkDate = new Date(latest.tmt || latest.tglSk);
+        source = `Pangkat Terakhir: ${latest.pangkat} (${latest.golongan})${latest.noSk ? ` - No. SK: ${latest.noSk}` : ''}`;
       }
     }
     
@@ -201,14 +201,14 @@ export default function Penatausahaan({
     
     if (s.riwayatGaji && s.riwayatGaji.length > 0) {
       const sorted = [...s.riwayatGaji].sort((a, b) => {
-        const da = new Date(a.tglSk || a.tmtGaji);
-        const db = new Date(b.tglSk || b.tmtGaji);
+        const da = new Date(a.tmtGaji || a.tglSk);
+        const db = new Date(b.tmtGaji || b.tglSk);
         return db.getTime() - da.getTime();
       });
       const latest = sorted[0];
-      if (latest.tglSk || latest.tmtGaji) {
-        lastGajiDate = new Date(latest.tglSk || latest.tmtGaji);
-        source = `SK Gaji Terakhir (${latest.noSk || 'Tanpa Nomor'})`;
+      if (latest.tmtGaji || latest.tglSk) {
+        lastGajiDate = new Date(latest.tmtGaji || latest.tglSk);
+        source = `KGB Terakhir${latest.noSk ? ` - No. SK: ${latest.noSk}` : ''}`;
       }
     }
     
@@ -254,6 +254,21 @@ export default function Penatausahaan({
         ...editStaffDraft,
         [field]: value
       });
+    }
+  };
+
+  const syncMainPangkatWithHistory = (historyItems: any[]) => {
+    if (historyItems && historyItems.length > 0) {
+      const sorted = [...historyItems].sort((a, b) => {
+        const da = new Date(a.tmt || a.tglSk);
+        const db = new Date(b.tmt || b.tglSk);
+        return db.getTime() - da.getTime();
+      });
+      const latest = sorted[0];
+      if (latest && latest.pangkat) {
+        setStaffPangkat(latest.pangkat);
+        setStaffGolongan(latest.golongan);
+      }
     }
   };
 
@@ -717,17 +732,8 @@ export default function Penatausahaan({
     const isAdmin = currentUser.role === 'admin' || userSections.includes('all');
     const isPimpinan = userSections.includes('pimpinan');
     if (isAdmin || isPimpinan) return true;
-    if (subTab === 'adm_umum') {
-      return userSections.includes('adm_umum') || userSections.includes('penatausahaan');
-    }
-    if (subTab === 'personalia') {
-      return userSections.includes('personalia') || userSections.includes('staff') || userSections.includes('penatausahaan');
-    }
-    if (subTab === 'aset_inventaris') {
-      return userSections.includes('aset') || userSections.includes('penatausahaan');
-    }
-    if (subTab === 'keuangan') {
-      return userSections.includes('keuangan') || userSections.includes('penatausahaan');
+    if (subTab === 'adm_umum' || subTab === 'personalia' || subTab === 'aset_inventaris' || subTab === 'keuangan') {
+      return true;
     }
     return false;
   };
@@ -2786,10 +2792,12 @@ export default function Penatausahaan({
                                       pdfFile: newPangkatPdfFile || undefined,
                                       pdfName: newPangkatPdfName || undefined
                                     };
+                                    const updatedHistory = [...items, newItem];
                                     setEditStaffDraft({
                                       ...editStaffDraft!,
-                                      riwayatKepangkatan: [...items, newItem]
+                                      riwayatKepangkatan: updatedHistory
                                     });
+                                    syncMainPangkatWithHistory(updatedHistory);
                                     // Reset inputs
                                     setNewPangkatName('');
                                     setNewPangkatGolongan('');
@@ -2847,10 +2855,12 @@ export default function Penatausahaan({
                                           <button
                                             type="button"
                                             onClick={() => {
+                                              const updatedHistory = editStaffDraft?.riwayatKepangkatan?.filter(item => item.id !== r.id) || [];
                                               setEditStaffDraft({
                                                 ...editStaffDraft!,
-                                                riwayatKepangkatan: editStaffDraft?.riwayatKepangkatan?.filter(item => item.id !== r.id) || []
+                                                riwayatKepangkatan: updatedHistory
                                               });
+                                              syncMainPangkatWithHistory(updatedHistory);
                                             }}
                                             className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
                                           >

@@ -118,7 +118,19 @@ export default function App() {
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('uptd_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_USERS;
+    if (Array.isArray(parsed) && !parsed.some((u: any) => u.username === 'surveyor')) {
+      parsed.push({
+        id: 'u-surveyor',
+        username: 'surveyor',
+        name: 'Surveyor Irigasi',
+        role: 'surveyor',
+        password: 'surveyor123',
+        section: 'surveyor'
+      });
+      localStorage.setItem('uptd_users', JSON.stringify(parsed));
+    }
+    return parsed;
   });
 
   const [mails, setMails] = useState<Mail[]>(() => {
@@ -188,18 +200,11 @@ export default function App() {
 
     if (isAdmin || isPimpinan) return true;
 
-    if (tabId === 'dashboard') {
-      // General dashboard only accessible if no specific department sections are assigned, or if they are Pimpinan / Admin
-      return userSections.length === 0;
+    if (tabId === 'dashboard' || tabId === 'penatausahaan' || tabId === 'pembangunan' || tabId === 'operasional') {
+      return true;
     }
-    if (tabId === 'penatausahaan') {
-      return userSections.some(s => ['adm_umum', 'personalia', 'aset', 'keuangan', 'penatausahaan', 'staff'].includes(s));
-    }
-    if (tabId === 'pembangunan') {
-      return userSections.includes('pembangunan');
-    }
-    if (tabId === 'operasional' || tabId === 'inventarisasi_di') {
-      return userSections.includes('operasional');
+    if (tabId === 'inventarisasi_di') {
+      return userSections.includes('operasional') || userSections.includes('surveyor');
     }
     if (tabId === 'settings') {
       return isAdmin;
@@ -215,11 +220,9 @@ export default function App() {
     const isPimpinan = userSections.includes('pimpinan');
 
     if (isAdmin || isPimpinan) return true;
-    if (subTab === 'adm_umum') return userSections.includes('adm_umum') || userSections.includes('penatausahaan');
-    if (subTab === 'personalia') return userSections.includes('personalia') || userSections.includes('staff') || userSections.includes('penatausahaan');
-    if (subTab === 'aset_inventaris') return userSections.includes('aset') || userSections.includes('penatausahaan');
-    if (subTab === 'keuangan') return userSections.includes('keuangan') || userSections.includes('penatausahaan');
-    if (subTab === 'landing') return true; // landing as the general introduction index
+    if (subTab === 'adm_umum' || subTab === 'personalia' || subTab === 'aset_inventaris' || subTab === 'keuangan' || subTab === 'landing') {
+      return true;
+    }
     return false;
   };
 
@@ -228,12 +231,12 @@ export default function App() {
     if (currentUser) {
       const allowed = isTabAllowed(activeTab);
       if (activeTab === 'inventarisasi_di') {
-        if (!isTabAllowed('operasional')) {
-          const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'settings'].find(t => isTabAllowed(t));
+        if (!isTabAllowed('inventarisasi_di')) {
+          const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'inventarisasi_di', 'settings'].find(t => isTabAllowed(t));
           if (firstAllowed) setActiveTab(firstAllowed);
         }
       } else if (!allowed) {
-        const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'settings'].find(t => isTabAllowed(t));
+        const firstAllowed = ['dashboard', 'penatausahaan', 'pembangunan', 'operasional', 'inventarisasi_di', 'settings'].find(t => isTabAllowed(t));
         if (firstAllowed) {
           setActiveTab(firstAllowed);
           if (firstAllowed === 'penatausahaan') {
@@ -581,6 +584,10 @@ export default function App() {
     { id: 'pembangunan', label: 'Seksi Pembangunan', icon: Wrench },
     { id: 'operasional', label: 'Seksi Operasional', icon: Activity },
   ];
+
+  if (currentUser && currentUser.section && currentUser.section.split(',').includes('surveyor')) {
+    allNavItems.push({ id: 'inventarisasi_di', label: 'Inventarisasi DI', icon: Layers });
+  }
 
   // Filter based on user permissions
   const navItems = allNavItems.filter((item) => isTabAllowed(item.id));
