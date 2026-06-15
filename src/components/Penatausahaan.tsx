@@ -7852,7 +7852,7 @@ export default function Penatausahaan({
                                     value={contractNumber}
                                     onChange={(e) => setContractNumber(e.target.value)}
                                     placeholder="misal: 02/SP-PJ/UPTD-SDA/2026"
-                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-bold font-mono text-indigo-755"
+                                    className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold font-mono text-indigo-700 transition-all hover:border-slate-400"
                                   />
                                 </div>
                                 <div>
