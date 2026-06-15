@@ -226,10 +226,49 @@ export default function Pembangunan({
   // -------------------------------------------------------------
   // STATES & SEEDS FOR NEW PAGES (PROGRES KEGIATAN & USULAN PEKERJAAN)
   // -------------------------------------------------------------
+  const proposalsKey = isOperasionalVariant ? 'uptd_v3_job_proposals_operasional' : 'uptd_v3_job_proposals_pembangunan';
+
   const [proposals, setProposals] = useState<any[]>(() => {
-    const saved = localStorage.getItem('uptd_v3_job_proposals');
+    const saved = localStorage.getItem(proposalsKey);
     if (saved) return JSON.parse(saved);
-    const initial = [
+    const initial = isOperasionalVariant ? [
+      {
+        id: 'prop-op-1',
+        title: 'Pemeliharaan Rutin Saluran Tersier Blok B dan C DI Bah Bolon',
+        location: 'Kecamatan Simalungun (Sektor Sawah Simalungun)',
+        type: 'Irigasi',
+        budget: 45000000,
+        urgency: 'Sedang',
+        proposer: 'Hendra (Staf Pengamat OP)',
+        description: 'Pembersihan tanaman liar, semak belukar, dan sampah yang menyumbat aliran air pada saluran tersier blok B sepanjang 1.2 Km guna menjamin kelancaran distribusi air irigasi ke petak sawah.',
+        createdAt: '2026-06-05',
+        status: 'Menunggu Review'
+      },
+      {
+        id: 'prop-op-2',
+        title: 'Kalibrasi Berkala dan Perbaikan Sensor Tinggi Muka Air (TMA) Telemetri',
+        location: 'Pos Hidroklimatologi Hulu',
+        type: 'Bendung',
+        budget: 25000000,
+        urgency: 'Tinggi',
+        proposer: 'Seksi Operasional',
+        description: 'Perbaikan sensor telemetri TMA yang mengalami degradasi akurasi akibat korosi sensor serta penggantian baterai solar panel.',
+        createdAt: '2026-06-10',
+        status: 'Disetujui'
+      },
+      {
+        id: 'prop-op-3',
+        title: 'Pembersihan Gulma & Eceng Gondok Kolam Olak Belakang Bendung',
+        location: 'Sektor Utama Bendung Bah Bolon',
+        type: 'Irigasi',
+        budget: 18000000,
+        urgency: 'Rendah',
+        proposer: 'Kelompok Tani Rejo',
+        description: 'Pembersihan tumpukan batang kayu hanyut serta gulma eceng gondok tebal yang berpotensi merusak konstruksi pengaman lantai olak.',
+        createdAt: '2026-06-12',
+        status: 'Draf'
+      }
+    ] : [
       {
         id: 'prop-1',
         title: 'Normalisasi & Pengerukan Sedimentasi Jaringan Sekunder DI Bah Bolon',
@@ -267,7 +306,7 @@ export default function Pembangunan({
         status: 'Draf'
       }
     ];
-    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(initial));
+    localStorage.setItem(proposalsKey, JSON.stringify(initial));
     return initial;
   });
 
@@ -401,7 +440,7 @@ export default function Pembangunan({
 
     const updated = [newProp, ...proposals];
     setProposals(updated);
-    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+    localStorage.setItem(proposalsKey, JSON.stringify(updated));
 
     // Reset Form
     setPropTitle('');
@@ -419,7 +458,7 @@ export default function Pembangunan({
     }
     const updated = proposals.map(p => p.id === id ? { ...p, status: newStatus } : p);
     setProposals(updated);
-    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+    localStorage.setItem(proposalsKey, JSON.stringify(updated));
   };
 
   const handleConvertProposal = (e: React.FormEvent) => {
@@ -446,14 +485,14 @@ export default function Pembangunan({
 
     const updated = proposals.map(p => p.id === convertingProp.id ? { ...p, status: 'Ditambahkan Ke Paket Kerja' } : p);
     setProposals(updated);
-    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+    localStorage.setItem(proposalsKey, JSON.stringify(updated));
 
     setConvertingProp(null);
     setConvContractor('');
     setConvStartDate('');
     setConvEndDate('');
 
-    alert('Sukses mengonversi usulan terpilih menjadi Paket Pekerjaan Seksi Pembangunan!');
+    alert(`Sukses mengonversi usulan terpilih menjadi Paket Pekerjaan ${isOperasionalVariant ? 'Seksi Operasional' : 'Seksi Pembangunan'}!`);
   };
 
   // Edit & Delete Proposal states and handlers
@@ -505,7 +544,7 @@ export default function Pembangunan({
     });
 
     setProposals(updated);
-    localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+    localStorage.setItem(proposalsKey, JSON.stringify(updated));
     setEditingProp(null);
     alert('Usulan pekerjaan berhasil diperbarui!');
   };
@@ -514,7 +553,7 @@ export default function Pembangunan({
     if (window.confirm('Apakah Anda yakin ingin menghapus usulan pekerjaan ini?')) {
       const updated = proposals.filter(p => p.id !== id);
       setProposals(updated);
-      localStorage.setItem('uptd_v3_job_proposals', JSON.stringify(updated));
+      localStorage.setItem(proposalsKey, JSON.stringify(updated));
       alert('Usulan pekerjaan berhasil dihapus!');
     }
   };
@@ -927,16 +966,24 @@ export default function Pembangunan({
     return (
       <div className="space-y-6 animate-fadeIn" id="pembangunan-usulan-content">
         {/* Banner */}
-        <div className="bg-gradient-to-r from-teal-900 to-slate-900 p-6 rounded-3xl text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-teal-950 shadow-md">
+        <div className="bg-gradient-to-r from-teal-900 via-emerald-950 to-slate-900 p-6 rounded-3xl text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-teal-950 shadow-md">
           <div className="space-y-1">
-            <span className="text-[10px] bg-teal-400 text-slate-950 font-extrabold px-2.5 py-0.5 rounded-full uppercase">Perencanaan Teknis</span>
-            <h1 className="text-xl font-bold tracking-tight">Usulan Kegiatan Pekerjaan (Public Proposals)</h1>
-            <p className="text-xs text-teal-100 font-semibold leading-loose">Daftar usulan pembangunan jalan tani, tanggul, normalisasi irigasi dari komisi petunjuk tani & swadaya masyarakat.</p>
+            <span className="text-[10px] bg-teal-400 text-slate-950 font-extrabold px-2.5 py-0.5 rounded-full uppercase">
+              {isOperasionalVariant ? 'Operasional & Pemeliharaan (OP)' : 'Perencanaan Teknis'}
+            </span>
+            <h1 className="text-xl font-bold tracking-tight">
+              Usulan Pekerjaan {isOperasionalVariant ? 'Seksi Operasional (OP)' : 'Seksi Pembangunan (Fisik)'}
+            </h1>
+            <p className="text-xs text-teal-100 font-semibold leading-loose">
+              {isOperasionalVariant 
+                ? 'Daftar usulan pemeliharaan berkala, kalibrasi sensor, tebas gulma, pengerukan sedimen kecil, dan penanganan darurat fasilitas OP.'
+                : 'Daftar usulan pembangunan jalan tani, tanggul, normalisasi irigasi dari komisi petunjuk tani & swadaya masyarakat.'}
+            </p>
           </div>
           {canWrite && (
             <button
               onClick={() => setIsPropFormOpen(true)}
-              className="text-xs bg-white text-teal-950 hover:bg-slate-50 px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer border-none shadow-sm flex items-center gap-1.5"
+              className="text-xs bg-white text-teal-950 hover:bg-slate-50 px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer border-none shadow-sm flex items-center gap-1.5 whitespace-nowrap"
             >
               <Plus className="w-4 h-4 text-teal-600" />
               <span>Daftarkan Usulan Baru</span>
