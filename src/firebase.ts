@@ -202,42 +202,51 @@ export async function performBidirectionalSync(): Promise<void> {
   if (isSyncingActive) return;
   
   isSyncingActive = true;
-  for (const [localStorageKey, mapping] of Object.entries(STORAGE_SYNC_MAP)) {
-    try {
-      const serverDocs = await dbGetCollection(mapping.collection);
-      const localRaw = localStorage.getItem(localStorageKey);
+  try {
+    const entries = Object.entries(STORAGE_SYNC_MAP);
+    await Promise.all(
+      entries.map(async ([localStorageKey, mapping]) => {
+        try {
+          const serverDocs = await dbGetCollection(mapping.collection);
+          const localRaw = localStorage.getItem(localStorageKey);
 
-      if (serverDocs.length === 0) {
-        // No remote data -> Seed from local storage if local data exists
-        if (localRaw) {
-          const localData = JSON.parse(localRaw);
-          if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
-            console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
-            for (const item of localData) {
-              const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
-              if (!item.id) item.id = docId;
-              await dbSaveDoc(mapping.collection, docId, item);
+          if (serverDocs.length === 0) {
+            // No remote data -> Seed from local storage if local data exists
+            if (localRaw) {
+              const localData = JSON.parse(localRaw);
+              if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
+                console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
+                // Parallelize seeding individual documents for optimal performance
+                await Promise.all(
+                  localData.map(async (item) => {
+                    const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
+                    if (!item.id) item.id = docId;
+                    await dbSaveDoc(mapping.collection, docId, item);
+                  })
+                );
+              } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
+                console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
+                await dbSaveDoc(mapping.collection, 'default', localData);
+              }
             }
-          } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
-            console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
-            await dbSaveDoc(mapping.collection, 'default', localData);
+          } else {
+            // Remote data exists -> Load to local storage & overwrite
+            if (mapping.type === 'array') {
+              localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
+            } else if (mapping.type === 'object') {
+              // Find 'default' doc
+              const defaultDoc = serverDocs.find(() => true) || serverDocs[0] || {};
+              localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
+            }
           }
+        } catch (syncErr) {
+          console.warn(`Sync error on key "${localStorageKey}":`, syncErr);
         }
-      } else {
-        // Remote data exists -> Load to local storage & overwrite
-        if (mapping.type === 'array') {
-          localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
-        } else if (mapping.type === 'object') {
-          // Find 'default' doc
-          const defaultDoc = serverDocs.find(() => true) || serverDocs[0] || {};
-          localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
-        }
-      }
-    } catch (syncErr) {
-      console.warn(`Sync error on key "${localStorageKey}":`, syncErr);
-    }
+      })
+    );
+  } finally {
+    isSyncingActive = false;
   }
-  isSyncingActive = false;
 }
 
 // Sign-in tool with Google
