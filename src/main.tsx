@@ -8,12 +8,20 @@ function MainApp() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    initAndSyncData()
+    // A 2.5-second self-resolving timeout so the app never gets stuck on sync/loading phase
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn("Firebase sync deferred: timed out (acting in offline fallback mode)");
+        resolve(null);
+      }, 2500);
+    });
+
+    Promise.race([initAndSyncData(), timeoutPromise])
       .then(() => {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to sync with Firebase:", err);
+        console.warn("Firebase sync deferred or offline fallback activated:", err);
         // Fallback to offline mode gracefully so user can still operate
         setLoading(false);
       });

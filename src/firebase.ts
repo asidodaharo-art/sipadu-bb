@@ -16,6 +16,8 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth();
 
+export let isFirestoreAvailable = false;
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -55,6 +57,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Low-level helper to write a document securely
 export async function dbSaveDoc(collectionName: string, id: string, data: any) {
+  if (!isFirestoreAvailable) return;
   try {
     const cleanData = JSON.parse(JSON.stringify(data)); // Clean any potential undefined values for Firestore
     await setDoc(doc(db, collectionName, id), cleanData);
@@ -65,6 +68,7 @@ export async function dbSaveDoc(collectionName: string, id: string, data: any) {
 
 // Low-level helper to delete a document securely
 export async function dbDeleteDoc(collectionName: string, id: string) {
+  if (!isFirestoreAvailable) return;
   try {
     await deleteDoc(doc(db, collectionName, id));
   } catch (err) {
@@ -74,6 +78,7 @@ export async function dbDeleteDoc(collectionName: string, id: string) {
 
 // Low-level helper to retrieve all documents of a collection securely
 export async function dbGetCollection(collectionName: string): Promise<any[]> {
+  if (!isFirestoreAvailable) return [];
   try {
     const qSnapshot = await getDocs(collection(db, collectionName));
     const list: any[] = [];
@@ -119,6 +124,7 @@ let isSyncingActive = false;
 
 // Trigger Firestore update for a specific localStorage key changes
 export async function syncLocalStorageToCloud(key: string, rawVal: string | null) {
+  if (!isFirestoreAvailable) return;
   if (isSyncingActive) return; // Prevent loop cycle
   const mapping = STORAGE_SYNC_MAP[key];
   if (!mapping) return;
@@ -176,64 +182,64 @@ export function setupLocalStorageInterceptor() {
 
 // Main initializer & full Bidirectional Synchronizer
 export async function initAndSyncData(): Promise<void> {
-  // 1. Sign in anonymously to satisfy security rules
+  // 1. Sign in anonymously to satisfy security rules if enabled on console
   try {
     await signInAnonymously(auth);
     console.log("Firebase Auth signed in anonymously successfully.");
   } catch (error) {
-    console.error("Firebase Auth signin failed:", error);
+    console.warn("Firebase Auth signin failed (operating in sandbox mode):", error);
   }
 
   // 2. Test Firestore connection first using getDocFromServer
   try {
     await getDocFromServer(doc(db, 'test_connection', 'ping'));
-    console.log("Passed Firestore database server connection check.");
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Please check your Firebase configuration or network status.");
-    } else {
-      console.log("Passed online check.");
-    }
+    console.log("Passed Firestore database server connection check. Cloud database sync is active.");
+    isFirestoreAvailable = true;
+  } catch (error: any) {
+    console.warn("Firestore database offline or permissions missing. Fallback to local sandbox fallback mode.", error?.message || error);
+    isFirestoreAvailable = false;
   }
 
-  // 3. Bidirectional Sync Layer
-  isSyncingActive = true;
-  for (const [localStorageKey, mapping] of Object.entries(STORAGE_SYNC_MAP)) {
-    try {
-      const serverDocs = await dbGetCollection(mapping.collection);
-      const localRaw = localStorage.getItem(localStorageKey);
+  // 3. Bidirectional Sync Layer (Only if cloud database is online and accessible)
+  if (isFirestoreAvailable) {
+    isSyncingActive = true;
+    for (const [localStorageKey, mapping] of Object.entries(STORAGE_SYNC_MAP)) {
+      try {
+        const serverDocs = await dbGetCollection(mapping.collection);
+        const localRaw = localStorage.getItem(localStorageKey);
 
-      if (serverDocs.length === 0) {
-        // No remote data -> Seed from local storage if local data exists
-        if (localRaw) {
-          const localData = JSON.parse(localRaw);
-          if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
-            console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
-            for (const item of localData) {
-              const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
-              if (!item.id) item.id = docId;
-              await dbSaveDoc(mapping.collection, docId, item);
+        if (serverDocs.length === 0) {
+          // No remote data -> Seed from local storage if local data exists
+          if (localRaw) {
+            const localData = JSON.parse(localRaw);
+            if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
+              console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
+              for (const item of localData) {
+                const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
+                if (!item.id) item.id = docId;
+                await dbSaveDoc(mapping.collection, docId, item);
+              }
+            } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
+              console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
+              await dbSaveDoc(mapping.collection, 'default', localData);
             }
-          } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
-            console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
-            await dbSaveDoc(mapping.collection, 'default', localData);
+          }
+        } else {
+          // Remote data exists -> Load to local storage & overwrite
+          if (mapping.type === 'array') {
+            localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
+          } else if (mapping.type === 'object') {
+            // Find 'default' doc
+            const defaultDoc = serverDocs.find(d => true) || serverDocs[0] || {};
+            localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
           }
         }
-      } else {
-        // Remote data exists -> Load to local storage & overwrite
-        if (mapping.type === 'array') {
-          localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
-        } else if (mapping.type === 'object') {
-          // Find 'default' doc
-          const defaultDoc = serverDocs.find(d => true) || serverDocs[0] || {};
-          localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
-        }
+      } catch (syncErr) {
+        console.warn(`Sync error on key "${localStorageKey}":`, syncErr);
       }
-    } catch (syncErr) {
-      console.error(`Sync error on key "${localStorageKey}":`, syncErr);
     }
+    isSyncingActive = false;
   }
-  isSyncingActive = false;
 
   // 4. Overwrite setItem for future writes synchronization
   setupLocalStorageInterceptor();

@@ -1,82 +1,8 @@
-rules_version = '2';
+rules_version = "2";
 service cloud_firestore {
   match /databases/{database}/documents {
-    // 1. Global safety net (Default-deny)
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function getUserData() {
-      return request.resource.data;
-    }
-
-    function isValidId(id) {
-       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    // Collection: Users
-    match /users/{userId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Mails
-    match /mails/{mailId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Staff
-    match /staff/{staffId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Projects
-    match /projects/{projectId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Water Logs
-    match /water_logs/{waterLogId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Damage Reports
-    match /damage_reports/{damageReportId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Assets
-    match /assets/{assetId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Finances
-    match /finances/{financeId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Collection: Contracts
-    match /contracts/{contractId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // Other collections fallback for generic registers
-    match /daerah_irigasi/{id} { allow read, write: if isSignedIn(); }
-    match /river_stations/{id} { allow read, write: if isSignedIn(); }
-    match /asset_distributions/{id} { allow read, write: if isSignedIn(); }
-    match /consumables/{id} { allow read, write: if isSignedIn(); }
-    match /activity_accounts/{id} { allow read, write: if isSignedIn(); }
-    match /spj/{id} { allow read, write: if isSignedIn(); }
-    match /bapp/{id} { allow read, write: if isSignedIn(); }
-    match /bank_accounts/{id} { allow read, write: if isSignedIn(); }
-    match /job_proposals_operasional/{id} { allow read, write: if isSignedIn(); }
-    match /job_proposals_pembangunan/{id} { allow read, write: if isSignedIn(); }
-    match /inspection_logs/{id} { allow read, write: if isSignedIn(); }
-    match /profile_metadata/{id} { allow read, write: if isSignedIn(); }
-    match /footer_metadata/{id} { allow read, write: if isSignedIn(); }
   }
 }
