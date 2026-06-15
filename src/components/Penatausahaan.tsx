@@ -117,6 +117,27 @@ export default function Penatausahaan({
   // Search query state
   const [searchQuery, setSearchQuery] = useState('');
 
+  const extractDateOfBirthFromNip = (nipValue: string): string | null => {
+    if (!nipValue) return null;
+    const cleanNip = nipValue.replace(/\D/g, '');
+    if (cleanNip.length >= 8) {
+      const yyyy = cleanNip.substring(0, 4);
+      const mm = cleanNip.substring(4, 6);
+      const dd = cleanNip.substring(6, 8);
+      const year = parseInt(yyyy, 10);
+      const month = parseInt(mm, 10);
+      const day = parseInt(dd, 10);
+      if (
+        year >= 1900 && year <= 2100 &&
+        month >= 1 && month <= 12 &&
+        day >= 1 && day <= 31
+      ) {
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+    return null;
+  };
+
   // Reference Date for calculations (as of current system clock date)
   const referenceDate = new Date('2026-06-09');
 
@@ -1159,11 +1180,18 @@ export default function Penatausahaan({
 
   const handleStartEditStaff = (person: Staff) => {
     setEditingStaff(person);
+    let initialDob = person.tanggalLahir || '';
+    if (!initialDob && person.nip) {
+      const extracted = extractDateOfBirthFromNip(person.nip);
+      if (extracted) {
+        initialDob = extracted;
+      }
+    }
     setEditStaffDraft({
       ...person,
       photo: person.photo || '',
       tempatLahir: person.tempatLahir || '',
-      tanggalLahir: person.tanggalLahir || '',
+      tanggalLahir: initialDob,
       jenisKelamin: person.jenisKelamin || 'Laki-laki',
       agama: person.agama || 'Islam',
       telepon: person.telepon || '',
@@ -1661,7 +1689,7 @@ export default function Penatausahaan({
         golongan: staffGolongan,
         position: staffPosition,
         tempatLahir: '',
-        tanggalLahir: '',
+        tanggalLahir: extractDateOfBirthFromNip(staffNip) || '',
         jenisKelamin: 'Laki-laki',
         agama: 'Islam',
         telepon: '',
@@ -3166,7 +3194,14 @@ export default function Penatausahaan({
                               <input 
                                 type="text" 
                                 value={staffNip}
-                                onChange={(e) => setStaffNip(e.target.value)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setStaffNip(val);
+                                  const extracted = extractDateOfBirthFromNip(val);
+                                  if (extracted) {
+                                    updateDraftField('tanggalLahir', extracted);
+                                  }
+                                }}
                                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
                                 required
                               />
