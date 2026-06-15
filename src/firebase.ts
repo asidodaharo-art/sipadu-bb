@@ -328,7 +328,10 @@ export async function initAndSyncData(): Promise<void> {
 
   // 3. Bidirectional Sync Layer (Only if cloud database is online and accessible)
   if (isFirestoreAvailable) {
-    await performBidirectionalSync();
+    // Run bidirectional sync in the background asynchronously so the startup remains instant
+    performBidirectionalSync().catch((err) => {
+      console.warn("Background bidirectional sync error:", err);
+    });
   }
 
   // 4. Overwrite setItem for future writes synchronization

@@ -8,12 +8,12 @@ function MainApp() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // A 10-second self-resolving timeout of the sync phase so the app never gets stuck on startup
+    // A 1.5-second self-resolving timeout of the sync phase so the app never gets stuck on startup
     const timeoutPromise = new Promise((resolve) => {
       setTimeout(() => {
         console.warn("Firebase sync deferred: timed out (acting in offline fallback mode)");
         resolve(null);
-      }, 10000);
+      }, 1500);
     });
 
     Promise.race([initAndSyncData(), timeoutPromise])

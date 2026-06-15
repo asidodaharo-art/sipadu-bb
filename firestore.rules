@@ -13,7 +13,7 @@ service cloud.firestore {
 
     // Connection testing
     match /test_connection/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     // App standard collections
