@@ -46,7 +46,7 @@ import { formatToIndoDate } from './utils';
 
 export default function App() {
   // One-time data purge to satisfy the user's request: empty all databases and lists, keeping only the Admin user credentials.
-  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v3_data_purged_2026_v7')) {
+  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v3_data_purged_clear_complete_v1')) {
     const defaultAdmin = [
       {
         id: '1',
@@ -70,6 +70,14 @@ export default function App() {
     localStorage.setItem('uptd_v3_river_stations', JSON.stringify([]));
     localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify([]));
     localStorage.setItem('uptd_v3_consumables', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_activity_accounts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_spj', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_bapp', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_contracts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_bank_accounts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_job_proposals_operasional', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_job_proposals_pembangunan', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_inspection_logs', JSON.stringify([]));
     
     // Log out if non-admin is active
     const curUserRaw = localStorage.getItem('uptd_current_user');
@@ -83,7 +91,7 @@ export default function App() {
         localStorage.removeItem('uptd_current_user');
       }
     }
-    localStorage.setItem('uptd_v3_data_purged_2026_v7', 'true');
+    localStorage.setItem('uptd_v3_data_purged_clear_complete_v1', 'true');
   }
 
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
@@ -509,6 +517,8 @@ export default function App() {
     setDamageReports([]);
     setAssets([]);
     setFinances([]);
+    
+    // Clear localStorage for all registers
     localStorage.setItem('uptd_v3_mails', JSON.stringify([]));
     localStorage.setItem('uptd_v3_staff', JSON.stringify([]));
     localStorage.setItem('uptd_v3_projects', JSON.stringify([]));
@@ -517,6 +527,21 @@ export default function App() {
     localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
     localStorage.setItem('uptd_v3_assets', JSON.stringify([]));
     localStorage.setItem('uptd_v3_finances', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_daerah_irigasi', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_river_stations', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_consumables', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_activity_accounts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_spj', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_bapp', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_contracts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_bank_accounts', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_job_proposals_operasional', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_job_proposals_pembangunan', JSON.stringify([]));
+    localStorage.setItem('uptd_v3_inspection_logs', JSON.stringify([]));
+    
+    // Force reload to apply clean state
+    window.location.reload();
   };
 
   // 3. Conditional Page Render
