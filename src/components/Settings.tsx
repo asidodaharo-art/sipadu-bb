@@ -1,4 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { 
+  auth, 
+  isFirestoreAvailable, 
+  authErrorMsg, 
+  signInWithGoogle, 
+  signOutFromFirebase, 
+  performBidirectionalSync 
+} from '../firebase';
 import { User, InstansiProfile, FooterConfig } from '../types';
 import { 
   Building, 
@@ -44,7 +53,22 @@ export default function Settings({
   onDeleteUser,
   onClearAllData
 }: SettingsProps) {
-  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean'>('profil');
+  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean' | 'cloud_sync'>('profil');
+  
+  // Firebase Auth and Sync Reactive States
+  const [firebaseUser, setFirebaseUser] = useState<any>(auth.currentUser);
+  const [syncStatus, setSyncStatus] = useState<boolean>(isFirestoreAvailable);
+  const [authError, setAuthError] = useState<string | null>(authErrorMsg);
+  const [syncing, setSyncing] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setSyncStatus(isFirestoreAvailable);
+      setAuthError(authErrorMsg);
+    });
+    return () => unsubscribe();
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Drag and drop uploading state
@@ -298,6 +322,19 @@ export default function Settings({
           >
             <FileText className="w-4 h-4" />
             <span>Catatan Kaki & Hak Cipta</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubPage('cloud_sync')}
+            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-2.5 transition-all cursor-pointer ${
+              activeSubPage === 'cloud_sync'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+            id="subpage-cloud-sync"
+          >
+            <Globe className="w-4 h-4" />
+            <span>Sinkronisasi Cloud & Firebase</span>
           </button>
 
           <button
@@ -952,6 +989,200 @@ export default function Settings({
                   <Trash2 className="w-4 h-4" />
                   <span>Bersihkan Semua Data Sekarang</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* SUBPAGE 5: CLOUD SYNC & FIREBASE AUTH PANEL */}
+          {activeSubPage === 'cloud_sync' && (
+            <div className="space-y-6" id="settings-cloud-sync-section">
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-blue-600 animate-spin-slow" />
+                  Pusat Sinkronisasi Cloud & Koneksi Firebase
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-1">Mengelola integrasi database cloud Firestore real-time luar jaringan dan pemulihan status autentikasi.</p>
+              </div>
+
+              {/* Status Section Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Connection Status Card */}
+                <div className="p-5 bg-slate-50 border border-slate-200/60 rounded-2xl text-xs space-y-4">
+                  <h4 className="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      {syncStatus ? (
+                        <>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 animate-pulse"></span>
+                        </>
+                      )}
+                    </span>
+                    Status Jaringan Cloud
+                  </h4>
+
+                  <div className="space-y-2.5 font-medium text-slate-600">
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100/50">
+                      <span>Status Sinkronisasi:</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        syncStatus 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}>
+                        {syncStatus ? 'AKTIF (Tersinkron Cloud)' : 'OFFLINE (Fallback Lokal)'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-slate-100/50">
+                      <span>Metode Penyimpanan saat ini:</span>
+                      <span className="text-slate-800 font-bold">
+                        {syncStatus ? 'Firestore + LocalStorage' : 'LocalStorage (Aman)'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1">
+                      <span>Sesi Akun Cloud:</span>
+                      <span className="text-slate-800 font-bold truncate max-w-[150px]">
+                        {firebaseUser ? (firebaseUser.email || 'Pengguna Anonim') : 'Belum Masuk'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Authentication Controls Card */}
+                <div className="p-5 bg-slate-50 border border-slate-200/60 rounded-2xl text-xs space-y-4 flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                      <Key className="w-4 h-4 text-slate-500" />
+                      Kontrol Sesi Firebase Auth
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                      Secara default, Firebase Auth melakukan login tersembunyi. Jika gagal, Anda dapat memulihkannya dengan masuk menggunakan Akun Google resmi.
+                    </p>
+                  </div>
+
+                  <div className="pt-3 flex flex-wrap gap-2">
+                    {firebaseUser ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm("Apakah Anda yakin ingin keluar dari sesi Firebase cloud?")) {
+                            setSyncing(true);
+                            await signOutFromFirebase();
+                            setSyncing(false);
+                            triggerNotification("Telah keluar dari sesi Firebase cloud.");
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-slate-200 hover:bg-slate-350 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-all text-[11px] cursor-pointer"
+                      >
+                        Keluar dari Cloud
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={syncing}
+                        onClick={async () => {
+                          try {
+                            setSyncing(true);
+                            await signInWithGoogle();
+                            setSyncing(false);
+                            triggerNotification("Berhasil terautentikasi dan tersambung ke Cloud Firestore!");
+                          } catch (err: any) {
+                            setSyncing(false);
+                            alert("Login Gagal: " + (err?.message || err));
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-[1px] active:translate-y-0 text-[11px] cursor-pointer flex items-center gap-1.5"
+                      >
+                        {syncing ? (
+                          <span className="w-3.5 h-3.5 border-2 border-white/35 border-t-white rounded-full animate-spin"></span>
+                        ) : (
+                          <Globe className="w-3.5 h-3.5" />
+                        )}
+                        <span>Hubungkan via Google Sign-In</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={syncing}
+                      onClick={async () => {
+                        setSyncing(true);
+                        // Force check/test connection
+                        try {
+                          await performBidirectionalSync();
+                          const check = isFirestoreAvailable;
+                          setSyncStatus(check);
+                          if (check) {
+                            triggerNotification("Koneksi cloud & sinkronisasi berhasil dijalankan!");
+                          } else {
+                            triggerNotification("Koneksi gagal. Silakan masuk menggunakan akun Google.");
+                          }
+                        } catch (err) {
+                          setSyncStatus(false);
+                        }
+                        setSyncing(false);
+                      }}
+                      className="px-3.5 py-2 border border-slate-250 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all text-[11px] cursor-pointer"
+                    >
+                      Tes Koneksi Ulang
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Troubleshooting Warning Panel */}
+              {authError && (
+                <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-2xl text-xs text-amber-805 space-y-2">
+                  <h4 className="font-bold flex items-center gap-1.5 text-amber-900 uppercase">
+                    <ShieldAlert className="w-4.5 h-4.5 text-amber-600 animate-pulse" />
+                    Penyebab Masalah: Firebase Auth Terblokir (Operation Not Allowed)
+                  </h4>
+                  <p className="leading-relaxed text-[11.5px] text-amber-850">
+                    Sistem mendeteksi bahwa otentikasi latar belakang (Anonymous Sign-In) gagal dengan kode kesalahan: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10.5px] font-bold text-amber-950">{authError}</code>. 
+                    <br />
+                    Hal ini terjadi karena modul **Anonymous Sign-In** belum diaktifkan di konsol kontrol Firebase Anda.
+                  </p>
+                </div>
+              )}
+
+              {/* Instructions Panel */}
+              <div className="p-5 border border-slate-150 bg-slate-50/50 rounded-2xl text-xs space-y-4">
+                <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px] pb-1 border-b border-slate-200">
+                  Panduan Penyelesaian Masalah Bagi Administrator (Database Setup Steps)
+                </h4>
+
+                <div className="space-y-4 text-slate-600 leading-relaxed text-[11px]">
+                  <div>
+                    <h5 className="font-bold text-slate-800 text-xs flex items-center gap-1">
+                      <span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center font-extrabold text-[10px]">1</span>
+                      Opsi Utama: Aktifkan Anonymous Auth di Firebase Console
+                    </h5>
+                    <p className="mt-1 pl-6">
+                      Langkah ini direkomendasikan agar seluruh perangkat tersambung secara otomatis di latar belakang tanpa meminta login Google:
+                    </p>
+                    <ol className="list-decimal pl-12 mt-1 space-y-1 text-slate-505 font-medium">
+                      <li>Buka tautan proyek Firebase Anda di <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold">Firebase Console</a>.</li>
+                      <li>Di panel navigasi samping kiri, klik **Build** lalu masuk ke menu **Authentication**.</li>
+                      <li>Pilih tab **Sign-in method** di bagian atas halaman.</li>
+                      <li>Cari baris **Anonymous** di bawah penyedia tambahan, klik tombol **Edit / Pensil**, aktifkan tombol toggle **Enable**, lalu tekan tombol **Save**.</li>
+                      <li>Setelah selesai, kembali ke dashboard ini lalu klik tombol <strong className="text-slate-8	 font-bold">"Tes Koneksi Ulang"</strong> untuk sinkronisasi otomatis!</li>
+                    </ol>
+                  </div>
+
+                  <div>
+                    <h5 className="font-bold text-slate-800 text-xs flex items-center gap-1">
+                      <span className="bg-blue-100 text-blue-700 rounded-full w-5 h-5 flex items-center justify-center font-extrabold text-[10px]">2</span>
+                      Opsi Instan: Klik tombol "Hubungkan via Google Sign-In"
+                    </h5>
+                    <p className="mt-1 pl-6">
+                      Jika Anda tidak memiliki akses ke konsol Firebase, Anda cukup menghubungkan browser admin Anda ke cloud dengan mengklik tombol berwarna biru di atas untuk masuk menggunakan akun Google Anda sendiri. Google Login telah diaktifkan secara otomatis oleh sistem saat bootstraping backend.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

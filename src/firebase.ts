@@ -8,7 +8,7 @@ import {
   getDocs, 
   getDocFromServer
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -17,6 +17,7 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth();
 
 export let isFirestoreAvailable = false;
+export let authErrorMsg: string | null = null;
 
 export enum OperationType {
   CREATE = 'create',
@@ -61,7 +62,12 @@ export async function dbSaveDoc(collectionName: string, id: string, data: any) {
   try {
     const cleanData = JSON.parse(JSON.stringify(data)); // Clean any potential undefined values for Firestore
     await setDoc(doc(db, collectionName, id), cleanData);
-  } catch (err) {
+  } catch (err: any) {
+    const errorStr = String(err?.message || err).toLowerCase();
+    if (errorStr.includes('permission-denied') || errorStr.includes('permission') || errorStr.includes('insufficient')) {
+      console.warn(`Firestore permission denied on save. Gracefully disabling cloud sync to safeguard runtime behavior.`);
+      isFirestoreAvailable = false;
+    }
     handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${id}`);
   }
 }
@@ -71,7 +77,12 @@ export async function dbDeleteDoc(collectionName: string, id: string) {
   if (!isFirestoreAvailable) return;
   try {
     await deleteDoc(doc(db, collectionName, id));
-  } catch (err) {
+  } catch (err: any) {
+    const errorStr = String(err?.message || err).toLowerCase();
+    if (errorStr.includes('permission-denied') || errorStr.includes('permission') || errorStr.includes('insufficient')) {
+      console.warn(`Firestore permission denied on delete. Gracefully disabling cloud sync to safeguard runtime behavior.`);
+      isFirestoreAvailable = false;
+    }
     handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${id}`);
   }
 }
@@ -86,7 +97,12 @@ export async function dbGetCollection(collectionName: string): Promise<any[]> {
       list.push(docSnap.data());
     });
     return list;
-  } catch (err) {
+  } catch (err: any) {
+    const errorStr = String(err?.message || err).toLowerCase();
+    if (errorStr.includes('permission-denied') || errorStr.includes('permission') || errorStr.includes('insufficient')) {
+      console.warn(`Firestore permission denied on retrieve for collection "${collectionName}". Gracefully disabling cloud sync to safeguard runtime behavior.`);
+      isFirestoreAvailable = false;
+    }
     handleFirestoreError(err, OperationType.LIST, collectionName);
     return [];
   }
@@ -180,14 +196,106 @@ export function setupLocalStorageInterceptor() {
   };
 }
 
+// Extract bidirectional sync layer so it can be re-run at any time (e.g. after Google sign-in)
+export async function performBidirectionalSync(): Promise<void> {
+  if (!isFirestoreAvailable) return;
+  if (isSyncingActive) return;
+  
+  isSyncingActive = true;
+  for (const [localStorageKey, mapping] of Object.entries(STORAGE_SYNC_MAP)) {
+    try {
+      const serverDocs = await dbGetCollection(mapping.collection);
+      const localRaw = localStorage.getItem(localStorageKey);
+
+      if (serverDocs.length === 0) {
+        // No remote data -> Seed from local storage if local data exists
+        if (localRaw) {
+          const localData = JSON.parse(localRaw);
+          if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
+            console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
+            for (const item of localData) {
+              const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
+              if (!item.id) item.id = docId;
+              await dbSaveDoc(mapping.collection, docId, item);
+            }
+          } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
+            console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
+            await dbSaveDoc(mapping.collection, 'default', localData);
+          }
+        }
+      } else {
+        // Remote data exists -> Load to local storage & overwrite
+        if (mapping.type === 'array') {
+          localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
+        } else if (mapping.type === 'object') {
+          // Find 'default' doc
+          const defaultDoc = serverDocs.find(() => true) || serverDocs[0] || {};
+          localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
+        }
+      }
+    } catch (syncErr) {
+      console.warn(`Sync error on key "${localStorageKey}":`, syncErr);
+    }
+  }
+  isSyncingActive = false;
+}
+
+// Sign-in tool with Google
+export async function signInWithGoogle(): Promise<any> {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(auth, provider);
+    authErrorMsg = null;
+    isFirestoreAvailable = true;
+    console.log("Firebase Auth signed in with Google successfully.");
+    
+    // Attempt triggering sync immediately
+    await performBidirectionalSync();
+    return result.user;
+  } catch (error: any) {
+    console.error("Firebase Google Auth Sign-in failed:", error);
+    authErrorMsg = error?.message || String(error);
+    throw error;
+  }
+}
+
+// Sign-out tool
+export async function signOutFromFirebase(): Promise<void> {
+  try {
+    await signOut(auth);
+    isFirestoreAvailable = false;
+    authErrorMsg = null;
+    console.log("Firebase Auth logged out successfully.");
+  } catch (err) {
+    console.error("Firebase logout error:", err);
+  }
+}
+
 // Main initializer & full Bidirectional Synchronizer
 export async function initAndSyncData(): Promise<void> {
-  // 1. Sign in anonymously to satisfy security rules if enabled on console
-  try {
-    await signInAnonymously(auth);
-    console.log("Firebase Auth signed in anonymously successfully.");
-  } catch (error) {
-    console.warn("Firebase Auth signin failed (operating in sandbox mode):", error);
+  authErrorMsg = null;
+  
+  // 1. Wait for Firebase Auth to restore the active user session (resolves async IDB session)
+  const restoredUser = await new Promise((resolve) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+
+  // 1b. If no user is authenticated, attempt anonymous login in background
+  if (!restoredUser) {
+    try {
+      await signInAnonymously(auth);
+      console.log("Firebase Auth signed in anonymously successfully.");
+      authErrorMsg = null;
+    } catch (error: any) {
+      console.warn("Firebase Auth signin failed (operating in sandbox mode):", error);
+      authErrorMsg = error?.message || String(error);
+    }
+  } else {
+    console.log("Firebase Auth active session restored.");
+    authErrorMsg = null;
   }
 
   // 2. Test Firestore connection first using getDocFromServer
@@ -196,49 +304,22 @@ export async function initAndSyncData(): Promise<void> {
     console.log("Passed Firestore database server connection check. Cloud database sync is active.");
     isFirestoreAvailable = true;
   } catch (error: any) {
-    console.warn("Firestore database offline or permissions missing. Fallback to local sandbox fallback mode.", error?.message || error);
-    isFirestoreAvailable = false;
+    const errorStr = String(error?.message || error).toLowerCase();
+    if (errorStr.includes('permission-denied') || errorStr.includes('permission') || errorStr.includes('insufficient')) {
+      console.warn("Firestore database sync is inactive (restricted permissions or rules not deployed). Operating in local sandbox fallback mode.");
+      isFirestoreAvailable = false;
+    } else if (errorStr.includes('offline') || errorStr.includes('network') || errorStr.includes('the client is offline')) {
+      console.warn("Firestore client is offline. Operating in local sandbox fallback mode.");
+      isFirestoreAvailable = false;
+    } else {
+      console.log("Firestore database connection query returned unexpected result, operating in local sandbox fallback mode:", error?.message || error);
+      isFirestoreAvailable = false;
+    }
   }
 
   // 3. Bidirectional Sync Layer (Only if cloud database is online and accessible)
   if (isFirestoreAvailable) {
-    isSyncingActive = true;
-    for (const [localStorageKey, mapping] of Object.entries(STORAGE_SYNC_MAP)) {
-      try {
-        const serverDocs = await dbGetCollection(mapping.collection);
-        const localRaw = localStorage.getItem(localStorageKey);
-
-        if (serverDocs.length === 0) {
-          // No remote data -> Seed from local storage if local data exists
-          if (localRaw) {
-            const localData = JSON.parse(localRaw);
-            if (mapping.type === 'array' && Array.isArray(localData) && localData.length > 0) {
-              console.log(`Seeding Firestore collection "${mapping.collection}" with ${localData.length} records...`);
-              for (const item of localData) {
-                const docId = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
-                if (!item.id) item.id = docId;
-                await dbSaveDoc(mapping.collection, docId, item);
-              }
-            } else if (mapping.type === 'object' && localData && Object.keys(localData).length > 0) {
-              console.log(`Seeding Firestore metadata "${mapping.collection}"...`);
-              await dbSaveDoc(mapping.collection, 'default', localData);
-            }
-          }
-        } else {
-          // Remote data exists -> Load to local storage & overwrite
-          if (mapping.type === 'array') {
-            localStorage.setItem(localStorageKey, JSON.stringify(serverDocs));
-          } else if (mapping.type === 'object') {
-            // Find 'default' doc
-            const defaultDoc = serverDocs.find(d => true) || serverDocs[0] || {};
-            localStorage.setItem(localStorageKey, JSON.stringify(defaultDoc));
-          }
-        }
-      } catch (syncErr) {
-        console.warn(`Sync error on key "${localStorageKey}":`, syncErr);
-      }
-    }
-    isSyncingActive = false;
+    await performBidirectionalSync();
   }
 
   // 4. Overwrite setItem for future writes synchronization
