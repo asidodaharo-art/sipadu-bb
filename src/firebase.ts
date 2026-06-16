@@ -205,13 +205,37 @@ export function setupLocalStorageInterceptor() {
         const gToken = getGoogleAccessToken();
         const gSpreadsheetId = localStorage.getItem('uptd_google_spreadsheet_id');
         if (gToken && gSpreadsheetId) {
+          // Dispatch a custom event to notify UI that auto-sync is started
+          window.dispatchEvent(new CustomEvent('sheets-sync-status', {
+            detail: {
+              status: 'syncing',
+              key,
+              collection: STORAGE_SYNC_MAP[key].collection
+            }
+          }));
+
           import('./googleSheetsSync').then(({ exportCollectionToSheet }) => {
             exportCollectionToSheet(gToken, gSpreadsheetId, key, STORAGE_SYNC_MAP[key].collection, STORAGE_SYNC_MAP[key].type)
               .then(() => {
                 console.log(`[Google Sheets Auto-Sync] Sync success for key: ${key}`);
+                window.dispatchEvent(new CustomEvent('sheets-sync-status', {
+                  detail: {
+                    status: 'success',
+                    key,
+                    collection: STORAGE_SYNC_MAP[key].collection
+                  }
+                }));
               })
               .catch((gErr) => {
                 console.warn(`[Google Sheets Auto-Sync] Sync failed for key: ${key}:`, gErr);
+                window.dispatchEvent(new CustomEvent('sheets-sync-status', {
+                  detail: {
+                    status: 'error',
+                    key,
+                    collection: STORAGE_SYNC_MAP[key].collection,
+                    error: String(gErr?.message || gErr)
+                  }
+                }));
               });
           }).catch(err => {
             console.error("Failed to load googleSheetsSync in interceptor:", err);

@@ -54,6 +54,54 @@ export default function App() {
   }
 
   const [isUpdatingSheets, setIsUpdatingSheets] = useState(false);
+  const [syncToast, setSyncToast] = useState<{
+    status: 'syncing' | 'success' | 'error' | null;
+    message: string;
+  }>({ status: null, message: '' });
+
+  // Listener for instant background Google Sheets sync status
+  useEffect(() => {
+    let timerId: any = null;
+
+    const handleSyncStatus = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (!customEvent.detail) return;
+      const { status, collection, error } = customEvent.detail;
+      
+      let msg = '';
+      const readableColl = collection 
+        ? collection.replace('uptd_v3_', '').replace('uptd_v4_', '').replace('_', ' ').toUpperCase() 
+        : '';
+
+      if (status === 'syncing') {
+        msg = `Mengunggah perubahan "${readableColl}" ke file Google Sheets...`;
+      } else if (status === 'success') {
+        msg = `Data "${readableColl}" telah otomatis disinkronkan ke Google Sheets!`;
+      } else if (status === 'error') {
+        msg = `Gagal sinkronisasi otomatis "${readableColl}": ${error || 'Error'}`;
+      }
+
+      setSyncToast({ status, message: msg });
+
+      if (status === 'success' || status === 'error') {
+        if (timerId) clearTimeout(timerId);
+        timerId = setTimeout(() => {
+          setSyncToast(prev => {
+            if (prev.status === status) {
+              return { status: null, message: '' };
+            }
+            return prev;
+          });
+        }, 4000);
+      }
+    };
+
+    window.addEventListener('sheets-sync-status', handleSyncStatus);
+    return () => {
+      window.removeEventListener('sheets-sync-status', handleSyncStatus);
+      if (timerId) clearTimeout(timerId);
+    };
+  }, []);
 
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1278,6 +1326,44 @@ export default function App() {
               </div>
               <h3 className="text-lg font-extrabold tracking-widest text-slate-100 uppercase font-sans">SINKRONISASI OTOMATIS</h3>
               <p className="text-xs text-blue-400 mt-2 font-mono font-medium animate-pulse">Menyelaraskan data terbaru dari Google Sheets...</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating Real-Time Google Sheets Auto-Sync Toast */}
+        <AnimatePresence>
+          {syncToast.status && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed bottom-6 right-6 z-[9990] max-w-sm flex items-center gap-3 bg-slate-900 border border-slate-800 text-slate-100 p-4 rounded-xl shadow-2xl backdrop-blur-md select-none font-sans"
+            >
+              {syncToast.status === 'syncing' ? (
+                <div className="relative flex items-center justify-center shrink-0">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-700 border-t-2 border-t-amber-500"></div>
+                </div>
+              ) : syncToast.status === 'success' ? (
+                <div className="text-emerald-500 shrink-0 bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="text-rose-500 shrink-0 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">
+                  {syncToast.status === 'syncing' ? 'Menyingkronkan' : syncToast.status === 'success' ? 'Sinkron Google Sheets' : 'Masalah Sinkron'}
+                </p>
+                <p className="text-xs mt-0.5 text-slate-200 leading-normal font-medium">
+                  {syncToast.message}
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
