@@ -1159,6 +1159,18 @@ export default function App() {
                 {activeLabel}
               </span>
               <span className="text-xs text-slate-400 font-mono">{formatToIndoDate(new Date())}</span>
+              
+              {localStorage.getItem('uptd_google_access_token') && localStorage.getItem('uptd_google_spreadsheet_id') && (
+                <div className="hidden lg:flex items-center space-x-1.5 ml-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[9px] text-emerald-800 bg-emerald-50 border border-emerald-100/80 font-black px-2 py-0.5 rounded-full font-sans tracking-wide">
+                    SINKRON OTOMATIS AKTIF
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
