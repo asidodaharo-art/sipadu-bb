@@ -42,28 +42,36 @@ interface SpreadsheetFileInfo {
  * Searches for an existing "UPTD PSDA - Database Aplikasi" spreadsheet in Google Drive.
  */
 export async function findExistingDatabaseSpreadsheet(token: string): Promise<SpreadsheetFileInfo | null> {
-  try {
-    const query = encodeURIComponent("name = 'UPTD PSDA - Database Aplikasi' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`, {
-      headers: {
-        Authorization: `Bearer ${token}`
+  const query = encodeURIComponent("name = 'UPTD PSDA - Database Aplikasi' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,webViewLink)`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    let errMsg = `Status ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson?.error?.message) {
+        errMsg = errJson.error.message;
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Drive search failed: ${response.statusText}`);
+    } catch {
+      try {
+        const errText = await response.text();
+        if (errText) errMsg = errText;
+      } catch {}
     }
+    throw new Error(`Drive search failed: ${errMsg}`);
+  }
 
-    const data = await response.json();
-    if (data.files && data.files.length > 0) {
-      return {
-        id: data.files[0].id,
-        name: data.files[0].name,
-        webViewLink: data.files[0].webViewLink
-      };
-    }
-  } catch (error) {
-    console.error('Error finding existing spreadsheet:', error);
+  const data = await response.json();
+  if (data.files && data.files.length > 0) {
+    return {
+      id: data.files[0].id,
+      name: data.files[0].name,
+      webViewLink: data.files[0].webViewLink
+    };
   }
   return null;
 }
