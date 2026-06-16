@@ -504,18 +504,7 @@ export default function Settings({
             <span>Catatan Kaki & Hak Cipta</span>
           </button>
 
-          <button
-            onClick={() => setActiveSubPage('cloud_sync')}
-            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-2.5 transition-all cursor-pointer ${
-              activeSubPage === 'cloud_sync'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            id="subpage-cloud-sync"
-          >
-            <Globe className="w-4 h-4" />
-            <span>Sinkronisasi Cloud & Firebase</span>
-          </button>
+          {/* Google Sheets is now the exclusive cloud sync integration, Firebase is disabled */}
 
           <button
             onClick={() => setActiveSubPage('google_sheets')}
