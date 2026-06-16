@@ -299,7 +299,14 @@ export async function performBidirectionalSync(): Promise<void> {
   }
 }
 
-let cachedGoogleAccessToken: string | null = (typeof window !== 'undefined') ? localStorage.getItem('uptd_google_access_token') : null;
+let cachedGoogleAccessToken: string | null = null;
+if (typeof window !== 'undefined') {
+  try {
+    cachedGoogleAccessToken = localStorage.getItem('uptd_google_access_token');
+  } catch (e) {
+    console.warn("Could not retrieve cachedGoogleAccessToken from localStorage:", e);
+  }
+}
 
 export function getGoogleAccessToken(): string | null {
   return cachedGoogleAccessToken;
@@ -308,10 +315,14 @@ export function getGoogleAccessToken(): string | null {
 export function setGoogleAccessToken(token: string | null) {
   cachedGoogleAccessToken = token;
   if (typeof window !== 'undefined') {
-    if (token) {
-      localStorage.setItem('uptd_google_access_token', token);
-    } else {
-      localStorage.removeItem('uptd_google_access_token');
+    try {
+      if (token) {
+        localStorage.setItem('uptd_google_access_token', token);
+      } else {
+        localStorage.removeItem('uptd_google_access_token');
+      }
+    } catch (e) {
+      console.warn("Could not save/remove google_access_token in localStorage:", e);
     }
   }
 }

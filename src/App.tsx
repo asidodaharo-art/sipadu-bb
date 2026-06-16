@@ -46,11 +46,15 @@ import { formatToIndoDate } from './utils';
 
 export default function App() {
   // One-time data purge to satisfy the user's request: completely clear all localStorage data.
-  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v4_localStorage_cleared_by_user')) {
-    localStorage.clear();
-    localStorage.setItem('uptd_v4_localStorage_cleared_by_user', 'true');
-    // Force reload to apply clean state
-    window.location.reload();
+  if (typeof window !== 'undefined') {
+    try {
+      if (!localStorage.getItem('uptd_v4_localStorage_cleared_by_user')) {
+        localStorage.clear();
+        localStorage.setItem('uptd_v4_localStorage_cleared_by_user', 'true');
+      }
+    } catch (e) {
+      console.warn("LocalStorage data purge failed or is blocked (e.g., inside an iframe):", e);
+    }
   }
 
   const [isUpdatingSheets, setIsUpdatingSheets] = useState(false);
