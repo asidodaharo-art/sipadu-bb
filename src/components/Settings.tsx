@@ -7,7 +7,8 @@ import {
   signInWithGoogle, 
   signOutFromFirebase, 
   performBidirectionalSync,
-  getGoogleAccessToken
+  getGoogleAccessToken,
+  setGoogleAccessToken
 } from '../firebase';
 import { 
   findExistingDatabaseSpreadsheet, 
@@ -36,7 +37,8 @@ import {
   FileSpreadsheet,
   Download,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -78,6 +80,10 @@ export default function Settings({
   const [spreadsheetInfo, setSpreadsheetInfo] = useState<{ id: string; name: string; webViewLink?: string } | null>(null);
   const [gSyncStatus, setGSyncStatus] = useState<'idle' | 'checking' | 'syncing' | 'export_success' | 'import_success' | 'error'>('idle');
   const [gSyncMessage, setGSyncMessage] = useState<string>('');
+  
+  // Custom manual token bypass States
+  const [manualTokenValue, setManualTokenValue] = useState<string>('');
+  const [showManualPanel, setShowManualPanel] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -135,7 +141,42 @@ export default function Settings({
       }
     } catch (err: any) {
       setGSyncStatus('error');
-      setGSyncMessage(`Penyambungan Google Gagal: ${err?.message || err}`);
+      const errMsg = err?.message || String(err);
+      if (errMsg.toLowerCase().includes('suspended') || errMsg.toLowerCase().includes('permission-denied')) {
+        setGSyncMessage(`Koneksi Google Pop-up gagal karena Kunci API Firebase ditangguhkan. Silakan gunakan bypass "Solusi 2: Token Akses Manual (Bypass)" di bawah untuk terhubung secara langsung tanpa Firebase!`);
+      } else {
+        setGSyncMessage(`Penyambungan Google Gagal: ${errMsg}`);
+      }
+    }
+  };
+
+  const handleApplyManualToken = async (pastedToken: string) => {
+    if (!pastedToken.trim()) {
+      alert("Token tidak boleh kosong.");
+      return;
+    }
+    setGSyncStatus('checking');
+    setGSyncMessage('Memverifikasi Google Access Token yang Anda masukkan...');
+    try {
+      setGoogleAccessToken(pastedToken.trim());
+      setGoogleAccessTokenState(pastedToken.trim());
+      // Re-check spreadsheet with the manual token
+      const found = await findExistingDatabaseSpreadsheet(pastedToken.trim());
+      if (found) {
+        setSpreadsheetInfo(found);
+        setGSyncStatus('idle');
+        setGSyncMessage('');
+        localStorage.setItem('uptd_google_spreadsheet_id', found.id);
+        triggerNotification('Token berhasil diverifikasi! Ditemukan database: ' + found.name);
+      } else {
+        setSpreadsheetInfo(null);
+        setGSyncStatus('idle');
+        setGSyncMessage('Token diterima, namun belum ada file database di Google Drive Anda. Silakan klik tombol "Buat File Database Baru" di bawah.');
+        triggerNotification('Token berhasil diverifikasi! Silakan buat database baru.');
+      }
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Verifikasi Token Gagal: ${err?.message || err}. Pastikan token aktif dan memiliki cakupan Sheets & Drive.`);
     }
   };
 
@@ -1288,16 +1329,31 @@ export default function Settings({
 
               {/* Troubleshooting Warning Panel */}
               {authError && (
-                <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-2xl text-xs text-amber-805 space-y-2">
-                  <h4 className="font-bold flex items-center gap-1.5 text-amber-900 uppercase">
+                <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-2xl text-xs text-amber-900 space-y-2">
+                  <h4 className="font-bold flex items-center gap-1.5 text-amber-950 uppercase">
                     <ShieldAlert className="w-4.5 h-4.5 text-amber-600 animate-pulse" />
-                    Penyebab Masalah: Firebase Auth Terblokir (Operation Not Allowed)
+                    Penyebab Masalah: {authError.toLowerCase().includes('suspended') ? 'Kunci API Firebase Ditangguhkan (Key Suspended)' : 'Firebase Auth Terblokir (Operation Not Allowed)'}
                   </h4>
-                  <p className="leading-relaxed text-[11.5px] text-amber-850">
-                    Sistem mendeteksi bahwa otentikasi latar belakang (Anonymous Sign-In) gagal dengan kode kesalahan: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10.5px] font-bold text-amber-950">{authError}</code>. 
-                    <br />
-                    Hal ini terjadi karena modul **Anonymous Sign-In** belum diaktifkan di konsol kontrol Firebase Anda.
-                  </p>
+                  <div className="leading-relaxed text-[11.5px] text-amber-900 space-y-2">
+                    <p>
+                      Sistem mendeteksi bahwa koneksi Firebase gagal dengan pesan:
+                    </p>
+                    <code className="block bg-amber-100 p-2.5 rounded-xl font-mono text-[10.5px] font-bold text-amber-950 max-h-24 overflow-y-auto whitespace-pre-wrap">
+                      {authError}
+                    </code>
+                    {authError.toLowerCase().includes('suspended') ? (
+                      <p className="mt-1 font-medium">
+                        <strong>Mengapa ini terjadi?</strong> Akun Google Cloud Platform (GCP) Anda mendeteksi bahwa Kunci API (API Key) untuk projek ini dinonaktifkan atau ditangguhkan. Hal ini biasanya dikarenakan masa uji coba billing habis, pembatasan kuota, atau kunci tersebut dinonaktifkan secara manual di GCP Credentials Page.
+                        <br />
+                        <strong className="text-slate-800 block mt-1.5 font-bold">💡 Solusi Pintas (Bypass Tanpa Firebase):</strong> 
+                        Anda bisa mengabaikan Firebase sepenuhnya dan menggunakan fitur <span className="text-emerald-700 font-extrabold font-sans">Database Google Sheets (Bypass Token Manual)</span> di tab sebelah untuk melakukan ekspor/impor cadangan database Anda secara langsung ke Google Drive Anda sendiri tanpa hambatan!
+                      </p>
+                    ) : (
+                      <p className="mt-1">
+                        Hal ini terjadi karena modul **Anonymous Sign-In** belum diaktifkan di konsol kontrol Firebase Anda.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1349,14 +1405,46 @@ export default function Settings({
                   </div>
                   <div>
                     <h2 className="font-extrabold text-slate-800 text-sm">
-                      Integrasi Database Google Sheets & Google Drive
+                      Integrasi Database Google Sheets & Google Drive (Aktif & Utama)
                     </h2>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Gunakan Google Spreadsheet Anda secara transparan sebagai database sekunder cloud untuk menyimpan, mengekspor, dan merestorasi seluruh data instansi.
+                      Sistem dialihkan sepenuhnya ke Google Sheets sebagai database cloud utama Anda. Setiap penulisan data akan secara otomatis disinkronkan secara real-time ke spreadsheet Google Drive Anda.
                     </p>
                   </div>
                 </div>
               </div>
+
+              {/* Premium Google Sheets Master Database Indicator */}
+              <div className="bg-emerald-50 border border-emerald-250/60 rounded-2xl p-4 text-xs space-y-2 text-emerald-950">
+                <div className="flex items-center gap-2 font-extrabold text-emerald-950 uppercase tracking-wider text-[10.5px]">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                  <span>Database Utama: Google Sheets &amp; Drive Aktif</span>
+                </div>
+                <p className="leading-relaxed text-[11.5px] text-emerald-900/90">
+                  Penyimpanan Firebase Firestore telah dinonaktifkan sesuai permintaan Anda. Mulai sekarang, seluruh modul aplikasi (arsip surat, kas kerja, data pegawai, progres fisik, debit air, inventarisir, dll) akan disinkronkan <strong className="text-emerald-950 font-black">secara instan di latar belakang (real-time)</strong> langsung ke Spreadsheet Anda apabila Anda terhubung dengan Token Google Workspace di bawah ini!
+                </p>
+                {googleAccessToken && localStorage.getItem('uptd_google_spreadsheet_id') && (
+                  <div className="mt-2 text-[10.5px] text-slate-705 bg-white/80 border border-emerald-200/50 p-2.5 rounded-xl font-mono leading-normal">
+                    <span className="font-sans font-bold text-emerald-950 block mb-0.5">ID Spreadsheet Database Aktif:</span>
+                    <span className="break-all font-bold select-all text-slate-800 font-mono">{localStorage.getItem('uptd_google_spreadsheet_id')}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Alert: Firebase API Key Suspension detection */}
+              {authError && authError.toLowerCase().includes('suspended') && (
+                <div className="p-4 bg-amber-50 border border-amber-200/60 rounded-xl text-xs text-amber-950 space-y-2">
+                  <div className="flex items-center gap-1.5 font-extrabold text-amber-900 uppercase tracking-wide">
+                    <AlertCircle className="w-4 h-4 text-amber-600 animate-bounce" />
+                    <span>Perhatian: Kunci API Firebase Ditangguhkan (Key Suspended)</span>
+                  </div>
+                  <p className="leading-relaxed text-[11px] text-slate-700">
+                    Sistem mendeteksi bahwa Firebase API Key Anda saat ini ditangguhkan di Google Cloud Console. 
+                    <br />
+                    Namun, Anda **tidak perlu khawatir!** Anda tetap dapat mencadangkan dan memulihkan seluruh data aplikasi menggunakan **Token Akses Manual (Bypass)** di bawah ini. Anda dapat men-generate token ini dari Google OAuth Playground dengan cakupan (scope) Google Sheets dan Google Drive.
+                  </p>
+                </div>
+              )}
 
               {/* Status & Checking indicators */}
               {gSyncMessage && (
@@ -1411,6 +1499,60 @@ export default function Settings({
                       </button>
                     )}
                   </div>
+
+                  {/* HELPFUL ALTERNATIVE / BYPASS SOLUTIONS WHEN NOT CONNECTED */}
+                  {!googleAccessToken && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
+                      <div className="bg-amber-50 p-3 rounded-xl border border-amber-100/80 text-[11px] text-amber-900 leading-relaxed">
+                        <div className="font-extrabold flex items-center gap-1 mb-1 text-amber-950 uppercase tracking-wide">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Penting: Hambatan Iframe Web</span>
+                        </div>
+                        Otentikasi Google pop-up sering diblokir oleh kebijakan keamanan browser di dalam iframe AI Studio.
+                        <div className="mt-1.5 font-bold text-slate-800">
+                          Solusi 1: Buka di Tab Baru (Sangat Disarankan)
+                        </div>
+                        Klik tombol <strong className="text-blue-700 font-extrabold">"Open in new tab"</strong> di pojok kanan atas jendela pratinjau AI Studio Anda untuk mencoba kembali.
+                      </div>
+
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualPanel(!showManualPanel)}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline select-none flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{showManualPanel ? 'Sembunyikan Opsi Token Manual' : 'Solusi 2: Gunakan Token Akses Manual (Bypass)'}</span>
+                        </button>
+
+                        {showManualPanel && (
+                          <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-2.5 shadow-sm">
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                              Masukkan Google OAuth Access Token yang valid untuk langsung mem-bypass login Firebase secara instan:
+                            </p>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="text"
+                                value={manualTokenValue}
+                                onChange={(e) => setManualTokenValue(e.target.value)}
+                                placeholder="ya29.a0Acv..."
+                                className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-700 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleApplyManualToken(manualTokenValue)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+                              >
+                                Verifikasi
+                              </button>
+                            </div>
+                            <span className="block text-[9px] text-slate-400 leading-normal">
+                              Dapatkan token Anda dari Google OAuth Playground atau konsol pengembang dengan scope Sheets &amp; Drive.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* CARD 2: FILE SPREADSHEET DATABASE */}

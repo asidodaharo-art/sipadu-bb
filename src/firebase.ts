@@ -184,14 +184,40 @@ export async function syncLocalStorageToCloud(key: string, rawVal: string | null
   }
 }
 
+export let isSheetsImporting = false;
+export function setSheetsImporting(val: boolean) {
+  isSheetsImporting = val;
+}
+
 // Setup a hook to automatically capture all subsequent localStorage changes
 export function setupLocalStorageInterceptor() {
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function (key: string, value: string) {
     originalSetItem.call(localStorage, key, value);
     if (STORAGE_SYNC_MAP[key]) {
-      // Dispatch background save to Firestore
-      syncLocalStorageToCloud(key, value).catch(console.error);
+      // Dispatch background save to Firestore (only if Firestore is available and enabled)
+      if (isFirestoreAvailable) {
+        syncLocalStorageToCloud(key, value).catch(console.error);
+      }
+
+      // Dispatch background save to Google Sheets in real-time
+      if (!isSheetsImporting) {
+        const gToken = getGoogleAccessToken();
+        const gSpreadsheetId = localStorage.getItem('uptd_google_spreadsheet_id');
+        if (gToken && gSpreadsheetId) {
+          import('./googleSheetsSync').then(({ exportCollectionToSheet }) => {
+            exportCollectionToSheet(gToken, gSpreadsheetId, key, STORAGE_SYNC_MAP[key].collection, STORAGE_SYNC_MAP[key].type)
+              .then(() => {
+                console.log(`[Google Sheets Auto-Sync] Sync success for key: ${key}`);
+              })
+              .catch((gErr) => {
+                console.warn(`[Google Sheets Auto-Sync] Sync failed for key: ${key}:`, gErr);
+              });
+          }).catch(err => {
+            console.error("Failed to load googleSheetsSync in interceptor:", err);
+          });
+        }
+      }
     }
   };
 }
@@ -249,7 +275,7 @@ export async function performBidirectionalSync(): Promise<void> {
   }
 }
 
-let cachedGoogleAccessToken: string | null = null;
+let cachedGoogleAccessToken: string | null = (typeof window !== 'undefined') ? localStorage.getItem('uptd_google_access_token') : null;
 
 export function getGoogleAccessToken(): string | null {
   return cachedGoogleAccessToken;
@@ -257,6 +283,21 @@ export function getGoogleAccessToken(): string | null {
 
 export function setGoogleAccessToken(token: string | null) {
   cachedGoogleAccessToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem('uptd_google_access_token', token);
+    } else {
+      localStorage.removeItem('uptd_google_access_token');
+    }
+  }
+}
+
+export function formatFirebaseAuthError(errorMsg: string): string {
+  const lowercase = errorMsg.toLowerCase();
+  if (lowercase.includes('suspended') || (lowercase.includes('api-key') && (lowercase.includes('permission-denied') || lowercase.includes('permission_denied')))) {
+    return "API KEY FIREBASE KONSOL GOOGLE ANDA DITANGGUHKAN (SUSPENDED). Hubungi Administrator atau masuk ke Google Cloud Console / Firebase Console untuk menyelesaikan isu penangguhan API key Anda, atau gunakan fitur Bypass Google Sheets di menu Pengaturan kami.";
+  }
+  return errorMsg;
 }
 
 // Sign-in tool with Google
@@ -282,8 +323,9 @@ export async function signInWithGoogle(): Promise<any> {
     return result.user;
   } catch (error: any) {
     console.error("Firebase Google Auth Sign-in failed:", error);
-    authErrorMsg = error?.message || String(error);
-    throw error;
+    const rawMsg = error?.message || String(error);
+    authErrorMsg = formatFirebaseAuthError(rawMsg);
+    throw new Error(authErrorMsg);
   }
 }
 
@@ -304,54 +346,29 @@ export async function signOutFromFirebase(): Promise<void> {
 export async function initAndSyncData(): Promise<void> {
   authErrorMsg = null;
   
-  // 1. Wait for Firebase Auth to restore the active user session (resolves async IDB session)
-  const restoredUser = await new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
+  // 1. Skip Firebase authentication on start since we are migrating to Google Sheets storage
+  console.log("Firebase Auth skipped. Storage is redirected to Google Sheets & Google Drive.");
+  authErrorMsg = null;
 
-  // 1b. If no user is authenticated, attempt anonymous login in background
-  if (!restoredUser) {
+  // 2. Disable Firebase Firestore completely per user request
+  console.log("Firebase Firestore is completely disabled. Cloud storage is redirected to Google Sheets & Google Drive.");
+  isFirestoreAvailable = false;
+
+  // 3. Auto-Synchronize latest state from Google Sheets at startup if active connection exists
+  const gToken = getGoogleAccessToken();
+  const gSpreadsheetId = localStorage.getItem('uptd_google_spreadsheet_id');
+  if (gToken && gSpreadsheetId) {
+    console.log("Active Google Sheets database session detected. Pulling latest data from Google Sheets on startup...");
     try {
-      await signInAnonymously(auth);
-      console.log("Firebase Auth signed in anonymously successfully.");
-      authErrorMsg = null;
-    } catch (error: any) {
-      console.warn("Firebase Auth signin failed (operating in sandbox mode):", error);
-      authErrorMsg = error?.message || String(error);
+      setSheetsImporting(true);
+      const { importAllGoogleSheetsDataToLocal } = await import('./googleSheetsSync');
+      await importAllGoogleSheetsDataToLocal(gToken, gSpreadsheetId);
+      console.log("Google Sheets startup synchronization completed successfully!");
+    } catch (gErr) {
+      console.warn("Failed to execute Google Sheets startup synchronization:", gErr);
+    } finally {
+      setSheetsImporting(false);
     }
-  } else {
-    console.log("Firebase Auth active session restored.");
-    authErrorMsg = null;
-  }
-
-  // 2. Test Firestore connection first using getDocFromServer
-  try {
-    await getDocFromServer(doc(db, 'test_connection', 'ping'));
-    console.log("Passed Firestore database server connection check. Cloud database sync is active.");
-    isFirestoreAvailable = true;
-  } catch (error: any) {
-    const errorStr = String(error?.message || error).toLowerCase();
-    if (errorStr.includes('permission-denied') || errorStr.includes('permission') || errorStr.includes('insufficient')) {
-      console.warn("Firestore database sync is inactive (restricted permissions or rules not deployed). Operating in local sandbox fallback mode.");
-      isFirestoreAvailable = false;
-    } else if (errorStr.includes('offline') || errorStr.includes('network') || errorStr.includes('the client is offline')) {
-      console.warn("Firestore client is offline. Operating in local sandbox fallback mode.");
-      isFirestoreAvailable = false;
-    } else {
-      console.log("Firestore database connection query returned unexpected result, operating in local sandbox fallback mode:", error?.message || error);
-      isFirestoreAvailable = false;
-    }
-  }
-
-  // 3. Bidirectional Sync Layer (Only if cloud database is online and accessible)
-  if (isFirestoreAvailable) {
-    // Run bidirectional sync in the background asynchronously so the startup remains instant
-    performBidirectionalSync().catch((err) => {
-      console.warn("Background bidirectional sync error:", err);
-    });
   }
 
   // 4. Overwrite setItem for future writes synchronization
