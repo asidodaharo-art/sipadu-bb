@@ -77,6 +77,26 @@ export async function findExistingDatabaseSpreadsheet(token: string): Promise<Sp
 }
 
 /**
+ * Fetches the modified time of the spreadsheet from Google Drive.
+ */
+export async function getSpreadsheetModifiedTime(token: string, spreadsheetId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.modifiedTime || null;
+    }
+  } catch (err) {
+    console.warn("Dapatkan waktu modifikasi Spreadsheet gagal:", err);
+  }
+  return null;
+}
+
+/**
  * Creates a brand new spreadsheet in Google Drive with all table tabs ready to roll.
  */
 export async function createDatabaseSpreadsheet(token: string): Promise<SpreadsheetFileInfo> {
@@ -235,6 +255,8 @@ export async function exportCollectionToSheet(
     if (!response.ok) {
       throw new Error(`Sheet write failed: ${response.statusText}`);
     }
+    // Record local write timestamp to avoid trigger background polling sync loop
+    localStorage.setItem('uptd_last_write_timestamp', String(Date.now()));
   } catch (err) {
     console.error(`Gagal mengekspor ${sheetTitle}:`, err);
   }
@@ -256,6 +278,16 @@ export async function exportAllLocalDataToGoogleSheets(
       onProgress(`Mengekspor halaman data: "${mapping.collection}" (${i + 1}/${syncMappings.length})...`);
     }
     await exportCollectionToSheet(token, spreadsheetId, localStorageKey, mapping.collection, mapping.type);
+  }
+
+  // Save the latest modifiedTime after exporting successfully
+  try {
+    const mTime = await getSpreadsheetModifiedTime(token, spreadsheetId);
+    if (mTime) {
+      localStorage.setItem('uptd_last_sheets_sync_time', mTime);
+    }
+  } catch (err) {
+    console.warn("Could not save initial spreadsheet modifiedTime after export:", err);
   }
 }
 
@@ -375,5 +407,15 @@ export async function importAllGoogleSheetsDataToLocal(
       onProgress(`Mengimpor halaman data: "${mapping.collection}" (${i + 1}/${syncMappings.length})...`);
     }
     await importCollectionFromSheet(token, spreadsheetId, localStorageKey, mapping.collection, mapping.type);
+  }
+
+  // Save the latest modifiedTime after importing successfully
+  try {
+    const mTime = await getSpreadsheetModifiedTime(token, spreadsheetId);
+    if (mTime) {
+      localStorage.setItem('uptd_last_sheets_sync_time', mTime);
+    }
+  } catch (err) {
+    console.warn("Could not save initial spreadsheet modifiedTime after import:", err);
   }
 }

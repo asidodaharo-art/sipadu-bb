@@ -53,6 +53,8 @@ export default function App() {
     window.location.reload();
   }
 
+  const [isUpdatingSheets, setIsUpdatingSheets] = useState(false);
+
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -224,6 +226,71 @@ export default function App() {
       }
     }
   }, [currentUser, activeTab, penatausahaanSubTab]);
+
+  // Background Auto-Sync to keep devices updated in real-time
+  useEffect(() => {
+    let active = true;
+    let timerId: any = null;
+
+    const checkForSheetsUpdates = async () => {
+      const token = localStorage.getItem('uptd_google_access_token');
+      const spreadsheetId = localStorage.getItem('uptd_google_spreadsheet_id');
+      const lastSyncTime = localStorage.getItem('uptd_last_sheets_sync_time');
+
+      if (!token || !spreadsheetId) return;
+
+      // Skip if a local write occurred within the last 15 seconds to prevent race conditions
+      const lastWrite = localStorage.getItem('uptd_last_write_timestamp');
+      if (lastWrite && Date.now() - Number(lastWrite) < 15000) {
+        return;
+      }
+
+      try {
+        const { getSpreadsheetModifiedTime, importAllGoogleSheetsDataToLocal } = await import('./googleSheetsSync');
+        const remoteTime = await getSpreadsheetModifiedTime(token, spreadsheetId);
+        
+        if (remoteTime && remoteTime !== lastSyncTime && active) {
+          console.log(`[Google Sheets background sync] Remote update detected: ${remoteTime} vs Local: ${lastSyncTime}. Pulling...`);
+          setIsUpdatingSheets(true);
+          
+          await importAllGoogleSheetsDataToLocal(token, spreadsheetId);
+          
+          // Store the updated sync time
+          localStorage.setItem('uptd_last_sheets_sync_time', remoteTime);
+          
+          // Delay briefly to show the beautiful syncing overlay, then reload to refresh all views!
+          setTimeout(() => {
+            if (active) {
+              window.location.reload();
+            }
+          }, 1500);
+        }
+      } catch (err) {
+        console.warn("[Google Sheets background sync] Auto check failed:", err);
+      }
+    };
+
+    // Run on window/tab focus
+    const handleFocus = () => {
+      checkForSheetsUpdates();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    // Run every 45 seconds
+    timerId = setInterval(checkForSheetsUpdates, 45000);
+
+    // Initial check on load
+    checkForSheetsUpdates();
+
+    return () => {
+      active = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      if (timerId) clearInterval(timerId);
+    };
+  }, []);
 
   // Helper to find staff photo by matching username with NIP
   const getCurrentUserPhoto = () => {
@@ -1195,6 +1262,25 @@ export default function App() {
             </div>
           </div>
         </footer>
+
+        {/* Syncing Overlay Indicator */}
+        <AnimatePresence>
+          {isUpdatingSheets && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] select-none"
+            >
+              <div className="relative flex items-center justify-center mb-6">
+                <div className="animate-ping absolute inline-flex h-20 w-20 rounded-full bg-blue-400/20 opacity-75"></div>
+                <div className="relative animate-spin rounded-full h-14 w-14 border-2 border-slate-700 border-t-2 border-t-blue-500"></div>
+              </div>
+              <h3 className="text-lg font-extrabold tracking-widest text-slate-100 uppercase font-sans">SINKRONISASI OTOMATIS</h3>
+              <p className="text-xs text-blue-400 mt-2 font-mono font-medium animate-pulse">Menyelaraskan data terbaru dari Google Sheets...</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>

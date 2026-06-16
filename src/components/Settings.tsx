@@ -112,9 +112,35 @@ export default function Settings({
       const found = await findExistingDatabaseSpreadsheet(token);
       if (found) {
         setSpreadsheetInfo(found);
-        setGSyncStatus('idle');
-        setGSyncMessage('');
+        
+        const existingSpreadsheetId = localStorage.getItem('uptd_google_spreadsheet_id');
+        const lastSyncTime = localStorage.getItem('uptd_last_sheets_sync_time');
+        
         localStorage.setItem('uptd_google_spreadsheet_id', found.id);
+        
+        // Auto-synchronize and pull if it's a new connection, different file, or has never been imported on this device
+        if (!existingSpreadsheetId || existingSpreadsheetId !== found.id || !lastSyncTime) {
+          setGSyncStatus('syncing');
+          setGSyncMessage('Menemukan basis data Google Sheets! Menyinkronkan seluruh data aplikasi...');
+          try {
+            await importAllGoogleSheetsDataToLocal(token, found.id, (msg) => {
+              setGSyncMessage(msg);
+            });
+            setGSyncStatus('import_success');
+            setGSyncMessage('Sinkronisasi Google Sheets Berhasil! Memuat ulang aplikasi...');
+            triggerNotification('Sinkronisasi Google Sheets Berhasil!');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } catch (importErr: any) {
+            console.error("Auto import failed:", importErr);
+            setGSyncStatus('error');
+            setGSyncMessage(`Gagal menyinkronkan data otomatis: ${importErr?.message || importErr}`);
+          }
+        } else {
+          setGSyncStatus('idle');
+          setGSyncMessage('');
+        }
       } else {
         setSpreadsheetInfo(null);
         setGSyncStatus('idle');
@@ -158,22 +184,11 @@ export default function Settings({
     setGSyncStatus('checking');
     setGSyncMessage('Memverifikasi Google Access Token yang Anda masukkan...');
     try {
-      setGoogleAccessToken(pastedToken.trim());
-      setGoogleAccessTokenState(pastedToken.trim());
-      // Re-check spreadsheet with the manual token
-      const found = await findExistingDatabaseSpreadsheet(pastedToken.trim());
-      if (found) {
-        setSpreadsheetInfo(found);
-        setGSyncStatus('idle');
-        setGSyncMessage('');
-        localStorage.setItem('uptd_google_spreadsheet_id', found.id);
-        triggerNotification('Token berhasil diverifikasi! Ditemukan database: ' + found.name);
-      } else {
-        setSpreadsheetInfo(null);
-        setGSyncStatus('idle');
-        setGSyncMessage('Token diterima, namun belum ada file database di Google Drive Anda. Silakan klik tombol "Buat File Database Baru" di bawah.');
-        triggerNotification('Token berhasil diverifikasi! Silakan buat database baru.');
-      }
+      const token = pastedToken.trim();
+      setGoogleAccessToken(token);
+      setGoogleAccessTokenState(token);
+      await checkGoogleSpreadsheet(token);
+      triggerNotification('Token berhasil dipasang!');
     } catch (err: any) {
       setGSyncStatus('error');
       setGSyncMessage(`Verifikasi Token Gagal: ${err?.message || err}. Pastikan token aktif dan memiliki cakupan Sheets & Drive.`);
