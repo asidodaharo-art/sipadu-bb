@@ -249,11 +249,30 @@ export async function performBidirectionalSync(): Promise<void> {
   }
 }
 
+let cachedGoogleAccessToken: string | null = null;
+
+export function getGoogleAccessToken(): string | null {
+  return cachedGoogleAccessToken;
+}
+
+export function setGoogleAccessToken(token: string | null) {
+  cachedGoogleAccessToken = token;
+}
+
 // Sign-in tool with Google
 export async function signInWithGoogle(): Promise<any> {
   const provider = new GoogleAuthProvider();
+  // Request Workspace scopes
+  provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+  provider.addScope('https://www.googleapis.com/auth/drive.file');
+  
   try {
     const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedGoogleAccessToken = credential.accessToken;
+    }
+    
     authErrorMsg = null;
     isFirestoreAvailable = true;
     console.log("Firebase Auth signed in with Google successfully.");
@@ -272,6 +291,7 @@ export async function signInWithGoogle(): Promise<any> {
 export async function signOutFromFirebase(): Promise<void> {
   try {
     await signOut(auth);
+    cachedGoogleAccessToken = null;
     isFirestoreAvailable = false;
     authErrorMsg = null;
     console.log("Firebase Auth logged out successfully.");

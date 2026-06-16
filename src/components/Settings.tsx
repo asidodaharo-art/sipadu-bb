@@ -6,8 +6,15 @@ import {
   authErrorMsg, 
   signInWithGoogle, 
   signOutFromFirebase, 
-  performBidirectionalSync 
+  performBidirectionalSync,
+  getGoogleAccessToken
 } from '../firebase';
+import { 
+  findExistingDatabaseSpreadsheet, 
+  createDatabaseSpreadsheet, 
+  exportAllLocalDataToGoogleSheets, 
+  importAllGoogleSheetsDataToLocal 
+} from '../googleSheetsSync';
 import { User, InstansiProfile, FooterConfig } from '../types';
 import { 
   Building, 
@@ -24,7 +31,12 @@ import {
   Phone, 
   UserCheck,
   Camera,
-  Pencil
+  Pencil,
+  Database,
+  FileSpreadsheet,
+  Download,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -53,7 +65,7 @@ export default function Settings({
   onDeleteUser,
   onClearAllData
 }: SettingsProps) {
-  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean' | 'cloud_sync'>('profil');
+  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean' | 'cloud_sync' | 'google_sheets'>('profil');
   
   // Firebase Auth and Sync Reactive States
   const [firebaseUser, setFirebaseUser] = useState<any>(auth.currentUser);
@@ -61,14 +73,141 @@ export default function Settings({
   const [authError, setAuthError] = useState<string | null>(authErrorMsg);
   const [syncing, setSyncing] = useState<boolean>(false);
 
+  // Google Workspace Sheets Database States
+  const [googleAccessToken, setGoogleAccessTokenState] = useState<string | null>(getGoogleAccessToken());
+  const [spreadsheetInfo, setSpreadsheetInfo] = useState<{ id: string; name: string; webViewLink?: string } | null>(null);
+  const [gSyncStatus, setGSyncStatus] = useState<'idle' | 'checking' | 'syncing' | 'export_success' | 'import_success' | 'error'>('idle');
+  const [gSyncMessage, setGSyncMessage] = useState<string>('');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       setSyncStatus(isFirestoreAvailable);
       setAuthError(authErrorMsg);
+      // Automatically keep access token synchronized
+      const token = getGoogleAccessToken();
+      setGoogleAccessTokenState(token);
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (googleAccessToken) {
+      checkGoogleSpreadsheet(googleAccessToken);
+    } else {
+      setSpreadsheetInfo(null);
+    }
+  }, [googleAccessToken]);
+
+  const checkGoogleSpreadsheet = async (token: string) => {
+    setGSyncStatus('checking');
+    setGSyncMessage('Memeriksa ketersediaan Database Spreadsheet di Google Drive...');
+    try {
+      const found = await findExistingDatabaseSpreadsheet(token);
+      if (found) {
+        setSpreadsheetInfo(found);
+        setGSyncStatus('idle');
+        setGSyncMessage('');
+        localStorage.setItem('uptd_google_spreadsheet_id', found.id);
+      } else {
+        setSpreadsheetInfo(null);
+        setGSyncStatus('idle');
+        setGSyncMessage('Belum ada database spreadsheet yang terkelola di Google Drive Anda.');
+      }
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Pemeriksaan Google Drive gagal: ${err?.message || err}`);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    setGSyncStatus('checking');
+    setGSyncMessage('Menyambungkan akun Google Anda dengan cakupan Sheets & Drive...');
+    try {
+      await signInWithGoogle();
+      const token = getGoogleAccessToken();
+      if (token) {
+        setGoogleAccessTokenState(token);
+        await checkGoogleSpreadsheet(token);
+        triggerNotification('Akun Google berhasil tersambung!');
+      } else {
+        throw new Error('Gagal mendapatkan token akses Google.');
+      }
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Penyambungan Google Gagal: ${err?.message || err}`);
+    }
+  };
+
+  const handleCreateSpreadsheet = async () => {
+    if (!googleAccessToken) return;
+    setGSyncStatus('syncing');
+    setGSyncMessage('Membuka berkas spreadsheet database baru di Google Drive...');
+    try {
+      const created = await createDatabaseSpreadsheet(googleAccessToken);
+      setSpreadsheetInfo(created);
+      localStorage.setItem('uptd_google_spreadsheet_id', created.id);
+      
+      setGSyncMessage('Mengunggah/seeding seluruh salinan data lokal ke Spreadsheet baru...');
+      await exportAllLocalDataToGoogleSheets(googleAccessToken, created.id, (msg) => {
+        setGSyncMessage(msg);
+      });
+      
+      setGSyncStatus('idle');
+      setGSyncMessage('');
+      triggerNotification('Google Spreadsheet database berhasil dibuat & disinkronisasikan!');
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Gagal membuat file spreadsheet: ${err?.message || err}`);
+    }
+  };
+
+  const handleExportToSheets = async () => {
+    if (!googleAccessToken || !spreadsheetInfo) return;
+    if (!window.confirm('Apakah Anda yakin ingin mengekspor data lokal ke Google Sheets? Tindakan ini akan menimpa seluruh baris data di file Spreadsheet Anda.')) {
+      return;
+    }
+    setGSyncStatus('syncing');
+    setGSyncMessage('Memulai ekspor database lokal ke Google Sheets...');
+    try {
+      await exportAllLocalDataToGoogleSheets(googleAccessToken, spreadsheetInfo.id, (msg) => {
+        setGSyncMessage(msg);
+      });
+      setGSyncStatus('export_success');
+      setGSyncMessage('Ekspor data berhasil! Seluruh data terbaru Anda telah tersimpan di Google Sheets.');
+      triggerNotification('Ekspor Data Berhasil!');
+      setTimeout(() => {
+        setGSyncStatus('idle');
+        setGSyncMessage('');
+      }, 5000);
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Gagal mengekspor data: ${err?.message || err}`);
+    }
+  };
+
+  const handleImportFromSheets = async () => {
+    if (!googleAccessToken || !spreadsheetInfo) return;
+    if (!window.confirm('Apakah Anda yakin ingin mengimpor database dari Google Sheets? Ini akan mengganti seluruh data kas kerja, arsip surat, data pegawai, & proyek lokal Anda dengan data yang bersumber dari Spreadsheet.')) {
+      return;
+    }
+    setGSyncStatus('syncing');
+    setGSyncMessage('Mengunduh & merestorasi data dari Google Sheets...');
+    try {
+      await importAllGoogleSheetsDataToLocal(googleAccessToken, spreadsheetInfo.id, (msg) => {
+        setGSyncMessage(msg);
+      });
+      setGSyncStatus('import_success');
+      setGSyncMessage('Database lokal berhasil dipulihkan dari Spreadsheet Google! Halaman akan dimuat ulang...');
+      triggerNotification('Impor Data Berhasil!');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      setGSyncStatus('error');
+      setGSyncMessage(`Gagal mengimpor data dari Google Sheets: ${err?.message || err}`);
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Drag and drop uploading state
@@ -335,6 +474,19 @@ export default function Settings({
           >
             <Globe className="w-4 h-4" />
             <span>Sinkronisasi Cloud & Firebase</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubPage('google_sheets')}
+            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-2.5 transition-all cursor-pointer ${
+              activeSubPage === 'google_sheets'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'
+            }`}
+            id="subpage-google-sheets"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Database Google Sheets</span>
           </button>
 
           <button
@@ -1184,6 +1336,184 @@ export default function Settings({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* SUBPAGE 6: GOOGLE SHEETS DATABASE PANEL */}
+          {activeSubPage === 'google_sheets' && (
+            <div className="space-y-6" id="settings-google-sheets-section">
+              <div className="border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-extrabold text-slate-800 text-sm">
+                      Integrasi Database Google Sheets & Google Drive
+                    </h2>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Gunakan Google Spreadsheet Anda secara transparan sebagai database sekunder cloud untuk menyimpan, mengekspor, dan merestorasi seluruh data instansi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Checking indicators */}
+              {gSyncMessage && (
+                <div className="p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl flex items-center space-x-3 text-xs text-emerald-800">
+                  <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
+                  <span className="font-medium animate-pulse">{gSyncMessage}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* CARD 1: KONEKSI AKUN GOOGLE */}
+                <div className="p-5 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col justify-between space-y-4">
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      Status Akun Google Workspace
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Memerlukan otorisasi untuk membaca dan menulis file Spreadsheet di Google Drive Anda secara aman dengan persetujuan Anda.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    {googleAccessToken ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2 text-xs font-semibold text-emerald-600">
+                          <Check className="w-4 h-4" />
+                          <span>Akun Google Terhubung</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm('Apakah Anda yakin ingin keluar dari koneksi Google Workspace?')) {
+                              await signOutFromFirebase();
+                              setGoogleAccessTokenState(null);
+                              setSpreadsheetInfo(null);
+                              triggerNotification('Akun Google berhasil diputuskan.');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-[11px] transition-all cursor-pointer"
+                        >
+                          Putuskan Sambungan
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleConnectGoogle}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                      >
+                        <Globe className="w-4 h-4" />
+                        <span>Hubungkan Akun Google</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* CARD 2: FILE SPREADSHEET DATABASE */}
+                <div className="p-5 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col justify-between space-y-4">
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                      Target Spreadsheet Database
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Seluruh tabel-tabel data aplikasi (arsip surat, kas seksi, TMA air, dll) akan dilarutkan ke dalam lembar kerja spreadsheet terpisah.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    {!googleAccessToken ? (
+                      <span className="text-[11px] text-slate-400 italic">Hubungkan Akun Google terlebih dahulu.</span>
+                    ) : spreadsheetInfo ? (
+                      <div className="space-y-3">
+                        <div className="text-xs">
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wide">File Database Aktif:</span>
+                          <span className="font-extrabold text-slate-700 block truncate mt-0.5">{spreadsheetInfo.name}</span>
+                        </div>
+                        <a
+                          href={spreadsheetInfo.webViewLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline transition-all"
+                        >
+                          <span>Buka di Google Drive</span>
+                          <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-[11px] text-amber-600 font-medium">Sistem tidak mendeteksi file database di Google Drive Anda.</p>
+                        <button
+                          type="button"
+                          onClick={handleCreateSpreadsheet}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                        >
+                          <Database className="w-4 h-4" />
+                          <span>Buat File Database Baru</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION BACKUP AND RESTORE GRID */}
+              {googleAccessToken && spreadsheetInfo && (
+                <div className="border-t border-slate-100 pt-5 space-y-4">
+                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                    Pusat Sinkronisasi & Pemulihan (Backup & Restore)
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* BACKUP EXPORT BOX */}
+                    <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-3">
+                      <div className="space-y-1.5">
+                        <h5 className="font-extrabold text-slate-800 flex items-center gap-1.5 select-none">
+                          <Upload className="w-4 h-4 text-emerald-600" />
+                          Ekspor Lokal ke Google Sheets
+                        </h5>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          Mengirim seluruh database lokal browser Anda ke dalam lembar kerja Google Sheets target. Tindakan ini menindih seluruh isi tab spreadsheet secara instan.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportToSheets}
+                        disabled={gSyncStatus === 'syncing'}
+                        className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 text-emerald-750 font-extrabold rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>Mulai Ekspor Sekarang</span>
+                      </button>
+                    </div>
+
+                    {/* RESTORE IMPORT BOX */}
+                    <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-3">
+                      <div className="space-y-1.5">
+                        <h5 className="font-extrabold text-slate-800 flex items-center gap-1.5 select-none">
+                          <Download className="w-4 h-4 text-blue-600" />
+                          Impor Google Sheets ke Lokal
+                        </h5>
+                        <p className="text-[11px] text-slate-500 leading-normal font-sans">
+                          Mengambil database online dari worksheet Google Sheets dan menimpa isi rekam lokal di browser Anda. Sangat berguna untuk sinkronisasi perangkat baru.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleImportFromSheets}
+                        disabled={gSyncStatus === 'syncing'}
+                        className="w-full py-2 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-750 font-extrabold rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Mulai Impor & Reset Sesi</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
