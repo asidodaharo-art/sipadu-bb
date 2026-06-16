@@ -45,53 +45,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatToIndoDate } from './utils';
 
 export default function App() {
-  // One-time data purge to satisfy the user's request: empty all databases and lists, keeping only the Admin user credentials.
-  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v3_data_purged_clear_complete_v1')) {
-    const defaultAdmin = [
-      {
-        id: '1',
-        username: 'admin',
-        name: 'Administrator UPTD',
-        role: 'admin' as const,
-        password: 'admin123',
-        section: 'all'
-      }
-    ];
-    localStorage.setItem('uptd_users', JSON.stringify(defaultAdmin));
-    localStorage.setItem('uptd_v3_mails', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_staff', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_projects', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_assets', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_finances', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_daerah_irigasi', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_river_stations', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_consumables', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_activity_accounts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_spj', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_bapp', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_contracts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_bank_accounts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_job_proposals_operasional', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_job_proposals_pembangunan', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_inspection_logs', JSON.stringify([]));
-    
-    // Log out if non-admin is active
-    const curUserRaw = localStorage.getItem('uptd_current_user');
-    if (curUserRaw) {
-      try {
-        const curUser = JSON.parse(curUserRaw);
-        if (curUser.role !== 'admin') {
-          localStorage.removeItem('uptd_current_user');
-        }
-      } catch (e) {
-        localStorage.removeItem('uptd_current_user');
-      }
-    }
-    localStorage.setItem('uptd_v3_data_purged_clear_complete_v1', 'true');
+  // One-time data purge to satisfy the user's request: completely clear all localStorage data.
+  if (typeof window !== 'undefined' && !localStorage.getItem('uptd_v4_localStorage_cleared_by_user')) {
+    localStorage.clear();
+    localStorage.setItem('uptd_v4_localStorage_cleared_by_user', 'true');
+    // Force reload to apply clean state
+    window.location.reload();
   }
 
   // 1. Core Persistent States from localStorage (or seed INITIAL_DATA)
@@ -509,38 +468,11 @@ export default function App() {
   };
 
   const handleClearAllData = () => {
-    setMails([]);
-    setStaff([]);
-    setProjects([]);
-    setProjectsOperasional([]);
-    setWaterLogs([]);
-    setDamageReports([]);
-    setAssets([]);
-    setFinances([]);
+    // Completely wipe all items from localStorage
+    localStorage.clear();
+    localStorage.setItem('uptd_v4_localStorage_cleared_by_user', 'true');
     
-    // Clear localStorage for all registers
-    localStorage.setItem('uptd_v3_mails', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_staff', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_projects', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_projects_operasional', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_water_logs', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_damage_reports', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_assets', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_finances', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_daerah_irigasi', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_river_stations', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_asset_distributions', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_consumables', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_activity_accounts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_spj', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_bapp', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_contracts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_bank_accounts', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_job_proposals_operasional', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_job_proposals_pembangunan', JSON.stringify([]));
-    localStorage.setItem('uptd_v3_inspection_logs', JSON.stringify([]));
-    
-    // Force reload to apply clean state
+    // Force reload to apply completely clean state from scratch
     window.location.reload();
   };
 
