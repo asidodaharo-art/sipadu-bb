@@ -344,6 +344,151 @@ export default function App() {
     };
   }, []);
 
+  const [mysqlLoading, setMysqlLoading] = useState(false);
+  const [mysqlConnected, setMysqlConnected] = useState(false);
+
+  // Automated background loading from MySQL Database if available on backend
+  useEffect(() => {
+    const fetchMysqlData = async () => {
+      try {
+        setMysqlLoading(true);
+        const res = await fetch("/api/mysql/pull");
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success) {
+            setMysqlConnected(result.mode === "mysql");
+            if (result.data) {
+              const d = result.data;
+              const hasUsers = d.users && d.users.length > 0;
+              const hasMails = d.mails && d.mails.length > 0;
+              const hasStaff = d.staff && d.staff.length > 0;
+
+              // If MySQL is open but empty, we seed it with current local data
+              if (result.mode === "mysql" && !hasUsers && !hasMails && !hasStaff) {
+                console.log("MySQL database is empty. Performing initial data push to seed...");
+                const localUsersStr = localStorage.getItem('uptd_users');
+                const localMailsStr = localStorage.getItem('uptd_v3_mails');
+                const localStaffStr = localStorage.getItem('uptd_v3_staff');
+                const localProjectsStr = localStorage.getItem('uptd_v3_projects');
+                const localWaterLogsStr = localStorage.getItem('uptd_v3_water_logs');
+                const localDamageReportsStr = localStorage.getItem('uptd_v3_damage_reports');
+                const localAssetsStr = localStorage.getItem('uptd_v3_assets');
+                const localFinancesStr = localStorage.getItem('uptd_v3_finances');
+                const localProfileStr = localStorage.getItem('uptd_profile');
+                const localFooterStr = localStorage.getItem('uptd_footer');
+
+                const initialPayload = {
+                  users: localUsersStr ? JSON.parse(localUsersStr) : users,
+                  mails: localMailsStr ? JSON.parse(localMailsStr) : mails,
+                  staff: localStaffStr ? JSON.parse(localStaffStr) : staff,
+                  projects: localProjectsStr ? JSON.parse(localProjectsStr) : projects,
+                  waterLogs: localWaterLogsStr ? JSON.parse(localWaterLogsStr) : waterLogs,
+                  damageReports: localDamageReportsStr ? JSON.parse(localDamageReportsStr) : damageReports,
+                  assets: localAssetsStr ? JSON.parse(localAssetsStr) : assets,
+                  financeTransactions: localFinancesStr ? JSON.parse(localFinancesStr) : finances,
+                  profile: localProfileStr ? JSON.parse(localProfileStr) : profile,
+                  footer: localFooterStr ? JSON.parse(localFooterStr) : footer,
+                };
+
+                await fetch("/api/mysql/push", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(initialPayload)
+                });
+              } else {
+                if (hasUsers) {
+                  setUsers(d.users);
+                  localStorage.setItem('uptd_users', JSON.stringify(d.users));
+                }
+                if (hasMails) {
+                  setMails(d.mails);
+                  localStorage.setItem('uptd_v3_mails', JSON.stringify(d.mails));
+                }
+                if (hasStaff) {
+                  setStaff(d.staff);
+                  localStorage.setItem('uptd_v3_staff', JSON.stringify(d.staff));
+                }
+                if (d.projects && d.projects.length > 0) {
+                  setProjects(d.projects);
+                  localStorage.setItem('uptd_v3_projects', JSON.stringify(d.projects));
+                }
+                if (d.waterLogs && d.waterLogs.length > 0) {
+                  setWaterLogs(d.waterLogs);
+                  localStorage.setItem('uptd_v3_water_logs', JSON.stringify(d.waterLogs));
+                }
+                if (d.damageReports && d.damageReports.length > 0) {
+                  setDamageReports(d.damageReports);
+                  localStorage.setItem('uptd_v3_damage_reports', JSON.stringify(d.damageReports));
+                }
+                if (d.assets && d.assets.length > 0) {
+                  setAssets(d.assets);
+                  localStorage.setItem('uptd_v3_assets', JSON.stringify(d.assets));
+                }
+                if (d.financeTransactions && d.financeTransactions.length > 0) {
+                  setFinances(d.financeTransactions);
+                  localStorage.setItem('uptd_v3_finances', JSON.stringify(d.financeTransactions));
+                }
+                if (d.profile) {
+                  setProfile(d.profile);
+                  localStorage.setItem('uptd_profile', JSON.stringify(d.profile));
+                }
+                if (d.footer) {
+                  setFooter(d.footer);
+                  localStorage.setItem('uptd_footer', JSON.stringify(d.footer));
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not auto-fetch from MySQL database:", err);
+      } finally {
+        setMysqlLoading(false);
+      }
+    };
+
+    fetchMysqlData();
+  }, []);
+
+  // Debounced auto-save current state to MySQL backend database (keeps it identical)
+  useEffect(() => {
+    if (mysqlLoading || !mysqlConnected) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const payload = {
+          users,
+          mails,
+          staff,
+          projects,
+          waterLogs,
+          damageReports,
+          assets,
+          assetDistributions: [],
+          consumableSupplies: [],
+          financeTransactions: finances,
+          bankAccounts: [],
+          activityAccounts: [],
+          spjDocuments: [],
+          bappDocuments: [],
+          contracts: [],
+          profile,
+          footer
+        };
+
+        await fetch("/api/mysql/push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.warn("Auto-sync background save task failed:", e);
+      }
+    }, 4000);
+
+    return () => clearTimeout(timeoutId);
+  }, [users, mails, staff, projects, waterLogs, damageReports, assets, finances, profile, footer, mysqlConnected]);
+
   // Helper to find staff photo by matching username with NIP
   const getCurrentUserPhoto = () => {
     if (!currentUser) return null;

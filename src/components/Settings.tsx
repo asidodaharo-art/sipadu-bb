@@ -67,7 +67,40 @@ export default function Settings({
   onDeleteUser,
   onClearAllData
 }: SettingsProps) {
-  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean' | 'cloud_sync' | 'google_sheets'>('profil');
+  const [activeSubPage, setActiveSubPage] = useState<'profil' | 'users' | 'footer' | 'clean' | 'cloud_sync' | 'google_sheets' | 'mysql'>('profil');
+
+  // MySQL Settings Form States
+  const [mysqlHost, setMysqlHost] = useState('');
+  const [mysqlPort, setMysqlPort] = useState('3306');
+  const [mysqlUser, setMysqlUser] = useState('');
+  const [mysqlPassword, setMysqlPassword] = useState('');
+  const [mysqlDatabase, setMysqlDatabase] = useState('');
+  const [mysqlSslCa, setMysqlSslCa] = useState('');
+  const [mysqlServerStatus, setMysqlServerStatus] = useState<any>({ isConnected: false, error: 'Memuat...', config: {} });
+  const [mysqlTesting, setMysqlTesting] = useState(false);
+  const [mysqlActionMsg, setMysqlActionMsg] = useState('');
+
+  const fetchMysqlStatus = async () => {
+    try {
+      const res = await fetch("/api/mysql/status");
+      if (res.ok) {
+        const data = await res.json();
+        setMysqlServerStatus(data);
+        if (data.config) {
+          setMysqlHost(data.config.host || '');
+          setMysqlPort(data.config.port || '3306');
+          setMysqlUser(data.config.user || '');
+          setMysqlDatabase(data.config.database || '');
+        }
+      }
+    } catch (e) {
+      setMysqlServerStatus({ isConnected: false, error: "Gagal tersambung ke API server lokal." });
+    }
+  };
+
+  useEffect(() => {
+    fetchMysqlStatus();
+  }, []);
   
   // Firebase Auth and Sync Reactive States
   const [firebaseUser, setFirebaseUser] = useState<any>(auth.currentUser);
@@ -264,6 +297,133 @@ export default function Settings({
       setGSyncMessage(`Gagal mengimpor data dari Google Sheets: ${err?.message || err}`);
     }
   };
+
+  const handleTestMysql = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mysqlHost || !mysqlUser || !mysqlDatabase) {
+      alert("Host, User, dan Database harus diisi untuk mengetes koneksi.");
+      return;
+    }
+    setMysqlTesting(true);
+    setMysqlActionMsg("Mengetes koneksi ke Aiven.io MySQL...");
+    try {
+      const res = await fetch("/api/mysql/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: mysqlHost,
+          port: mysqlPort,
+          user: mysqlUser,
+          password: mysqlPassword,
+          database: mysqlDatabase,
+          sslCa: mysqlSslCa
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMysqlActionMsg("Koneksi berhasil! Database Aiven MySQL aktif & skema lengkap.");
+        fetchMysqlStatus();
+        triggerNotification("Sukses terhubung ke Aiven MySQL!");
+      } else {
+        setMysqlActionMsg(`Koneksi Gagal: ${data.message}`);
+      }
+    } catch (err: any) {
+      setMysqlActionMsg(`Kesalahan jaringan: ${err?.message || err}`);
+    } finally {
+      setMysqlTesting(false);
+    }
+  };
+
+  const handleExportToMysql = async () => {
+    if (!window.confirm("Apakah Anda yakin ingin mengekspor seluruh database lokal Anda ke Aiven.io MySQL? Tindakan ini akan menimpa seluruh data yang tersimpan di MySQL.")) return;
+    setMysqlTesting(true);
+    setMysqlActionMsg("Memulai migrasi & ekspor data lokal ke MySQL...");
+    try {
+      const localUsers = localStorage.getItem('uptd_users');
+      const localMails = localStorage.getItem('uptd_v3_mails');
+      const localStaff = localStorage.getItem('uptd_v3_staff');
+      const localProjects = localStorage.getItem('uptd_v3_projects');
+      const localWaterLogs = localStorage.getItem('uptd_v3_water_logs');
+      const localDamageReports = localStorage.getItem('uptd_v3_damage_reports');
+      const localAssets = localStorage.getItem('uptd_v3_assets');
+      const localFinances = localStorage.getItem('uptd_v3_finances');
+      const localProfile = localStorage.getItem('uptd_profile');
+      const localFooter = localStorage.getItem('uptd_footer');
+
+      const payload = {
+        users: localUsers ? JSON.parse(localUsers) : users,
+        mails: localMails ? JSON.parse(localMails) : [],
+        staff: localStaff ? JSON.parse(localStaff) : [],
+        projects: localProjects ? JSON.parse(localProjects) : [],
+        waterLogs: localWaterLogs ? JSON.parse(localWaterLogs) : [],
+        damageReports: localDamageReports ? JSON.parse(localDamageReports) : [],
+        assets: localAssets ? JSON.parse(localAssets) : [],
+        financeTransactions: localFinances ? JSON.parse(localFinances) : [],
+        profile: localProfile ? JSON.parse(localProfile) : profile,
+        footer: localFooter ? JSON.parse(localFooter) : footer
+      };
+
+      const res = await fetch("/api/mysql/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMysqlActionMsg("Ekspor Sukses! Seluruh data lokal disuntikkan ke Aiven.io MySQL!");
+        triggerNotification("Data berhasil diekspor ke MySQL!");
+        setTimeout(() => {
+          setMysqlActionMsg("");
+        }, 3000);
+      } else {
+        setMysqlActionMsg(`Gagal ekspor: ${data.message}`);
+      }
+    } catch (err: any) {
+      setMysqlActionMsg(`Kesalahan jaringan: ${err?.message || err}`);
+    } finally {
+      setMysqlTesting(false);
+    }
+  };
+
+  const handleImportFromMysql = async () => {
+    if (!window.confirm("Apakah Anda yakin ingin menarik data dari MySQL Aiven.io untuk menimpa data offline saat ini? Sesi Anda akan dimuat ulang.")) return;
+    setMysqlTesting(true);
+    setMysqlActionMsg("Menarik data terbaru dari MySQL...");
+    try {
+      const res = await fetch("/api/mysql/pull");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const d = data.data;
+          if (d.users) localStorage.setItem('uptd_users', JSON.stringify(d.users));
+          if (d.mails) localStorage.setItem('uptd_v3_mails', JSON.stringify(d.mails));
+          if (d.staff) localStorage.setItem('uptd_v3_staff', JSON.stringify(d.staff));
+          if (d.projects) localStorage.setItem('uptd_v3_projects', JSON.stringify(d.projects));
+          if (d.waterLogs) localStorage.setItem('uptd_v3_water_logs', JSON.stringify(d.waterLogs));
+          if (d.damageReports) localStorage.setItem('uptd_v3_damage_reports', JSON.stringify(d.damageReports));
+          if (d.assets) localStorage.setItem('uptd_v3_assets', JSON.stringify(d.assets));
+          if (d.financeTransactions) localStorage.setItem('uptd_v3_finances', JSON.stringify(d.financeTransactions));
+          if (d.profile) localStorage.setItem('uptd_profile', JSON.stringify(d.profile));
+          if (d.footer) localStorage.setItem('uptd_footer', JSON.stringify(d.footer));
+
+          setMysqlActionMsg("Data berhasil ditarik! Memuat ulang sistem...");
+          triggerNotification("Import data dari MySQL berhasil!");
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } else {
+          setMysqlActionMsg("Gagal menarik data: API server tidak mengembalikan data yang sah.");
+        }
+      } else {
+        setMysqlActionMsg("Gagal menghubungi server untuk pull data.");
+      }
+    } catch (err: any) {
+      setMysqlActionMsg(`Kesalahan jaringan: ${err?.message || err}`);
+    } finally {
+      setMysqlTesting(false);
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Drag and drop uploading state
@@ -532,6 +692,19 @@ export default function Settings({
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>Database Google Sheets</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubPage('mysql')}
+            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-left flex items-center space-x-2.5 transition-all cursor-pointer ${
+              activeSubPage === 'mysql'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-700'
+            }`}
+            id="subpage-mysql"
+          >
+            <Database className="w-4 h-4" />
+            <span>Database MySQL Aiven.io</span>
           </button>
 
           <button
@@ -1660,6 +1833,218 @@ export default function Settings({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* SUBPAGE 7: MYSQL AIVEN.IO PANEL */}
+          {activeSubPage === 'mysql' && (
+            <div className="space-y-6 animate-fade-in" id="settings-mysql-section">
+              <div className="border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-extrabold text-slate-800 text-sm">
+                      Integrasi Cloud Database MySQL Aiven.io (PostgreSQL Kompatibel)
+                    </h2>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Koneksikan portal UPTD Pengelolaan Jalan Dan Jembatan ke klaster MySQL Aiven milik instansi Anda untuk replikasi data real-time, backup otomatis, dan sinkronisasi multi-admin.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Connection Indicator */}
+              <div className={`p-4 rounded-xl border text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                mysqlServerStatus?.isConnected 
+                  ? 'bg-emerald-50/55 border-emerald-200/60 text-emerald-950' 
+                  : 'bg-amber-50/50 border-amber-200/60 text-amber-950'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 font-extrabold uppercase tracking-wide text-[10.5px]">
+                    <span className={`h-2.5 w-2.5 rounded-full ${mysqlServerStatus?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                    <span>Status Koneksi: {mysqlServerStatus?.isConnected ? 'ONLINE & SECURE' : 'OFFLINE / FALLBACK LOKAL'}</span>
+                  </div>
+                  <p className="text-slate-500 mt-1 font-sans">
+                    {mysqlServerStatus?.isConnected 
+                      ? `Sukses terintegrasi ke host database cloud: ${mysqlServerStatus?.config?.host}. Setiap penambahan data akan diduplikasi secara otomatis.` 
+                      : `Sistem sedang menggunakan database lokal (In-Memory JSON Fallback). Aktifkan MySQL Aiven dengan memasukkan kredensial di bawah ini.`
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchMysqlStatus}
+                  className="px-3 py-1.5 bg-white shadow-sm border border-slate-205/60 hover:bg-slate-50 rounded-lg font-bold text-[10.5px] transition-all cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  Segarkan Status
+                </button>
+              </div>
+
+              {/* Form Input Setup */}
+              <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-4">
+                <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span>Sandi & Kredensial MySQL Aiven.io</span>
+                  <span className="text-[10px] text-slate-450 normal-case font-normal font-mono select-all">Mendukung koneksi SSL wajib</span>
+                </h3>
+
+                <form onSubmit={handleTestMysql} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5 col-span-2">
+                      <label className="text-[11px] font-bold text-slate-600 block">Host / Alamat Server</label>
+                      <input 
+                        type="text" 
+                        value={mysqlHost}
+                        onChange={(e) => setMysqlHost(e.target.value)}
+                        placeholder="contoh: mysql-aiven-project.aivencloud.com" 
+                        className="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-600 block">Port</label>
+                      <input 
+                        type="text" 
+                        value={mysqlPort}
+                        onChange={(e) => setMysqlPort(e.target.value)}
+                        placeholder="3306" 
+                        className="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-600 block">Username</label>
+                      <input 
+                        type="text" 
+                        value={mysqlUser}
+                        onChange={(e) => setMysqlUser(e.target.value)}
+                        placeholder="avnadmin atau root" 
+                        className="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-600 block">Password</label>
+                      <input 
+                        type="password" 
+                        value={mysqlPassword}
+                        onChange={(e) => setMysqlPassword(e.target.value)}
+                        placeholder="••••••••••••••••" 
+                        className="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-600 block">Nama Database Schema</label>
+                    <input 
+                      type="text" 
+                      value={mysqlDatabase}
+                      onChange={(e) => setMysqlDatabase(e.target.value)}
+                      placeholder="defaultdb" 
+                      className="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600 block">Sertifikat SSL CA Aiven (Opsional)</label>
+                      <span className="text-[9.5px] text-indigo-650 bg-indigo-50 px-1.5 py-0.5 rounded">SSL Enforced Automatically</span>
+                    </div>
+                    <textarea 
+                      rows={2}
+                      value={mysqlSslCa}
+                      onChange={(e) => setMysqlSslCa(e.target.value)}
+                      placeholder="-----BEGIN CERTIFICATE-----\n..." 
+                      className="w-full py-1.5 px-3 border border-slate-200 rounded-lg text-xs bg-white font-mono focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <p className="text-[10px] text-slate-450 max-w-md">
+                      Catatan: Agar kredensial di atas tersimpan selamanya setelah container hidup kembali, pastikan Anda juga menulis kredensial ini di file <span className="font-mono">.env</span> aplikasi Anda.
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={mysqlTesting}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-indigo-600/10"
+                    >
+                      <Database className="w-4 h-4" />
+                      <span>{mysqlTesting ? 'Menghubungkan...' : 'Simpan & Uji Koneksi'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Status Action Console Log */}
+              {mysqlActionMsg && (
+                <div className="p-3 bg-slate-900 text-slate-200 rounded-xl font-mono text-[10.5px] leading-relaxed border border-slate-800 animate-slide-up select-text">
+                  <div className="flex items-center gap-2 mb-1 border-b border-slate-800 pb-1.5 text-slate-400">
+                    <span className="h-2 w-2 rounded-full bg-indigo-400 animate-ping"></span>
+                    <span>Konsol Log Sistem MySQL:</span>
+                  </div>
+                  <div>{mysqlActionMsg}</div>
+                </div>
+              )}
+
+              {/* BULK REPLICATION MIGRATION MODULES */}
+              <div className="border-t border-slate-100 pt-5 space-y-4">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 select-none">
+                  <RefreshCw className="w-4 h-4 text-indigo-600" />
+                  Pusat Sinkronisasi & Migrasi Data MySQL
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  {/* EXPORT TO MYSQL */}
+                  <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-3">
+                    <div className="space-y-1.5">
+                      <h5 className="font-extrabold text-slate-800 flex items-center gap-1.5 select-none">
+                        <Upload className="w-4 h-4 text-indigo-600" />
+                        Ekspor Lokal Ke MySQL Aiven
+                      </h5>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Mengirim seluruh data offline lokal dari browser Anda (Pegawai, Surat, Proyek, Log Irigasi) langsung ke database Aiven MySQL. Tindakan ini menimpa data yang ada di database.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleExportToMysql}
+                      disabled={mysqlTesting}
+                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 text-indigo-750 font-extrabold rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>Mulai Ekspor Sekarang</span>
+                    </button>
+                  </div>
+
+                  {/* IMPORT FROM MYSQL */}
+                  <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-3">
+                    <div className="space-y-1.5">
+                      <h5 className="font-extrabold text-slate-800 flex items-center gap-1.5 select-none">
+                        <Download className="w-4 h-4 text-indigo-600" />
+                        Impor MySQL Aiven Ke Lokal
+                      </h5>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Menarik semua baris database historis dari MySQL Aiven ke dalam cache lokal browser Anda. Data offline Anda saat ini akan ditimpa dan modul dasbor akan memuat ulang.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleImportFromMysql}
+                      disabled={mysqlTesting}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-205/60 disabled:opacity-50 text-slate-750 font-extrabold rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Mulai Impor &amp; Merestore</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
